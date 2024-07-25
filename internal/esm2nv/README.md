@@ -7,6 +7,8 @@ Nvidia-internal developers to the openfold project.
 Extract sample training data and preprocess dataset.
 
 Note that ESM2 pretraining involves splitting the dataset on uniref50 but the training sequences are sampled from members of the clusters in uniref90. Validation and testing are still performed on uniref50 level. Hence, the model is not pretrained from a single fasta file as in ESM-1b and ESM-1v.
+
+Alternatively, users can simply add `do_preprocessing=True` as the command line option.
 ```bash
 # unzip sample data
 cd examples/tests/test_data && \
@@ -31,11 +33,12 @@ Instead of the default uniref50-90 sequences, users can pretrain on custom train
 # preprocess example NVIDIA fasta
 python examples/protein/esm2nv/pretrain.py \
   --config-path=conf \
+  ++do_preprocessing=True \
   ++do_training=False \
   ++model.data.train.custom_pretraining_fasta_path=${BIONEMO_HOME}/examples/tests/test_data/protein/esm2nv/example_train.fasta \
   ++model.data.val.custom_pretraining_fasta_path=${BIONEMO_HOME}/examples/tests/test_data/protein/esm2nv/example_val.fasta \
   ++model.data.test.custom_pretraining_fasta_path=${BIONEMO_HOME}/examples/tests/test_data/protein/esm2nv/example_test.fasta \
-  ++model.data.dataset_path=${BIONEMO_HOME}/examples/tests/test_data/protein/esm2nv/example_dataset
+  ++model.data.train.dataset_path=${BIONEMO_HOME}/examples/tests/test_data/protein/esm2nv/example_dataset
 ```
 
 ## (2) Pretraining
@@ -46,6 +49,7 @@ Pretraining ESM2 on sample dataset using uniref50-90 dataset.
 python examples/protein/esm2nv/pretrain.py \
   --config-path=conf \
   --config-name=pretrain_esm2_8M \
+  ++do_preprocessing=False \
   ++do_training=True \
   ++do_testing=False \
   ++model.data.dataset_path=examples/tests/test_data/uniref202104_esm2_qc_test200_val200 \
@@ -65,6 +69,7 @@ Pretraining ESM2 on custom dataset requires additional overrides.
 python examples/protein/esm2nv/pretrain.py \
   --config-path=conf \
   --config-name=pretrain_esm2_8M \
+  ++do_preprocessing=False \
   ++do_training=True \
   ++do_testing=False \
   ++trainer.devices=2 \
