@@ -194,9 +194,12 @@ class TrainerBuilder:
             with open_dict(cfg):
                 cfg.model["global_batch_size"] = global_batch_size
 
-        # accumulate_grad_batches must always be 1 for NeMo Megatron
-        with open_dict(cfg):
-            cfg.trainer["accumulate_grad_batches"] = 1
+        # accumulate_grad_batches must always be 1 for NeMo Megatron but not for ModelPT
+        if acc_grad_batches != 1:
+            logging.warning(
+                "cfg.trainer.accumulate_grad_batches must always be 1 for NeMo Megatron but %s is given",
+                cfg.trainer.accumulate_grad_batches,
+            )
 
     @staticmethod
     def configure_plugins(cfg):
