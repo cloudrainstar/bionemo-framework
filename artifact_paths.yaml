@@ -107,6 +107,7 @@ models:
             source: "../../openfold_initial_training_inhouse_checkpoint.nemo"
             target: "protein/openfold/openfold_initial_training_inhouse_checkpoint.nemo"
     openfold_finetuning_inhouse:
+        ngc: "nvidia/clara/openfold:finetuned_1.2"
         pbss: "s3://bionemo-ci/models/openfold_finetuning_inhouse_checkpoint.nemo"
         symlink:
             source: "../../openfold_finetuning_inhouse_checkpoint.nemo"
