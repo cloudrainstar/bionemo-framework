@@ -196,7 +196,7 @@ data:
         relative_download_dir: "examples/tests/test_data/molecule/diffdock"
         extra_args: "--recursive"
     diffdock_test:
-        pbss: "s3://bionemo-ci/test-data/diffdock/diffdock_vpreprocessing_test_05022024/"
+        pbss: "s3://bionemo-ci/test-data/diffdock/diffdock_vpreprocessing_test_07022024/"
         relative_download_dir: "examples/tests/test_data/molecule/diffdock"
         extra_args: "--recursive"
     diffdick_cugraph:

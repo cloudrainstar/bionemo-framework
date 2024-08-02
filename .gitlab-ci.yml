@@ -39,7 +39,8 @@ variables:
   DATE: "${CI_PIPELINE_CREATED_AT}"
   # fully-qualified image names
   IMAGE_NAME: "${IMAGE_REPO_NAME}:${IMAGE_TAG}"
-  IMAGE_CACHE: "${IMAGE_REPO_NAME}:cache"
+  CACHE_TAG: "nemo123-20240702"
+  IMAGE_CACHE: "${IMAGE_REPO_NAME}:cache--${CACHE_TAG}"
   NEMO_NIGHTLY_IMAGE: "nvcr.io/nvidian/nemo-nightly:latest-nightly-main"
   NGC_CLI_FORMAT_TYPE: ascii
   NGC_CLI_ORG: nvidian
