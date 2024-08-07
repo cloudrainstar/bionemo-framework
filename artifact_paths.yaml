@@ -126,6 +126,7 @@ models:
         extra_args: "--recursive"
     dnabert:
         pbss: "s3://bionemo-ci/models/dnabert-86M.nemo"
+        ngc: "nvidia/clara/dnabert:1.2"
         symlink:
             source: "../../dnabert-86M.nemo"
             target: "dna/dnabert/dnabert-86M.nemo"
