@@ -46,7 +46,7 @@ def main(cfg) -> None:
     # Load model
     with open_dict(cfg):
         cfg.model.encoder_cfg = cfg
-    trainer = setup_trainer(cfg, builder=None)
+    trainer = setup_trainer(cfg, builder=None, reset_accumulate_grad_batches=False)
     if cfg.restore_from_path:
         logging.info("\nRestoring model from .nemo file " + cfg.restore_from_path)
         model = FineTuneMegaMolBART.restore_from(

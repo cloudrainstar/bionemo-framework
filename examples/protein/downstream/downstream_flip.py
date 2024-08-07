@@ -37,7 +37,7 @@ def main(cfg) -> None:
     if cfg.do_training is False and cfg.do_testing is False:  # finish run without model instantiation
         return
 
-    trainer = setup_trainer(cfg, builder=None)
+    trainer = setup_trainer(cfg, builder=None, reset_accumulate_grad_batches=False)
 
     # Load model
     with open_dict(cfg):

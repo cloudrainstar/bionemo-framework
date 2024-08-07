@@ -272,7 +272,6 @@ python examples/protein/downstream/downstream_flip.py \
     ++exp_manager.wandb_logger_kwargs.offline=true \
     ++exp_manager.resume_if_exists=false \
     ++model.micro_batch_size=4
-done
 ```
 
 (0) NeMo know-how
