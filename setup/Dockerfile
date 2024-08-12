@@ -94,6 +94,7 @@ RUN git clone -b v$NEMO_VERSION https://github.com/NVIDIA/NeMo.git && \
     sed -i "/torch/d" requirements/requirements.txt && \
     sed -i "/triton/d" requirements/requirements.txt && \
     sed -i "/megatron_core/d" requirements/requirements_nlp.txt && \
+    sed -i "/nltk/d" requirements/requirements_nlp.txt && \
     pip install -r requirements/requirements.txt && \
     pip install -r requirements/requirements_nlp.txt && \
     pip install ".[nlp]"
@@ -233,9 +234,9 @@ RUN NEMO_INST_DIR=$(python -c 'import nemo; from pathlib import Path; print(Path
     patch -p1 -d $NEMO_INST_DIR -i $PWD/data_sampler_constant_len.patch && \
     patch -p1 -d $NEMO_INST_DIR -i $PWD/nemo-lr-scheduler.patch && \
     rm *.patch
-#
-# Special Handling for Python Package Security Vulnerabilities
-#
+###################################################################################
+# Special Handling for Security Vulnerabilities
+###################################################################################
 
 # Remove nvm as it's not expected users will need this, and it introduces unfixable vulnerabilties:
 # https://nvd.nist.gov/vuln/detail/CVE-2023-32002
@@ -258,6 +259,11 @@ RUN pip uninstall -y opencv-python opencv fonttools \
 RUN rm -rf /opt/pytorch/pytorch/third_party/onnx \
   && DEBIAN_FRONTEND=noninteractive apt remove -y libslurm37 libpmi2-0 openssh-client \
   && DEBIAN_FRONTEND=noninteractive apt autoremove -y
+
+# Remove lightning-app. Nemo and BioNeMo doesn't use it, and it introduces security vulnerabilities:
+# https://github.com/advisories/GHSA-cgwc-qvrx-rf7f
+# https://github.com/advisories/GHSA-mr7h-w2qc-ffc2
+RUN rm -rf /usr/local/lib/python3.10/dist-packages/lightning/app
 
 ####
 #### NOTE: THIS MUST BE THE ABSOLUTE **LAST** STEP BEFORE ENTRYPOINT !!!!!
@@ -302,12 +308,6 @@ COPY bionemo ${BIONEMO_HOME}/bionemo
 WORKDIR ${BIONEMO_HOME}
 # we already install dependencies earlier, directly from the requirements*.txt files
 RUN pip install --no-deps -e .
-
-# Remove lightning-app. Nemo and BioNeMo doesn't use it, and it introduces security vulnerabilities:
-# https://github.com/advisories/GHSA-cgwc-qvrx-rf7f
-# https://github.com/advisories/GHSA-mr7h-w2qc-ffc2
-RUN rm -rf /usr/local/lib/python3.10/dist-packages/lightning/app
-
 
 # FIXME: If BIONEMO_HOME _is not_ /workspace/bionemo, then this ENTRYPOINT is invalid!
 ENTRYPOINT ["/workspace/bionemo/setup/startup.sh"]
