@@ -52,7 +52,7 @@ spec:
     ++exp_manager.wandb_logger_kwargs.project={wandb_project_name} \
     ++exp_manager.wandb_logger_kwargs.group=${{model_tag}} \
     ++exp_manager.wandb_logger_kwargs.job_type={pipeline_label} \
-    ++exp_manager.wandb_logger_kwargs.name=${{model_tag}}__{precision}prec_{batch_size}bs_{nodes}node_{gpus}gpu_{max_steps}s_{val_check_interval}valcheck \
+    ++exp_manager.wandb_logger_kwargs.name={precision}prec_{batch_size}bs_{nodes}node_{gpus}gpu_{max_steps}s_{val_check_interval}valcheck \
     ++create_dllogger_callbacks=True ++create_trainer_metric_callback=True \
     ++dllogger_callbacks_kwargs.use_existing_dllogger=True ++dllogger_callbacks_kwargs.warmup={warmup} \
     ++dllogger_callbacks_kwargs.json_file={dllogger_file} ++trainer_metric_callback_kwargs.log_path={tensorboard_dir} \
@@ -80,7 +80,7 @@ products:
             config_name: [geneformer_config_106M]
             batch_size: [16]
             max_steps: [15000]
-            seed: [1234]
+            seed: [42, 44, 1234]
             val_check_interval: [5000]
 tests_spec:
   - logic_type: static
@@ -93,13 +93,13 @@ tests_spec:
             value: 3840000.0
           grad_norm:
             operator: range
-            max: 0.37
+            max: 0.4
             min: 0.28
           reduced_train_loss:
             operator: range
-            max: 2.6
+            max: 2.7
             min: 0
           val_loss:
             operator: range
-            max: 2.68
+            max: 2.69
             min: 0

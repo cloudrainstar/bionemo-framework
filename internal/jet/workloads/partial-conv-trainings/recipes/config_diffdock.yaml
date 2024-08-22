@@ -56,7 +56,7 @@ spec:
     ++exp_manager.wandb_logger_kwargs.project={wandb_project_name} \
     ++exp_manager.wandb_logger_kwargs.group=${{model_tag}} \
     ++exp_manager.wandb_logger_kwargs.job_type={pipeline_label} \
-    ++exp_manager.wandb_logger_kwargs.name=${{model_tag}}__{precision}prec_{batch_size}bs_{nodes}node_{gpus}gpu_{max_epochs}e \
+    ++exp_manager.wandb_logger_kwargs.name={precision}prec_{batch_size}bs_{nodes}node_{gpus}gpu_{max_epochs}e \
     ++create_dllogger_callbacks=True ++create_trainer_metric_callback=True \
     ++dllogger_callbacks_kwargs.use_existing_dllogger=True ++dllogger_callbacks_kwargs.warmup={warmup} \
     ++dllogger_callbacks_kwargs.json_file={dllogger_file} ++trainer_metric_callback_kwargs.log_path={assets_dir} \
@@ -89,7 +89,7 @@ products:
     max_epochs: [ 80 ]
     batch_size: [ 12 ]
     precision: [ 32 ]
-    seed: [ 42 ]
+    seed: [42, 44, 1234]
     num_workers: [4]
     products:
       - config_name: [train_score]
@@ -103,20 +103,20 @@ tests_spec:
         # mean -/+ 5 * std
         train_loss_epoch:
           operator: range
-          max: 0.660
-          min: 0.599
+          max: 0.644
+          min: 0.607
         train_loss_step:
           operator: range
           max: 0.759
-          min: 0.552
+          min: 0.45
         valinf_rmsds_lt2:
           operator: range
-          max: 0.0925
-          min: 0.0415
+          max: 0.096
+          min: 0.035
         valinf_rmsds_lt5:
           operator: range
-          max: 0.3145
-          min: 0.2315
+          max: 0.377
+          min: 0.2
     product_identifier: {'config_name': 'train_score'}
   - logic_type: static
     logic_spec:
@@ -126,14 +126,14 @@ tests_spec:
         # mean -/+ 5 * std
         train_loss_epoch:
           operator: range
-          max: 0.0905
-          min: 0.0695
+          max: 0.0966
+          min: 0.0624
         train_loss_step:
           operator: range
-          max: 0.215
+          max: 0.393
           min: 0
         val_loss:
           operator: range
-          max: 0.202
+          max: 0.251
           min: 0.10
     product_identifier: {'config_name': 'train_confidence' }

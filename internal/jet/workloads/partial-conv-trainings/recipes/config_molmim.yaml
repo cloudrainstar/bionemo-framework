@@ -48,7 +48,7 @@ spec:
     ++exp_manager.wandb_logger_kwargs.project={wandb_project_name} \
     ++exp_manager.wandb_logger_kwargs.group=${{model_tag}} \
     ++exp_manager.wandb_logger_kwargs.job_type={pipeline_label} \
-    ++exp_manager.wandb_logger_kwargs.name=${{model_tag}}__{precision}prec_{batch_size}bs_{nodes}node_{gpus}gpu_{max_steps}s_{val_check_interval}valcheck \
+    ++exp_manager.wandb_logger_kwargs.name={precision}prec_{batch_size}bs_{nodes}node_{gpus}gpu_{max_steps}s_{val_check_interval}valcheck \
     ++create_dllogger_callbacks=True ++create_trainer_metric_callback=True \
     ++dllogger_callbacks_kwargs.use_existing_dllogger=True ++dllogger_callbacks_kwargs.warmup={warmup} \
     ++dllogger_callbacks_kwargs.json_file={dllogger_file} ++trainer_metric_callback_kwargs.log_path={assets_dir} \
@@ -89,7 +89,7 @@ products:
             config_name: [molmim_70m_24_3]
             batch_size: [2048]
             max_steps: [14085]
-            seed: [42]
+            seed: [42, 44, 1234]
             val_check_interval: [2500]
 tests_spec:
   - logic_type: static
@@ -109,7 +109,7 @@ tests_spec:
         val_percent_invalid:
           # primary
           operator: range
-          max: 0.0025
+          max: 0.0035
           min: 0.0 # sanity check
         consumed_samples:
           # primary (this should be exact)
@@ -134,7 +134,7 @@ tests_spec:
           # primary
           operator: range
           max: 0.55
-          min: 0.5 # sanity check
+          min: 0.49 # sanity check
         grad_norm:
           # primary
           operator: range
@@ -147,5 +147,5 @@ tests_spec:
         val_tokens_loss:
           # primary
           operator: range
-          max: 0.064
+          max: 0.067
           min: 0.0 # sanity check

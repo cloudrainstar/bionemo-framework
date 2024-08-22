@@ -47,7 +47,7 @@ spec:
     ++exp_manager.wandb_logger_kwargs.project={wandb_project_name} \
     ++exp_manager.wandb_logger_kwargs.group=${{model_tag}} \
     ++exp_manager.wandb_logger_kwargs.job_type={pipeline_label} \
-    ++exp_manager.wandb_logger_kwargs.name=${{model_tag}}__{precision}prec_{batch_size}bs_{nodes}node_{gpus}gpu_{max_steps}s_{val_check_interval}valcheck \
+    ++exp_manager.wandb_logger_kwargs.name={precision}prec_{batch_size}bs_{nodes}node_{gpus}gpu_{max_steps}s_{val_check_interval}valcheck \
     ++create_dllogger_callbacks=True ++create_trainer_metric_callback=True \
     ++dllogger_callbacks_kwargs.use_existing_dllogger=True ++dllogger_callbacks_kwargs.warmup={warmup} \
     ++dllogger_callbacks_kwargs.json_file={dllogger_file} ++trainer_metric_callback_kwargs.log_path={assets_dir} \
@@ -75,7 +75,7 @@ products:
             config_name: [dnabert_config]
             batch_size: [128]
             max_steps: [16000]
-            seed: [1234]
+            seed: [42, 44, 1234]
             val_check_interval: [5000]
 tests_spec:
   - logic_type: static
@@ -86,8 +86,8 @@ tests_spec:
         reduced_train_loss:
           # primary, showed zero variance with fixed seed.
           operator: range
-          max: 1.88
-          min: 1.83  # sanity check
+          max: 1.979
+          min: 1.769  # sanity check
         consumed_samples:
           # primary (this should be exact)
           operator: eq
@@ -95,10 +95,10 @@ tests_spec:
         val_loss:
           # primary, showed some variance with fixed seed.
           operator: range
-          max: 1.9
-          min: 1.84
+          max: 1.93
+          min: 1.77
         grad_norm:
           # primary
           operator: range
           max: 0.8
-          min: 0.0
+          min: 0

@@ -15,6 +15,8 @@ key_segments:
   extra_overwrites: False
   seed: seed
   max_epochs: mepochs
+  val_check_interval: valcheck
+  accumulate_grad_batches: accgrad
 launchers:
   type:slurm:
     ntasks_per_node: '{gpus}'
@@ -39,12 +41,14 @@ spec:
     model_tag={model}__{variant}__{config_name};
     python examples/{domain}/downstream/{variant}.py --config-path {BIONEMO_HOME}/examples/{domain}/{model}/conf --config-name {config_name} \
     trainer.num_nodes={nodes} trainer.devices={gpus} trainer.precision={precision} model.micro_batch_size={batch_size} \
-    ++model.seed={seed} trainer.max_epochs={max_epochs} ++exp_manager.exp_dir={tensorboard_dir} \
+    ++model.seed={seed} trainer.max_epochs={max_epochs} trainer.val_check_interval={val_check_interval} \
+    ++trainer.accumulate_grad_batches={accumulate_grad_batches} \
     {default_overwrites} {extra_overwrites}  \
+    ++exp_manager.exp_dir={tensorboard_dir} \
     ++exp_manager.wandb_logger_kwargs.project={wandb_project_name} \
     ++exp_manager.wandb_logger_kwargs.group=${{model_tag}} \
     ++exp_manager.wandb_logger_kwargs.job_type={pipeline_label} \
-    ++exp_manager.wandb_logger_kwargs.name=${{model_tag}}__{precision}prec_{batch_size}bs_{nodes}node_{gpus}gpu_{max_epochs}e \
+    ++exp_manager.wandb_logger_kwargs.name={precision}prec_{batch_size}bs_{nodes}node_{gpus}gpu_{max_epochs}e_{val_check_interval}valcheck_{accumulate_grad_batches}accgrad \
     ++create_dllogger_callbacks=True ++create_trainer_metric_callback=True \
     ++dllogger_callbacks_kwargs.use_existing_dllogger=True ++dllogger_callbacks_kwargs.warmup={warmup} \
     ++dllogger_callbacks_kwargs.json_file={dllogger_file} ++trainer_metric_callback_kwargs.log_path={assets_dir} \
@@ -72,10 +76,16 @@ products:
     products:
       - variant: [downstream_flip]
         model: [esm2nv]
-        config_name: [downstream_flip_sec_str]
-        batch_size: [2]
-        max_epochs: [20]
-        seed: [1234]
+        batch_size: [ 2 ]
+        max_epochs: [ 20 ]
+        seed: [ 42, 44, 1234 ]
+        accumulate_grad_batches: [1]
+        products:
+         - config_name: [downstream_flip_sec_str]
+           val_check_interval: [20]
+         - config_name: [downstream_sec_str_LORA]
+           val_check_interval: [100]
+
 tests_spec:
   - logic_type: static
     logic_spec:
@@ -96,5 +106,44 @@ tests_spec:
           min: 0.14667029538
         reduced_train_loss:
           operator: range
-          max: 0.09186498162
-          min: 0.07921501837
+          max: 0.1
+          min: 0.074
+        test_3state_accuracy:
+          operator: range
+          max: 82.5
+          min: 80.5
+        test_loss:
+          operator: range
+          max: 0.16
+          min: 0.14
+    product_identifier: {'config_name': 'downstream_flip_sec_str'}
+  - logic_type: static
+    logic_spec:
+      exit_codes:
+        - 0
+      baselines:
+        # mean -/+ 10 * std
+        consumed_samples:
+          operator: eq
+          value: 193600.0
+        val_3state_accuracy:
+          operator: range
+          max: 65
+          min: 50
+        val_loss:
+          operator: range
+          max: 0.265
+          min: 0.256
+        reduced_train_loss:
+          operator: range
+          max: 0.283
+          min: 0.277
+        test_3state_accuracy:
+          operator: range
+          max: 65
+          min: 50
+        test_loss:
+          operator: range
+          max: 0.234
+          min: 0.228
+    product_identifier: { 'config_name': 'downstream_sec_str_LORA' }

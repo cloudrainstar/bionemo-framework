@@ -45,16 +45,17 @@ spec:
     ++trainer.accumulate_grad_batches={accumulate_grad_batches} trainer.val_check_interval={val_check_interval} \
     ++model.optim.sched.constant_steps=null ++model.optim.sched.last_epoch=-1  ++model.optim.sched.min_lr=0.0000002 \
     ++model.optim.sched.anneal_percentage=0.10 ++model.optim.eps=10e-8  ++model.optim.weight_decay=0.01 \
-    ++model.seed={seed} trainer.max_steps={max_steps} ++exp_manager.exp_dir={tensorboard_dir} \
+    ++model.seed={seed} trainer.max_steps={max_steps} \
     ++trainer.max_epochs=1 \
     ++model.dwnstr_task_validation.enabled={dwnstr_task} \
     ++model.data.index_mapping_dir={BIONEMO_HOME}/data/index_dir/{config_name} \
     ++model.data.dataset_path=/workspace/bionemo/data/uniref202104_esm2_120123_jm \
     {default_overwrites} {extra_overwrites}  \
+    ++exp_manager.exp_dir={tensorboard_dir} \
     ++exp_manager.wandb_logger_kwargs.project={wandb_project_name} \
     ++exp_manager.wandb_logger_kwargs.group=${{model_tag}} \
     ++exp_manager.wandb_logger_kwargs.job_type={pipeline_label} \
-    ++exp_manager.wandb_logger_kwargs.name=${{model_tag}}__{precision}prec_{batch_size}bs_{nodes}node_{gpus}gpu_{max_steps}s_{val_check_interval}valcheck_{accumulate_grad_batches}accgrad \
+    ++exp_manager.wandb_logger_kwargs.name={precision}prec_{batch_size}bs_{nodes}node_{gpus}gpu_{max_steps}s_{val_check_interval}valcheck_{accumulate_grad_batches}accgrad \
     ++create_trainer_metric_callback=True ++trainer_metric_callback_kwargs.log_path={assets_dir} \
     ++logs_dir={logs_dir}
   time_limit: 14400
@@ -89,7 +90,7 @@ products:
             config_name: [pretrain_esm2_650M]
             batch_size: [8]
             max_steps: [17000]
-            seed: [1234]
+            seed: [42, 44, 1234]
             val_check_interval: [500]
             accumulate_grad_batches: [8]
 tests_spec:
@@ -110,8 +111,8 @@ tests_spec:
         reduced_train_loss:
           # mean +/- 5 * std
           operator: range
-          max: 2.5316
-          min: 2.4849
+          max: 2.537
+          min: 2.463
         grad_norm:
           # mean +/- 2 * std
           operator: range
