@@ -32,7 +32,6 @@ biopython==1.78
 Pympler==1.0.1
 dacite==1.8.1
 click==8.1.7
-# pydantic>=2.6.3
 pydantic==2.7.3
 # For SwiftStack access
 awscli==1.32.106
