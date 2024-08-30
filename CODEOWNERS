@@ -248,6 +248,7 @@ docs/bionemo/notebooks/cma_es_guided_molecular_optimization_molmim.ipynb @jstjoh
 docs/bionemo/notebooks/model_training_molmim.ipynb @tshimko @jstjohn
 docs/readme-images/molmim_training_throughput.png @jstjohn @tshimko
 fw2nim_examples/molmim @mgreaves @tshimko
+examples/tests/test_data/molecule/physchem/SAMPL @tshimko @sveccham
 
 ##
 ## openfold @broland @kdidi
