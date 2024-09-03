@@ -66,7 +66,6 @@ datasets/moleculenet-physchem
 :maxdepth: 3
 :caption: TUTORIALS
 preprocessing-bcp-training-diffdock
-preprocessing-bcp-training-esm2nv
 notebooks/MMB_GenerativeAI_Inference_with_examples
 notebooks/MolMIM_GenerativeAI_local_inference_with_examples
 notebooks/ZINC15-data-preprocessing
@@ -83,9 +82,11 @@ notebooks/model_training_esm2nv
 notebooks/model_training_mmb
 notebooks/model_training_molmim
 notebooks/physchem-notebook-fw
-notebooks/protein-esm1nv-clustering
 notebooks/protein-esm2nv-clustering
 notebooks/retrosynthesis-notebook
+notebooks/esm2_FLIP_finetuning
+notebooks/esm2_oas_inferencing
+notebooks/esm2_paratope_finetuning
 ```
 
 ```{toctree}
