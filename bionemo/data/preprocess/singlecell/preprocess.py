@@ -35,8 +35,8 @@ class GeneformerResourcePreprocessor(ResourcePreprocessor):
 
     def get_remote_resources(self) -> List[RemoteResource]:
         url_fn = {
-            "https://huggingface.co/ctheodoris/Geneformer/resolve/main/geneformer/gene_name_id_dict.pkl?download=true": "gene_name_id_dict.pkl",
-            "https://huggingface.co/ctheodoris/Geneformer/resolve/main/geneformer/gene_median_dictionary.pkl?download=true": "gene_median_dictionary.pkl",
+            "https://huggingface.co/ctheodoris/Geneformer/resolve/main/geneformer/gene_dictionaries_30m/gene_name_id_dict_gc30M.pkl?download=true": "gene_name_id_dict.pkl",
+            "https://huggingface.co/ctheodoris/Geneformer/resolve/main/geneformer/gene_dictionaries_30m/gene_median_dictionary_gc30M.pkl?download=true": "gene_median_dictionary.pkl",
         }
 
         resources = []
