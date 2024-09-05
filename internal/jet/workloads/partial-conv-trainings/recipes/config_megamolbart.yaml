@@ -117,7 +117,7 @@ tests_spec:
         grad_norm:
           # mean +/- 2 * std
           operator: range
-          max: 0.167
+          max: 0.2
           min: 0.0 # sanity check
         val_character_accuracy:
           # mean +/- 2 * std

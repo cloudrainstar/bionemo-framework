@@ -1,7 +1,10 @@
 #!/bin/bash
 test_tag="needs_fork"
-test_files=$(pytest --collect-only -m "${test_tag}" | grep '^[[:space:]]*<Module' | sed 's/^[[:space:]]*<Module//'| sed 's/\.py.*$/.py/' | awk '{$1=$1;print}' | sort | uniq)
+test_dirs="tests/|examples/"  # (Py)Test directories separated by | for extended `grep`.
+test_files=$(pytest --collect-only -q -m "${test_tag}" | grep -E "^(${test_dirs}).*.py" | sed 's/\.py.*$/.py/' | awk '{$1=$1;print}' | sort | uniq)
 n_test_files=$(echo "$test_files" | wc -l)
+echo "Forked PyTest Files: ${test_files}"
+echo "Number of Forked PyTest Files: ${n_test_files}"
 counter=1
 # the overall test status collected from all pytest commands with test_tag
 status=0

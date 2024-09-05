@@ -492,7 +492,7 @@ pytest:
     - export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
     - export MODEL_PATH=${BIONEMO_HOME}/models
     - bash ./examples/protein/openfold/scripts/install_third_party.sh
-    - python download_artifacts.py --models openfold_initial_training_public openfold_finetuning_4_public openfold_initial_training_inhouse openfold_finetuning_inhouse esm2nv_3b esm2nv_8m_lora esm2nv_8m_untrained esm2nv_650m diffdock_confidence diffdock_score equidock_db5 equidock_dips megamolbart molmim_70m_24_3 prott5nv esm1nv dnabert geneformer dsmbind --source pbss --model_dir $MODEL_PATH  --data all --data_dir $BIONEMO_HOME --verbose
+    - python download_artifacts.py --models openfold_finetuning_inhouse esm2nv_3b esm2nv_8m_lora esm2nv_8m_untrained esm2nv_650m diffdock_confidence diffdock_score equidock_db5 equidock_dips megamolbart molmim_70m_24_3 prott5nv esm1nv dnabert geneformer dsmbind --source pbss --model_dir $MODEL_PATH  --data all --data_dir $BIONEMO_HOME --verbose
     - unzip examples/tests/test_data/uniref202104_esm2_qc_test200_val200.zip -d examples/tests/test_data/
     - bash ./examples/singlecell/geneformer/scripts/download_sample_data.sh -data_path $BIONEMO_HOME/examples/tests/test_data
     - python ./examples/singlecell/geneformer/scripts/get_pt_neighbors_data.py

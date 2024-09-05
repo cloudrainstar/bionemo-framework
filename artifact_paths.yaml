@@ -91,21 +91,6 @@ models:
         symlink:
             source: "../../esm2nv_3B_converted.nemo"
             target: "protein/esm2nv/esm2nv_3B_converted.nemo"
-    openfold_initial_training_public:
-        pbss: "s3://bionemo-ci/models/openfold_initial_training_public_checkpoint.nemo"
-        symlink:
-            source: "../../openfold_initial_training_public_checkpoint.nemo"
-            target: "protein/openfold/openfold_initial_training_public_checkpoint.nemo"
-    openfold_finetuning_4_public:
-        pbss: "s3://bionemo-ci/models/openfold_finetuning_4_public_checkpoint.nemo"
-        symlink:
-            source: "../../openfold_finetuning_4_public_checkpoint.nemo"
-            target: "protein/openfold/openfold_finetuning_4_public_checkpoint.nemo"
-    openfold_initial_training_inhouse:
-        pbss: "s3://bionemo-ci/models/openfold_initial_training_inhouse_checkpoint.nemo"
-        symlink:
-            source: "../../openfold_initial_training_inhouse_checkpoint.nemo"
-            target: "protein/openfold/openfold_initial_training_inhouse_checkpoint.nemo"
     openfold_finetuning_inhouse:
         ngc: "nvidia/clara/openfold:finetuned_1.2"
         pbss: "s3://bionemo-ci/models/openfold_finetuning_inhouse_checkpoint.nemo"
