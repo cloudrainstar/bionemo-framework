@@ -66,6 +66,7 @@ datasets/moleculenet-physchem
 :maxdepth: 3
 :caption: TUTORIALS
 preprocessing-bcp-training-diffdock
+notebooks/esm2nv-mutant-design
 notebooks/MMB_GenerativeAI_Inference_with_examples
 notebooks/MolMIM_GenerativeAI_local_inference_with_examples
 notebooks/ZINC15-data-preprocessing
