@@ -113,6 +113,7 @@ class _Nemo2CompatibleLossReduceMixin:
                 # otherwise do a sum reduction.
                 loss_value = torch.vstack(loss_sum_tensors_list).sum(dim=0)
 
+        # TODO(@sichu) refractor this into a subclass
         if "avg_ppl" in keys:
             ppl_tensors_list = [loss_reduced["avg_ppl"] for loss_reduced in losses_reduced_per_micro_batch]
             ppl_value = torch.concat(ppl_tensors_list).mean()
@@ -277,12 +278,3 @@ def per_sequence_masked_token_loss(tensor: torch.Tensor, mask: torch.Tensor) -> 
     losses = tensor.float()
     per_sequence_losses = (losses * mask).sum(-1) / mask.sum(-1)
     return per_sequence_losses
-
-
-# TODO(@sichu) implement MegatronCallback to avoid routing
-# class MegatronCallback(pl.Callback, CallbackMethods):
-#     """
-#     Callback for Megatron-LM training.
-#     """
-#     def __init__():
-#         pass

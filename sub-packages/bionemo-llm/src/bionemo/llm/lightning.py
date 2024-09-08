@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-from typing import Any, Iterable, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import pytorch_lightning as pl
 import torch
@@ -32,7 +32,6 @@ __all__: Sequence[str] = (
     "batch_collator",
     "PassthroughLossReduction",
     "LightningPassthroughPredictionMixin",
-    "LossLoggingCallback",
 )
 
 
@@ -159,78 +158,21 @@ class LightningPassthroughPredictionMixin:
         return PassthroughLossReduction()
 
 
-class LossLoggingCallback(pl.Callback):  # noqa: D101
-    def __init__(self):
-        """Log the loss at the end of each batch. For training do not reduce across the epoch but do so for validation/test."""
-        self.val_losses = []
-        self.test_losses = []
-
-    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):  # noqa: D102
-        # Assuming the loss is computed internally and stored in pl_module
-        if torch.distributed.get_rank() == 0 and parallel_state.is_pipeline_last_stage():
-            # TODO(@jstjohn): verify when the outputs are a dictionary of "loss" and when they are just one tensor value.
-            if isinstance(outputs, dict):
-                outputs = outputs["loss"]
-            # torch.distributed.all_reduce(outputs, op=torch.distributed.ReduceOp.AVG)
-            loss = outputs
-            pl_module.log("train_loss_private", loss, on_step=True, prog_bar=True, logger=True, rank_zero_only=True)
-
-    def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):  # noqa: D102
-        # TODO(@jstjohn): Add a docstring with type hints for this lightning hook
-        # Assuming the loss is computed internally and stored in pl_module
-        if torch.distributed.get_rank() == 0 and parallel_state.is_pipeline_last_stage():
-            # TODO(@jstjohn): verify when the outputs are a dictionary of "loss" and when they are just one tensor value.
-            if isinstance(outputs, dict):
-                outputs = outputs["loss"]
-            # TODO verify that losses are already reduced across ranks
-            # torch.distributed.all_reduce(outputs, op=torch.distributed.ReduceOp.AVG)
-            loss = outputs
-            self.test_losses.append(loss)
-
-    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):  # noqa: D102
-        # TODO(@jstjohn): Add a docstring with type hints for this lightning hook
-        # Assuming the loss is computed internally and stored in pl_module
-        if torch.distributed.get_rank() == 0 and parallel_state.is_pipeline_last_stage():
-            # TODO(@jstjohn): verify when the outputs are a dictionary of "loss" and when they are just one tensor value.
-            if isinstance(outputs, dict):
-                outputs = outputs["loss"]
-            # TODO verify that losses are already reduced across ranks
-            # torch.distributed.all_reduce(outputs, op=torch.distributed.ReduceOp.AVG)
-            loss = outputs
-            self.val_losses.append(loss)
-
-    def on_validation_epoch_end(self, trainer, pl_module):  # noqa: D102
-        # TODO(@jstjohn): Add a docstring with type hints for this lightning hook
-        if torch.distributed.get_rank() == 0 and parallel_state.is_pipeline_last_stage():
-            if len(self.val_losses) > 0:
-                avg_val_loss = torch.stack(self.val_losses).mean()
-                pl_module.log("val_loss_private", avg_val_loss, prog_bar=True, logger=True, rank_zero_only=True)
-                self.val_losses.clear()
-
-    def on_test_epoch_end(self, trainer, pl_module):  # noqa: D102
-        # TODO(@jstjohn): Add a docstring with type hints for this lightning hook
-        if torch.distributed.get_rank() == 0 and parallel_state.is_pipeline_last_stage():
-            if len(self.test_losses) > 0:
-                avg_test_loss = torch.stack(self.test_losses).mean()
-                pl_module.log("test_loss_private", avg_test_loss, prog_bar=True, logger=True, rank_zero_only=True)
-                self.test_losses.clear()
-
-
+# TODO (@sichu) write unittest
 class PPLLoggingCallback(pl.Callback):
     def __init__(self):
-        """Log the loss at the end of each batch. For training do not reduce across the epoch but do so for validation/test."""
+        """Log perplexity at the end of each batch. For training do not reduce across the epoch but do so for validation/test."""
         self.val_perplexities = []
         self.test_perplexities = []
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
-        pp_size = parallel_state.get_pipeline_model_parallel_world_size()
-        if pp_size > 1:
-            ppl = outputs["ppl"]
-            _strategy_lib._sync_from_last_pipeline_stage(ppl, broadcast=False)
-            pl_module.log("reduced_train_ppl_private", ppl, on_step=True, prog_bar=True, logger=True, sync_dist=False)
+        if parallel_state.is_pipeline_last_stage():
+            assert "ppl" not in outputs, "ppl should not be in training outputs. only log_val_ppl is supported"
+            # ppl = outputs["ppl"]
+            # pl_module.log("reduced_train_ppl", ppl, on_step=True, prog_bar=True, logger=True, sync_dist=False)
 
     def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
-        if torch.distributed.get_rank() == 0 and parallel_state.is_pipeline_last_stage():
+        if parallel_state.is_pipeline_last_stage():
             ppl = outputs["ppl"]
             self.test_perplexities.append(ppl)
 
@@ -246,7 +188,7 @@ class PPLLoggingCallback(pl.Callback):
         pp_size = parallel_state.get_pipeline_model_parallel_world_size()
         if pp_size > 1:
             self.log(
-                "val_ppl_private",
+                "val_ppl",
                 avg_ppl,
                 prog_bar=True,
                 sync_dist=True,
@@ -254,7 +196,7 @@ class PPLLoggingCallback(pl.Callback):
                 on_epoch=True,
             )
         else:
-            self.log("val_ppl_private", avg_ppl, prog_bar=True, on_epoch=True)
+            self.log("val_ppl", avg_ppl, prog_bar=True, on_epoch=True)
 
     def on_test_epoch_end(self, trainer, pl_module):
         avg_ppl = torch.stack(self.test_perplexities).mean()
@@ -263,7 +205,7 @@ class PPLLoggingCallback(pl.Callback):
         pp_size = parallel_state.get_pipeline_model_parallel_world_size()
         if pp_size > 1:
             self.log(
-                "test_ppl_private",
+                "test_ppl",
                 avg_ppl,
                 prog_bar=True,
                 sync_dist=True,
@@ -271,9 +213,10 @@ class PPLLoggingCallback(pl.Callback):
                 on_epoch=True,
             )
         else:
-            self.log("test_ppl_private", avg_ppl, prog_bar=True, on_epoch=True)
+            self.log("test_ppl", avg_ppl, prog_bar=True, on_epoch=True)
 
 
+# TODO(@sichu) upstream to NeMo
 class MegatronStrategy(nl.MegatronStrategy):
     """Updated MegatronStrategy to support flexible logging callbacks."""
 
@@ -290,7 +233,9 @@ class MegatronStrategy(nl.MegatronStrategy):
             for opt in self.optimizers:
                 opt.zero_grad()
 
-            model_outputs = self.model(dataloader_iter, forward_only=False, *args, **kwargs)
+            model_outputs: torch.Tensor | Dict[str, torch.Tensor] = self.model(
+                dataloader_iter, forward_only=False, *args, **kwargs
+            )  # NOTE(@sichu) allow flexible model outputs
             if torch.is_tensor(model_outputs):
                 reduced_train_loss = model_outputs
             else:
