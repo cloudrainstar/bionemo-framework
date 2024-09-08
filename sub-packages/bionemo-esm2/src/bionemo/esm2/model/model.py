@@ -29,6 +29,7 @@ from megatron.core.transformer.enums import ModelType
 from megatron.core.transformer.transformer_block import TransformerBlock
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.transformer.utils import get_linear_layer
+from nemo.lightning.megatron_parallel import MegatronLossReduction
 from torch import Tensor
 from torch.optim import Optimizer
 
@@ -37,6 +38,7 @@ from bionemo.esm2.model.attention import ESM2DotProductAttention
 from bionemo.esm2.model.embedding import ESM2Embedding
 from bionemo.llm.model.biobert.model import BioBertGenericConfig, MegatronBioBertModel
 from bionemo.llm.model.biobert.transformer_specs import BiobertSpecOption
+from bionemo.llm.model.loss import BERTMLMLossWithReduction
 from bionemo.llm.utils import iomixin_utils as iom
 
 
@@ -252,6 +254,7 @@ class ESM2Config(BioBertGenericConfig[ESM2Model], iom.IOMixinWithGettersSetters)
         get_attention_mask_from_fusion: Whether to get attention mask from fusion.
         nemo1_ckpt_path: Path to NEMO1 checkpoint.
         return_only_hidden_states: Whether to return only hidden states.
+        loss_reduction_class: Loss reduction class for the model. Default to BERTMLMLossWithReduction.
     """
 
     # When overriding fields in a dataclass _always_ declare types: https://github.com/python/cpython/issues/123269
@@ -305,3 +308,6 @@ class ESM2Config(BioBertGenericConfig[ESM2Model], iom.IOMixinWithGettersSetters)
     #  things as part of the workflow for inference and fine-tuning.
     return_only_hidden_states: bool = False  # return logits
     core_attention_override: Type[torch.nn.Module] | None = ESM2DotProductAttention
+
+    # loss reduction class
+    loss_reduction_class: Type[MegatronLossReduction] = BERTMLMLossWithReduction

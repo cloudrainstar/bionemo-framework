@@ -33,6 +33,7 @@ __all__: Sequence[str] = (
 )
 
 
+# TODO(@sichu) update typing
 class PerTokenLossDict(TypedDict):
     """This is the return type for a loss that is computed per token in the batch, supporting microbatches of varying sizes."""
 
@@ -86,45 +87,55 @@ class _Nemo2CompatibleLossReduceMixin:
         # Expect two elements: losses, num_tokens. We only care about the num_tokens index.
         NUM_TOKENS_IDX = 1
 
-        if not losses_reduced_per_micro_batch:
+        if not losses_reduced_per_micro_batch:  # model returns zero by default in NeMo2.0
             dummy_tensor = torch.tensor(0.0).cuda()
             return dummy_tensor
 
-        # do the gather
-        [only_key] = list(losses_reduced_per_micro_batch[0].keys())
-        loss_tensors_list = [loss_reduced[only_key] for loss_reduced in losses_reduced_per_micro_batch]
-        # switch on the keys
-        if only_key == "avg":
-            return torch.concat(loss_tensors_list).mean()
-        elif only_key == "loss_sum_and_microbatch_size":
+        keys = list(losses_reduced_per_micro_batch[0].keys())
+
+        # do the gather on loss by key
+        assert ("avg" in keys and "loss_sum_and_microbatch_size" not in keys) or (
+            "avg" not in keys and "loss_sum_and_microbatch_size" in keys
+        ), f"either avg or loss_sum_and_microbatch_size should be found in keys but keys are {keys}"
+        loss_key = "avg" if "avg" in keys else "loss_sum_and_microbatch_size"
+
+        loss_tensors_list = [loss_reduced[loss_key] for loss_reduced in losses_reduced_per_micro_batch]
+        if loss_key == "avg":
+            loss_value = torch.concat(loss_tensors_list).mean()
+        else:
             loss_sum_tensors_list = [
                 loss_sum for loss_sum in losses_reduced_per_micro_batch if loss_tensors_list[NUM_TOKENS_IDX] > 0
             ]
             if len(loss_sum_tensors_list) == 0:
                 # If we get no result, return zero.
-                dummy_tensor = torch.tensor([0.0, 0.0]).cuda()
-                return dummy_tensor
+                loss_value = torch.tensor([0.0, 0.0]).cuda()
             else:
                 # otherwise do a sum reduction.
-                loss_sum = torch.vstack(loss_sum_tensors_list).sum(dim=0)
-                return loss_sum
+                loss_value = torch.vstack(loss_sum_tensors_list).sum(dim=0)
+
+        if "avg_ppl" in keys:
+            ppl_tensors_list = [loss_reduced["avg_ppl"] for loss_reduced in losses_reduced_per_micro_batch]
+            ppl_value = torch.concat(ppl_tensors_list).mean()
+            return {"loss": loss_value, "ppl": ppl_value}
         else:
-            raise ValueError(f"Got a key of {only_key=} but expected one of 'avg, losses_reduced_per_micro_batch'")
+            return loss_value
 
 
 class BERTMLMLossWithReduction(_Nemo2CompatibleLossReduceMixin, MegatronLossReduction):  # noqa: D101
-    def __init__(self, validation_step: bool = False, val_drop_last: bool = True) -> None:
+    def __init__(self, validation_step: bool = False, val_drop_last: bool = True, log_val_ppl: bool = True) -> None:
         """Initializes the Model class.
 
         Args:
             validation_step (bool, optional): Whether this object is being applied to the validation step. Defaults to False.
             val_drop_last (bool, optional): Whether the last batch is configured to be dropped during validation. Defaults to True.
+            log_val_ppl (bool, optional): Whether to log perplexity during validation. Defaults to True.
         """
         # TODO(@jomitchell): Track down how we handle test. This is a common pattern in NeMo2, but these parameters seem likely
         #  to change in the future.
         super().__init__()
         self.validation_step = validation_step
         self.val_drop_last = val_drop_last
+        self.log_val_ppl = log_val_ppl
 
     def unreduced_token_loss_fn(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         """Computes the unreduced token loss given the logits and labels without regard to the loss mask.
@@ -168,22 +179,34 @@ class BERTMLMLossWithReduction(_Nemo2CompatibleLossReduceMixin, MegatronLossRedu
         if "labels" not in batch:
             raise ValueError("Labels not provided in the batch. These are required for this loss computation.")
 
-        unreduced_token_loss = self.unreduced_token_loss_fn(forward_out["token_logits"], batch["labels"])
+        unreduced_token_loss = self.unreduced_token_loss_fn(forward_out["token_logits"], batch["labels"])  # [b s]
 
         # TODO(@jstjohn) also handle different output keys, like the sequence loss.
 
+        # compute loss
         cp_size = parallel_state.get_context_parallel_world_size()
         if cp_size == 1:
-            # reduce the loss across the micro batch
+            # reduce the loss across the micro batch per valid token
             loss_for_microbatch = masked_token_loss(unreduced_token_loss, batch["loss_mask"])
         else:
-            # reduce the loss across the micro batch.
+            # reduce the loss across the micro batch per valid token.
             # TODO(@jomitchell): Figure out who defines "num_valid_tokens_in_ub" in the batch and document/understand this.
             #  This has something to do with context parallel, and there is probably a megatron or nemo function that adds this and
             #  other necessary keys to the batch. Thanks!
             loss_for_microbatch = masked_token_loss_context_parallel(
                 unreduced_token_loss, batch["loss_mask"], batch["num_valid_tokens_in_ub"]
             )
+
+        # compute ppl
+        # TODO(@sichu) extract for flexible logging
+        if self.log_val_ppl:
+            if cp_size == 1:
+                losses_for_microbatch = per_sequence_masked_token_loss(
+                    unreduced_token_loss.detach(), batch["loss_mask"]
+                )  # [b]
+                ppl_for_microbatch = torch.exp(losses_for_microbatch)
+            else:
+                raise NotImplementedError("Context parallel PPL logging is not supported yet.")  # TODO(@sichu)
 
         # If we do not drop the last partial batch of validation, we need to do fancy reduction handling to support
         #  reducing the loss across the data parallel group.
@@ -196,8 +219,13 @@ class BERTMLMLossWithReduction(_Nemo2CompatibleLossReduceMixin, MegatronLossRedu
                 if batch["loss_mask"].count_nonzero() != 0:
                     raise ValueError("Got NaN loss with non-empty input")
                 loss_sum_for_microbatch = torch.zeros_like(num_valid_tokens_in_microbatch)
+                if self.log_val_ppl:
+                    raise NotImplementedError("PPL Logging nan catch is not implemented.")
             else:
-                loss_sum_for_microbatch = num_valid_tokens_in_microbatch * loss_for_microbatch
+                loss_sum_for_microbatch = (
+                    num_valid_tokens_in_microbatch * loss_for_microbatch
+                )  # sum over all valid tokens
+                ppl_sum_for_microbatch = ppl_for_microbatch.sum()  # sum over all sequences in the microbatch
 
             # In this case we need to store the loss sum as well as the number of valid tokens in the microbatch.
             loss_sum_and_microbatch_size_all_gpu = torch.cat(
@@ -207,12 +235,54 @@ class BERTMLMLossWithReduction(_Nemo2CompatibleLossReduceMixin, MegatronLossRedu
                 ]
             )
             torch.distributed.all_reduce(
-                loss_sum_and_microbatch_size_all_gpu, group=parallel_state.get_data_parallel_group()
+                loss_sum_and_microbatch_size_all_gpu,
+                group=parallel_state.get_data_parallel_group(),
+                op=torch.distributed.ReduceOp.SUM,  # TODO(@sichu) why SUM instead of AVG
             )
-            return loss_for_microbatch * cp_size, {
-                "loss_sum_and_microbatch_size": loss_sum_and_microbatch_size_all_gpu
-            }
+            # TODO(@sichu) add unittest
+            # TODO(@sichu) why defer treatment on pp to Callback?
+            if self.validation_step and self.log_val_ppl:
+                torch.distributed.all_reduce(
+                    ppl_sum_for_microbatch,
+                    group=parallel_state.get_data_parallel_group(),
+                    op=torch.distributed.ReduceOp.SUM,
+                )
+                return loss_for_microbatch * cp_size, {
+                    "loss_sum_and_microbatch_size": loss_sum_and_microbatch_size_all_gpu,
+                    "ppl_sum_and_microbatch_size": ppl_sum_for_microbatch,
+                }
+            else:
+                return loss_for_microbatch * cp_size, {
+                    "loss_sum_and_microbatch_size": loss_sum_and_microbatch_size_all_gpu
+                }
 
         # average the losses across the data parallel group, but also return the unreduced loss
         reduced_loss = average_losses_across_data_parallel_group([loss_for_microbatch])
-        return loss_for_microbatch * cp_size, {"avg": reduced_loss}
+        if self.validation_step and self.log_val_ppl:
+            return loss_for_microbatch * cp_size, {"avg": reduced_loss, "avg_ppl": ppl_for_microbatch}
+        else:
+            return loss_for_microbatch * cp_size, {"avg": reduced_loss}
+
+
+def per_sequence_masked_token_loss(tensor: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    """Computes the per-sequence token loss for a given tensor and mask.
+
+    Args:
+        tensor (torch.Tensor): 2D tensor of shape [batch_size, sequence_length] containing the token logits.
+        mask (torch.Tensor): 2D tensor of shape [batch_size, sequence_length] containing the loss mask.
+
+    Returns:
+        torch.Tensor: Scalar tensor containing the per-sequence token loss.
+    """
+    losses = tensor.float()
+    per_sequence_losses = (losses * mask).sum(-1) / mask.sum(-1)
+    return per_sequence_losses
+
+
+# TODO(@sichu) implement MegatronCallback to avoid routing
+# class MegatronCallback(pl.Callback, CallbackMethods):
+#     """
+#     Callback for Megatron-LM training.
+#     """
+#     def __init__():
+#         pass
