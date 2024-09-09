@@ -236,7 +236,7 @@ class MegatronStrategy(nl.MegatronStrategy):
 
             model_outputs: torch.Tensor | Dict[str, torch.Tensor] = self.model(
                 dataloader_iter, forward_only=False, *args, **kwargs
-            )  # NOTE(@sichu) allow flexible model outputs
+            )  # NOTE allow flexible model outputs
             if torch.is_tensor(model_outputs):
                 reduced_train_loss = model_outputs
             else:
@@ -468,7 +468,7 @@ class TypedMegatronCallback(CallbackMethods):  # noqa: D101
 class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
     """Megatron Callback to log perplexity in validation and optionally training.
 
-    NeMo2.0 checks whether a callback is an instance of {LightningModule,LightningDataModule,Callback} although Megatron doesn't. Only megatron_hooks are useful.
+    NeMo2.0 checks whether a callback is an instance of {LightningModule,LightningDataModule,Callback} but only megatron_hooks are useful.
     """
 
     def __init__(self, log_train: bool = False, log_val: bool = True):
@@ -506,7 +506,7 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
         if trainer.training and not self.log_train:
             return
 
-        [microbatch_outputs] = microbatch_outputs
+        [microbatch_outputs] = microbatch_outputs  # TODO(@sichu) length = 2 in geneformer
         batch, forward_out = microbatch_outputs["batch"], microbatch_outputs["forward_out"]
         unreduced_token_loss = unreduced_token_loss_fn(forward_out["token_logits"].detach(), batch["labels"])  #  [b s]
 
