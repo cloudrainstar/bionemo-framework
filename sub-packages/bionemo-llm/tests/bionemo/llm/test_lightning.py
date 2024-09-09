@@ -16,11 +16,10 @@
 
 import pytest
 import torch
-from nemo import lightning as nl
 from torch import nn
 
 from bionemo.llm import lightning as bnptl
-from bionemo.llm.lightning import batch_collator, get_dtype_device
+from bionemo.llm.lightning import MegatronStrategy, batch_collator, get_dtype_device
 from bionemo.testing import megatron_parallel_state_utils
 
 
@@ -166,7 +165,7 @@ class NestedModule(nn.Module):
 
 def test_mixin_strategy_contract_get_loss_reduction():
     with megatron_parallel_state_utils.clean_parallel_state_context():
-        strategy = nl.MegatronStrategy(
+        strategy = MegatronStrategy(
             tensor_model_parallel_size=1,
             pipeline_model_parallel_size=1,
             ddp="megatron",

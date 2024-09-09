@@ -49,7 +49,7 @@ from bionemo.geneformer.model.finetune_token_regressor import (
     LoRAForGeneFormerTokenRegressor,
 )
 from bionemo.llm.data import collate
-from bionemo.llm.lightning import LossLoggingCallback
+from bionemo.llm.lightning import MegatronStrategy
 from bionemo.llm.model.biobert.lightning import BioBertLightningModule
 from bionemo.llm.model.biobert.model import BiobertSpecOption
 from bionemo.llm.utils.weight_utils import nemo1_to_nemo2_biobert_key_mapping
@@ -385,7 +385,7 @@ def test_geneformer_nemo1_v_nemo2_inference_golden_values(
         case _:
             assert False
 
-    strategy = nl.MegatronStrategy(
+    strategy = MegatronStrategy(
         tensor_model_parallel_size=1,
         pipeline_model_parallel_size=1,
         ddp="megatron",
@@ -859,7 +859,7 @@ def _train_model_get_ckpt(
         max_steps=n_steps_train,
         num_nodes=1,
         log_every_n_steps=n_steps_train // 2,
-        callbacks=callbacks,
+        callbacks=[metric_tracker],
         plugins=nl.MegatronMixedPrecision(precision=MODEL_PRECISION),
     )
     nllm.train(
