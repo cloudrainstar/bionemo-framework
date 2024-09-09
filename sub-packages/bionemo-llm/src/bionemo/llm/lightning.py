@@ -503,12 +503,33 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
         microbatch_outputs: List[Any],  # outputs from forward method in MegatronLossReduction
         loss_mean: Any,  # output from reduce method in MegatronLossReduction
     ) -> None:
+        """
+
+        Expected microbatch_outputs to be a list of dicts with the following keys:
+            - batch: dict of tensors with the following keys:
+                - labels: [b s]
+            - forward_out: dict of tensors with the following keys:
+                - token_logits: [b s vocab]
+        """
         if trainer.training and not self.log_train:
             return
 
-        [microbatch_outputs] = microbatch_outputs  # TODO(@sichu) length = 2 in geneformer
-        batch, forward_out = microbatch_outputs["batch"], microbatch_outputs["forward_out"]
-        unreduced_token_loss = unreduced_token_loss_fn(forward_out["token_logits"].detach(), batch["labels"])  #  [b s]
+        assert len(microbatch_outputs) == num_microbatches, "microbatch_outputs length does not match num_microbatches"
+        if num_microbatches > 1:
+            batch = {
+                k: torch.cat([microbatch_output["batch"][k] for microbatch_output in microbatch_outputs], dim=0)
+                for k in microbatch_outputs[0]["batch"].keys()
+            }
+            token_logits = torch.cat(
+                [microbatch_output["forward_out"]["token_logits"].detach() for microbatch_output in microbatch_outputs],
+                dim=0,
+            )
+        else:
+            [microbatch_outputs] = microbatch_outputs
+            batch = microbatch_outputs["batch"]
+            token_logits = microbatch_outputs["forward_out"]["token_logits"]
+
+        unreduced_token_loss = unreduced_token_loss_fn(token_logits, batch["labels"])  #  [b s]
 
         cp_size = parallel_state.get_context_parallel_world_size()
         if cp_size == 1:
