@@ -14,6 +14,8 @@
 # limitations under the License.
 
 
+import functools
+import inspect
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import pytorch_lightning as pl
@@ -22,9 +24,21 @@ import torch.distributed
 from megatron.core import parallel_state
 from nemo import lightning as nl
 from nemo.lightning import _strategy_lib
-from nemo.lightning.megatron_parallel import DataT, MegatronLossReduction, ReductionT
+from nemo.lightning.megatron_parallel import (
+    CallbackMethods,
+    DataT,
+    MegatronLossReduction,
+    MegatronParallel,
+    ReductionT,
+    _ModuleStepFunction,
+)
+from nemo.lightning.pytorch.trainer import Trainer
+from pytorch_lightning.accelerators import CPUAccelerator
+from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
 from pytorch_lightning.utilities.types import STEP_OUTPUT
 from typing_extensions import override
+
+from bionemo.llm.model.loss import per_sequence_masked_token_loss, unreduced_token_loss_fn
 
 
 __all__: Sequence[str] = (
@@ -32,6 +46,8 @@ __all__: Sequence[str] = (
     "batch_collator",
     "PassthroughLossReduction",
     "LightningPassthroughPredictionMixin",
+    "TypedMegatronCallback",
+    "PerplexityLoggingCallback",
 )
 
 
@@ -158,67 +174,52 @@ class LightningPassthroughPredictionMixin:
         return PassthroughLossReduction()
 
 
-# TODO (@sichu) write unittest
-class PPLLoggingCallback(pl.Callback):
-    def __init__(self):
-        """Log perplexity at the end of each batch. For training do not reduce across the epoch but do so for validation/test."""
-        self.val_perplexities = []
-        self.test_perplexities = []
-
-    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
-        if parallel_state.is_pipeline_last_stage():
-            assert "ppl" not in outputs, "ppl should not be in training outputs. only log_val_ppl is supported"
-            # ppl = outputs["ppl"]
-            # pl_module.log("reduced_train_ppl", ppl, on_step=True, prog_bar=True, logger=True, sync_dist=False)
-
-    def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
-        if parallel_state.is_pipeline_last_stage():
-            ppl = outputs["ppl"]
-            self.test_perplexities.append(ppl)
-
-    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
-        if parallel_state.is_pipeline_last_stage():
-            ppl = outputs["ppl"]
-            self.val_perplexities.append(ppl)
-
-    def on_validation_epoch_end(self, trainer, pl_module):
-        avg_ppl = torch.stack(self.val_perplexities).mean()
-        self.val_perplexities.clear()
-
-        pp_size = parallel_state.get_pipeline_model_parallel_world_size()
-        if pp_size > 1:
-            self.log(
-                "val_ppl",
-                avg_ppl,
-                prog_bar=True,
-                sync_dist=True,
-                sync_dist_group=parallel_state.get_pipeline_model_parallel_group(),
-                on_epoch=True,
-            )
-        else:
-            self.log("val_ppl", avg_ppl, prog_bar=True, on_epoch=True)
-
-    def on_test_epoch_end(self, trainer, pl_module):
-        avg_ppl = torch.stack(self.test_perplexities).mean()
-        self.test_perplexities.clear()
-
-        pp_size = parallel_state.get_pipeline_model_parallel_world_size()
-        if pp_size > 1:
-            self.log(
-                "test_ppl",
-                avg_ppl,
-                prog_bar=True,
-                sync_dist=True,
-                sync_dist_group=parallel_state.get_pipeline_model_parallel_group(),
-                on_epoch=True,
-            )
-        else:
-            self.log("test_ppl", avg_ppl, prog_bar=True, on_epoch=True)
-
-
 # TODO(@sichu) upstream to NeMo
 class MegatronStrategy(nl.MegatronStrategy):
     """Updated MegatronStrategy to support flexible logging callbacks."""
+
+    @override
+    def setup_megatron_parallel(self, trainer: pl.Trainer) -> None:
+        assert self.model is not None, "Model is not set"
+
+        convert_module_fn = None
+        if hasattr(self.precision_plugin, "convert_module"):
+            convert_module_fn = self.precision_plugin.convert_module
+
+        self.megatron_parallel = MegatronParallel(
+            self.model,
+            precision_plugin=self.precision_plugin,
+            vp_size=self.virtual_pipeline_model_parallel_size,
+            cpu=isinstance(trainer.accelerator, CPUAccelerator),
+            ddp_config=self.ddp_config,
+            convert_module_fn=convert_module_fn,
+        )
+
+        if self._init_model_parallel:
+            self.init_model_parallel()
+
+        self.megatron_parallel.trainer = trainer
+
+        # check signature-def of self.model.configure_optimizers to check if there's an optional arg: megatron_parallel
+        sig = inspect.signature(self.model.configure_optimizers)
+        if "megatron_parallel" in sig.parameters:
+            self.model.configure_optimizers = functools.partial(
+                self.model.configure_optimizers, megatron_parallel=self.megatron_parallel
+            )
+
+        if self._setup_optimizers:
+            self.setup_optimizers(trainer)
+
+        self.model = self.megatron_parallel
+        self.model.callbacks.add(*getattr(trainer, "callbacks"))  # TODO(@sichu) upstream this bug fix to NeMo2.0
+        # MegatronOptimizerModule and WarmupAnnealDecayHoldScheduler inherit from CallbackMethods but didn't override the methods
+
+        if self.data_sampler:
+            self.model.callbacks.add(self.data_sampler)
+
+        datamodule = getattr(trainer, "datamodule", None)
+        if datamodule:
+            self.model.callbacks.add(datamodule)
 
     @override
     def training_step(self, dataloader_iter, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
@@ -310,3 +311,227 @@ class MegatronStrategy(nl.MegatronStrategy):
                 self.lightning_module.log("val_loss", reduced_val_loss, prog_bar=True, on_epoch=True)
 
             return model_outputs
+
+
+# TODO(@sichu) upstream to NeMo2.0
+class TypedMegatronCallback(CallbackMethods):  # noqa: D101
+    def on_megatron_step_start(  # noqa: D102
+        self,
+        data: _DataFetcherWrapper,
+        forward_only: bool,
+        data_step: _ModuleStepFunction,
+        forward_step: _ModuleStepFunction,
+        loss_reduction: _ModuleStepFunction,
+        seq_length: int,
+        micro_batch_size: int,
+        num_microbatches: int,
+        wrap_forward_step: bool,
+        pipeline: MegatronParallel,
+        use_global_batch_sampler: bool,
+        data_iterator: _DataFetcherWrapper,
+        pl_module: MegatronParallel,
+        trainer: Trainer,
+    ) -> None: ...
+
+    def on_megatron_microbatch_start(
+        self,
+        data: _DataFetcherWrapper,
+        forward_only: bool,
+        data_step: _ModuleStepFunction,
+        forward_step: _ModuleStepFunction,
+        loss_reduction: _ModuleStepFunction,
+        seq_length: int,
+        micro_batch_size: int,
+        num_microbatches: int,
+        wrap_forward_step: bool,
+        pipeline: MegatronParallel,
+        use_global_batch_sampler: bool,
+        data_iterator: _DataFetcherWrapper,
+        pl_module: MegatronParallel,
+        trainer: Trainer,
+        # method specific
+        batch: Dict,
+        forward_callback: MegatronLossReduction,
+    ):
+        """Same as on_megatron_step_start."""
+        ...
+
+    def on_megatron_microbatch_end(  # noqa: D102
+        self,
+        data: _DataFetcherWrapper,
+        forward_only: bool,
+        data_step: _ModuleStepFunction,
+        forward_step: _ModuleStepFunction,
+        loss_reduction: _ModuleStepFunction,
+        seq_length: int,
+        micro_batch_size: int,
+        num_microbatches: int,
+        wrap_forward_step: bool,
+        pipeline: MegatronParallel,
+        use_global_batch_sampler: bool,
+        data_iterator: _DataFetcherWrapper,
+        pl_module: MegatronParallel,
+        trainer: Trainer,
+        # method specific
+        batch: Dict,
+        forward_callback: MegatronLossReduction,
+        microbatch_outputs: List[Any],  # outputs from forward method in MegatronLossReduction across microbatches
+    ): ...
+
+    def on_megatron_reduce_microbatches_start(
+        self,
+        data: _DataFetcherWrapper,
+        forward_only: bool,
+        data_step: _ModuleStepFunction,
+        forward_step: _ModuleStepFunction,
+        loss_reduction: _ModuleStepFunction,
+        seq_length: int,
+        micro_batch_size: int,
+        num_microbatches: int,
+        wrap_forward_step: bool,
+        pipeline: MegatronParallel,
+        use_global_batch_sampler: bool,
+        data_iterator: _DataFetcherWrapper,
+        pl_module: MegatronParallel,
+        trainer: Trainer,
+        # method specific
+        microbatch_outputs: List[Any],  # outputs from forward method in MegatronLossReduction across microbatches
+    ) -> None:
+        """Same as on_megatron_microbatch_end if microbatch_outputs is not None."""
+        ...
+
+    def on_megatron_reduce_microbatches_end(  # noqa: D102
+        self,
+        data: _DataFetcherWrapper,
+        forward_only: bool,
+        data_step: _ModuleStepFunction,
+        forward_step: _ModuleStepFunction,
+        loss_reduction: _ModuleStepFunction,
+        seq_length: int,
+        micro_batch_size: int,
+        num_microbatches: int,
+        wrap_forward_step: bool,
+        pipeline: MegatronParallel,
+        use_global_batch_sampler: bool,
+        data_iterator: _DataFetcherWrapper,
+        pl_module: MegatronParallel,
+        trainer: Trainer,
+        # method specific
+        microbatch_outputs: List[Any],  # outputs from forward method in MegatronLossReduction across microbatches
+        loss_mean: Any,  # output from reduce method in MegatronLossReduction
+    ) -> None: ...
+
+    def on_megatron_log_step_end(  # noqa: D102
+        self,
+        data: _DataFetcherWrapper,
+        forward_only: bool,
+        data_step: _ModuleStepFunction,
+        forward_step: _ModuleStepFunction,
+        loss_reduction: _ModuleStepFunction,
+        seq_length: int,
+        micro_batch_size: int,
+        num_microbatches: int,
+        wrap_forward_step: bool,
+        pipeline: MegatronParallel,
+        use_global_batch_sampler: bool,
+        data_iterator: _DataFetcherWrapper,
+        pl_module: MegatronParallel,
+        trainer: Trainer,
+        # method specific
+        microbatch_outputs: List[Any],
+        loss_mean: Any,  # output from reduce method in MegatronLossReduction
+    ) -> None: ...
+
+    def on_megatron_step_end(  # noqa: D102
+        self,
+        data: _DataFetcherWrapper,
+        forward_only: bool,
+        data_step: _ModuleStepFunction,
+        forward_step: _ModuleStepFunction,
+        loss_reduction: _ModuleStepFunction,
+        seq_length: int,
+        micro_batch_size: int,
+        num_microbatches: int,
+        wrap_forward_step: bool,
+        pipeline: MegatronParallel,
+        use_global_batch_sampler: bool,
+        data_iterator: _DataFetcherWrapper,
+        pl_module: MegatronParallel,
+        trainer: Trainer,
+        # method specific
+        microbatch_outputs: List[Any],  # outputs from forward method in MegatronLossReduction
+        loss_mean: Any,  # output from reduce method in MegatronLossReduction
+    ) -> None: ...
+
+
+# TODO(@sichu) add unittest
+class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
+    """Megatron Callback to log perplexity in validation and optionally training.
+
+    NeMo2.0 checks whether a callback is an instance of {LightningModule,LightningDataModule,Callback} although Megatron doesn't. Only megatron_hooks are useful.
+    """
+
+    def __init__(self, log_train: bool = False, log_val: bool = True):
+        """Initialize PerplexityLoggingCallback.
+
+        Args:
+            log_train: whether to log train perplexity. Defaults to False.
+            log_val: whether to log validation perplexity. Defaults to True.
+        """
+        super().__init__()
+        self.log_train = log_train
+        self.log_val = log_val
+
+    @override
+    def on_megatron_reduce_microbatches_end(
+        self,
+        data: _DataFetcherWrapper,
+        forward_only: bool,
+        data_step: _ModuleStepFunction,
+        forward_step: _ModuleStepFunction,
+        loss_reduction: _ModuleStepFunction,
+        seq_length: int,
+        micro_batch_size: int,
+        num_microbatches: int,
+        wrap_forward_step: bool,
+        pipeline: MegatronParallel,
+        use_global_batch_sampler: bool,
+        data_iterator: _DataFetcherWrapper,
+        pl_module: MegatronParallel,
+        trainer: Trainer,
+        # method specific
+        microbatch_outputs: List[Any],  # outputs from forward method in MegatronLossReduction
+        loss_mean: Any,  # output from reduce method in MegatronLossReduction
+    ) -> None:
+        if trainer.training and not self.log_train:
+            return
+
+        [microbatch_outputs] = microbatch_outputs
+        batch, forward_out = microbatch_outputs["batch"], microbatch_outputs["forward_out"]
+        unreduced_token_loss = unreduced_token_loss_fn(forward_out["token_logits"].detach(), batch["labels"])  #  [b s]
+
+        cp_size = parallel_state.get_context_parallel_world_size()
+        if cp_size == 1:
+            losses_for_microbatch = per_sequence_masked_token_loss(unreduced_token_loss, batch["loss_mask"])  # [b]
+            ppl_for_microbatch = torch.exp(losses_for_microbatch).mean()
+        else:
+            raise NotImplementedError("Context parallel perplexity logging is not supported yet")
+
+        if self.log_val and trainer.training is False:
+            pp_size = parallel_state.get_pipeline_model_parallel_world_size()
+            if pp_size > 1:
+                # ranks that are not final pp stage have 0 for loss, and out will be mean-reduced over pp
+                # groups (due to sync_dist), which divides val_loss by pp_size. so we multiply by pp_size to cancel out
+                pl_module.log(
+                    "val_ppl",
+                    ppl_for_microbatch * pp_size,
+                    prog_bar=True,
+                    sync_dist=True,
+                    sync_dist_group=parallel_state.get_pipeline_model_parallel_group(),
+                    on_epoch=True,
+                )
+            else:
+                pl_module.log("val_ppl", ppl_for_microbatch, prog_bar=True, on_epoch=True)
+        elif self.log_train and trainer.training is True:
+            if parallel_state.is_pipeline_last_stage():
+                pl_module.log("train_ppl", ppl_for_microbatch, prog_bar=True, batch_size=1, sync_dist=False)
