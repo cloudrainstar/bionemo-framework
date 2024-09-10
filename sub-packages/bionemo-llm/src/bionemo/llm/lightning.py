@@ -464,7 +464,6 @@ class TypedMegatronCallback(CallbackMethods):  # noqa: D101
     ) -> None: ...
 
 
-# TODO(@sichu) add unittest
 class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
     """Megatron Callback to log perplexity in validation and optionally training.
 
@@ -481,6 +480,24 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
         super().__init__()
         self.log_train = log_train
         self.log_val = log_val
+
+    def _pad_to_max_length(self, microbatch_outputs: List[Dict[str, Dict[str, torch.Tensor]]], key1: str, key2: str, pad_value: int = 0) -> torch.Tensor:
+        """Pad tensors to max length in microbatch_outputs."""
+        max_sequence_length = max(output[key1][key2].size(1) for output in microbatch_outputs)
+
+        tensors = []
+        for microbatch_output in microbatch_outputs:
+            tensor = microbatch_output[key1][key2]
+            assert tensor.dim() >= 2, f"Tensor in microbatch_outputs must have at least 2 dimensions, but got {tensor.dim()} dimensions"
+            tensors.append(
+                torch.nn.functional.pad(  # padding reverse in order
+                    tensor,
+                    (0, 0) * (tensor.dim() - 2) + (0, max_sequence_length-tensor.shape[1], 0, 0),  # [b s *] -> [* s b]
+                    value=pad_value,
+                )
+            )
+
+        return torch.cat(tensors, dim=0)  # concat on batch dim
 
     @override
     def on_megatron_reduce_microbatches_end(
@@ -503,7 +520,7 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
         microbatch_outputs: List[Any],  # outputs from forward method in MegatronLossReduction
         loss_mean: Any,  # output from reduce method in MegatronLossReduction
     ) -> None:
-        """
+        """Log after MegatronReductionLoss.reduce is called.
 
         Expected microbatch_outputs to be a list of dicts with the following keys:
             - batch: dict of tensors with the following keys:
@@ -514,26 +531,17 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
         if trainer.training and not self.log_train:
             return
 
+        assert num_microbatches > 0, "num_microbatches must be greater than 0"
         assert len(microbatch_outputs) == num_microbatches, "microbatch_outputs length does not match num_microbatches"
-        if num_microbatches > 1:
-            batch = {
-                k: torch.cat([microbatch_output["batch"][k] for microbatch_output in microbatch_outputs], dim=0)
-                for k in microbatch_outputs[0]["batch"].keys()
-            }
-            token_logits = torch.cat(
-                [microbatch_output["forward_out"]["token_logits"].detach() for microbatch_output in microbatch_outputs],
-                dim=0,
-            )
-        else:
-            [microbatch_outputs] = microbatch_outputs
-            batch = microbatch_outputs["batch"]
-            token_logits = microbatch_outputs["forward_out"]["token_logits"]
+        labels = self._pad_to_max_length(microbatch_outputs, "batch", "labels", pad_value=-100)
+        loss_mask = self._pad_to_max_length(microbatch_outputs, "batch", "loss_mask")
+        token_logits = self._pad_to_max_length(microbatch_outputs, "forward_out", "token_logits")
 
-        unreduced_token_loss = unreduced_token_loss_fn(token_logits, batch["labels"])  #  [b s]
+        unreduced_token_loss = unreduced_token_loss_fn(token_logits, labels)  #  [b s]
 
         cp_size = parallel_state.get_context_parallel_world_size()
         if cp_size == 1:
-            losses_for_microbatch = per_sequence_masked_token_loss(unreduced_token_loss, batch["loss_mask"])  # [b]
+            losses_for_microbatch = per_sequence_masked_token_loss(unreduced_token_loss, loss_mask)  # [b]
             ppl_for_microbatch = torch.exp(losses_for_microbatch).mean()
         else:
             raise NotImplementedError("Context parallel perplexity logging is not supported yet")
