@@ -88,6 +88,8 @@ notebooks/retrosynthesis-notebook
 notebooks/esm2_FLIP_finetuning
 notebooks/esm2_oas_inferencing
 notebooks/esm2_paratope_finetuning
+notebooks/dnabert_inference
+notebooks/dnabert_pretrain_finetune
 ```
 
 ```{toctree}
