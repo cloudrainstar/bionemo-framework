@@ -1,28 +1,102 @@
-# NeMo-Run entrypoint
+# BioNeMo2 Repo
+To get started, please build the docker container using
+```bash
+./launch.sh build
+```
 
-`main.py` acts as a simple entrypoint to pretraining geneformer via use of configs and factories (`factories.py`). The command below will  execute the equivalent of what we have under scripts/pretrain.py
+All `bionemo2` code is partitioned into independently installable namespace packages. These live under the `sub-packages/` directory.
 
-This module is a work in progress.
 
-``` bash
-python sub-packages/bionemo-geneformer/src/bionemo/geneformer/run/main.py \
-	geneformer_config=basic_geneformer_config_recipe \
-	data_config=small_data_config \
-	parallel_config=simple_parallel_recipe \
-	training_config=default_trainer_config \
-	optim_config=default_adam_optimizer_with_cosine_annealing_recipe \
-	experiment_config=experiment_config_recipe \
-	resume_if_exists=False \
-	data_config.seq_length=128 \
-	parallel_config.num_devices=1 \
-	data_config.micro_batch_size=2 \
-	training_config.precision=bf16-mixed
-``` 
+# TODO: Finish this.
 
-## Concepts and things to keep in mind
+## Downloading artifacts
+Set the AWS access info in your `.env` in the host container prior to running docker:
 
-Plain Function - A function that does literally anything and produces something else. In somecases, we have functions that take configs and produce an object. In these scenarios we are often composing an object with pieces of various configs.
-Factory - A method that constructs a config and is decorated with run.cli.factory. These act as configs presentable to the command line.
-Recipe - A specific factory with a distinct purpose. E.g. BERT XL vs BERT Small
-Config - A fiddle dataclass presentable and mutatable via nemo run. These are also serialized and used for restoring previous configuations.
-Entrypoint - A method that takes a mixture of plain arguments and configs. These are exposed to the command line. The body of the function represents the execution occuring in the program.
+```bash
+AWS_ACCESS_KEY_ID="team-bionemo"
+AWS_SECRET_ACCESS_KEY=$(grep aws_secret_access_key ~/.aws/config | cut -d' ' -f 3)
+AWS_REGION="us-east-1"
+AWS_ENDPOINT_URL="https://pbss.s8k.io"
+```
+then
+```bash
+python scripts/download_artifacts.py --models all --model_dir ./models --data all --data_dir ./ --verbose --source pbss
+```
+
+## Initializing 3rd-party dependencies as git submodules
+
+For development, the NeMo and Megatron-LM dependencies are vendored in the bionemo-2 repository workspace as git
+submodules. The pinned commits for these submodules represent the "last-known-good" versions of these packages that are
+confirmed to be working with bionemo2 (and those that are tested in CI).
+
+To initialize these sub-modules when cloning the repo, add the `--recursive` flag to the git clone command:
+
+```bash
+git clone --recursive git@github.com:NVIDIA/bionemo-fw-ea.git
+```
+
+To download the pinned versions of these submodules within an existing git repository, run
+
+```bash
+git submodule update --init --recursive
+```
+
+### Updating pinned versions of NeMo / Megatron-LM
+
+To update the pinned commits of NeMo or Megatron-LM, checkout that commit in the submodule folder, and then commit the
+result in the top-level bionemo repository.
+
+```bash
+cd 3rdparty/NeMo/
+git fetch
+git checkout <desired_sha>
+cd ../..
+git add '3rdparty/NeMo/'
+git commit -m "updating NeMo commit"
+```
+
+### Devloping with nemo+megatron+bionemo (deprecated)
+```
+export NEMO_HOME=path/to/local/nemo
+export MEGATRON_HOME=path/to/local/megatron
+./launch.sh dev
+```
+The above will make a `.env` file that you can edit as needed to get more variables into the container.
+
+## Models
+### Geneformer
+#### Get test data for geneformer
+```bash
+mkdir -p /workspace/bionemo2/data
+aws s3 cp \
+  s3://general-purpose/cellxgene_2023-12-15_small \
+  /workspace/bionemo2/data/cellxgene_2023-12-15_small \
+  --recursive \
+  --endpoint-url https://pbss.s8k.io
+```
+#### Running
+
+The following command runs a very small example of geneformer.
+
+```bash
+python  \
+    scripts/singlecell/geneformer/pretrain.py     \
+    --data-dir data/cellxgene_2023-12-15_small/processed_data    \
+    --result-dir ./results     \
+    --experiment-name test_experiment     \
+    --num-gpus 1  \
+    --num-nodes 1 \
+    --val-check-interval 10 \
+    --num-dataset-workers 0 \
+    --num-steps 55 \
+    --seq-length 128 \
+    --limit-val-batches 2 \
+    --micro-batch-size 2
+```
+
+#### Updating License Header on Python Files
+Make sure you have installed [`license-check`](https://gitlab-master.nvidia.com/clara-discovery/infra-bionemo),
+which is defined in the development dependencies. If you add new Python (`.py`) files, be sure to run as:
+```bash
+license-check --license-header ./license_header --check . --modify --replace
+```

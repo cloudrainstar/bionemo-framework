@@ -1,3 +1,19 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-Apache2
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 from dataclasses import dataclass
 from typing import List
 import pathlib
@@ -365,8 +381,8 @@ def pretrain(
     data: SingleCellDataModule = singlecell_data_module(data_config, global_batch_size)
     # TODO there must be a way to do this automatically.
     geneformer_config.seq_length = data_config.seq_length
-    geneformer_config.bf16 = geneformer_config.params_dtype == 'bf16-mixed'
-    geneformer_config.fp16 = geneformer_config.params_dtype == '16-mixed'
+    geneformer_config.bf16 = training_config.precision == 'bf16-mixed'
+    geneformer_config.fp16 = training_config.precision == '16-mixed'
 
     model: BioBertLightningModule = biobert_lightning_module(geneformer_config, tokenizer=data.tokenizer, optim_config=optim_config, num_steps=training_config.max_steps)
     trainer: nl.Trainer = setup_trainer_from_configs(parallel_config, training_config)
