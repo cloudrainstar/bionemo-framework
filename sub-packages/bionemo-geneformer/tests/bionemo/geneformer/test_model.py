@@ -1022,9 +1022,10 @@ def test_finetune_geneformer_with_peft(
             n_steps_train=n_steps_train,
             batch_size=batch_size,
         )
-        assert ckpt_path.exists()
-        assert ckpt_path.is_dir()
-        assert io.is_distributed_ckpt(ckpt_path)
+        weights_ckpt = ckpt_path / "weights"
+        assert weights_ckpt.exists()
+        assert weights_ckpt.is_dir()
+        assert io.is_distributed_ckpt(weights_ckpt)
         assert initial_trainer.model.config.num_layers == n_layers_test
         assert initial_metrics.collection_train["loss"][0] > initial_metrics.collection_train["loss"][-1]
     with megatron_parallel_state_utils.distributed_model_parallel_state(43):
@@ -1041,8 +1042,9 @@ def test_finetune_geneformer_with_peft(
             batch_size=batch_size,
             peft=peft,
         )
-        assert simple_ft_checkpoint.exists()
-        assert simple_ft_checkpoint.is_dir()
-        assert io.is_distributed_ckpt(simple_ft_checkpoint)
+        weights_ckpt = simple_ft_checkpoint / "weights"
+        assert weights_ckpt.exists()
+        assert weights_ckpt.is_dir()
+        assert io.is_distributed_ckpt(weights_ckpt)
         assert ft_trainer.model.config.num_layers == n_layers_test
         assert simple_ft_metrics.collection_train["loss"][0] > simple_ft_metrics.collection_train["loss"][-1]
