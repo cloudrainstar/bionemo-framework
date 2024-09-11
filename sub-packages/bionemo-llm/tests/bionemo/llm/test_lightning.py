@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 from unittest import mock
 
 import pytest
@@ -24,9 +24,6 @@ from torch import nn
 from bionemo.llm import lightning as bnptl
 from bionemo.llm.lightning import MegatronStrategy, PerplexityLoggingCallback, batch_collator, get_dtype_device
 from bionemo.testing import megatron_parallel_state_utils
-from nemo.lightning.megatron_parallel import (
-    CallbackMethods,
-)
 
 
 def test_batch_collate_tuple():

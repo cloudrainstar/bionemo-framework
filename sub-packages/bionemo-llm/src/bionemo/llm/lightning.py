@@ -558,7 +558,7 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
                 if parallel_state.is_pipeline_last_stage():
                     pl_module.log(
                         "val_ppl",
-                        ppl_for_microbatch * pp_size,
+                        ppl_for_microbatch,
                         prog_bar=True,
                         on_epoch=True,
                     )
