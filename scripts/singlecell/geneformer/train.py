@@ -40,7 +40,7 @@ from bionemo.core.utils.dtypes import PrecisionTypes, get_autocast_dtype
 from bionemo.geneformer.api import FineTuneSeqLenBioBertConfig, GeneformerConfig
 from bionemo.geneformer.data.singlecell.datamodule import SingleCellDataModule
 from bionemo.geneformer.data.singlecell.preprocess import GeneformerPreprocess
-from bionemo.llm.lightning import MegatronStrategy, PerplexityLoggingCallback
+from bionemo.llm.lightning import PerplexityLoggingCallback
 from bionemo.llm.model.biobert.lightning import BioBertLightningModule
 from bionemo.llm.model.biobert.model import BioBertGenericConfig, BiobertSpecOption
 from bionemo.llm.utils.datamodule_utils import float_or_int_or_none, infer_global_batch_size
@@ -129,7 +129,7 @@ def main(
         pipeline_model_parallel_size=pipeline_model_parallel_size,
     )
 
-    strategy = MegatronStrategy(
+    strategy = nl.MegatronStrategy(
         tensor_model_parallel_size=tensor_model_parallel_size,
         pipeline_model_parallel_size=pipeline_model_parallel_size,
         ddp="megatron",

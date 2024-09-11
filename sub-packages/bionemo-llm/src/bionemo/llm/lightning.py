@@ -14,16 +14,12 @@
 # limitations under the License.
 
 
-import functools
-import inspect
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import pytorch_lightning as pl
 import torch
 import torch.distributed
 from megatron.core import parallel_state
-from nemo import lightning as nl
-from nemo.lightning import _strategy_lib
 from nemo.lightning.megatron_parallel import (
     CallbackMethods,
     DataT,
@@ -33,9 +29,7 @@ from nemo.lightning.megatron_parallel import (
     _ModuleStepFunction,
 )
 from nemo.lightning.pytorch.trainer import Trainer
-from pytorch_lightning.accelerators import CPUAccelerator
 from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
-from pytorch_lightning.utilities.types import STEP_OUTPUT
 from typing_extensions import override
 
 from bionemo.llm.model.loss import per_sequence_masked_token_loss, unreduced_token_loss_fn
@@ -174,146 +168,6 @@ class LightningPassthroughPredictionMixin:
         return PassthroughLossReduction()
 
 
-# TODO(@sichu) upstream to NeMo
-class MegatronStrategy(nl.MegatronStrategy):
-    """Updated MegatronStrategy to support flexible logging callbacks."""
-
-    @override
-    def setup_megatron_parallel(self, trainer: pl.Trainer) -> None:
-        assert self.model is not None, "Model is not set"
-
-        convert_module_fn = None
-        if hasattr(self.precision_plugin, "convert_module"):
-            convert_module_fn = self.precision_plugin.convert_module
-
-        self.megatron_parallel = MegatronParallel(
-            self.model,
-            precision_plugin=self.precision_plugin,
-            vp_size=self.virtual_pipeline_model_parallel_size,
-            cpu=isinstance(trainer.accelerator, CPUAccelerator),
-            ddp_config=self.ddp_config,
-            convert_module_fn=convert_module_fn,
-        )
-
-        if self._init_model_parallel:
-            self.init_model_parallel()
-
-        self.megatron_parallel.trainer = trainer
-
-        # check signature-def of self.model.configure_optimizers to check if there's an optional arg: megatron_parallel
-        sig = inspect.signature(self.model.configure_optimizers)
-        if "megatron_parallel" in sig.parameters:
-            self.model.configure_optimizers = functools.partial(
-                self.model.configure_optimizers, megatron_parallel=self.megatron_parallel
-            )
-
-        if self._setup_optimizers:
-            self.setup_optimizers(trainer)
-
-        self.model = self.megatron_parallel
-        self.model.callbacks.add(*getattr(trainer, "callbacks"))  # TODO(@sichu) upstream this bug fix to NeMo2.0
-        # MegatronOptimizerModule and WarmupAnnealDecayHoldScheduler inherit from CallbackMethods but didn't override the methods
-
-        if self.data_sampler:
-            self.model.callbacks.add(self.data_sampler)
-
-        datamodule = getattr(trainer, "datamodule", None)
-        if datamodule:
-            self.model.callbacks.add(datamodule)
-
-    @override
-    def training_step(self, dataloader_iter, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
-        assert self.lightning_module is not None
-        assert self.model is not None
-        kwargs = self._update_step_kwargs(dataloader_iter, kwargs, "training")
-
-        with self.precision_plugin.train_step_context():  # TODO: Do we need this?
-            # Set grad to zero.
-            for model_chunk in self.model:
-                model_chunk.zero_grad_buffer()
-            for opt in self.optimizers:
-                opt.zero_grad()
-
-            model_outputs: torch.Tensor | Dict[str, torch.Tensor] = self.model(
-                dataloader_iter, forward_only=False, *args, **kwargs
-            )  # NOTE allow flexible model outputs
-            if torch.is_tensor(model_outputs):
-                reduced_train_loss = model_outputs
-            else:
-                reduced_train_loss = model_outputs["loss"]
-
-            self.lightning_module.log(
-                "global_step",
-                self.trainer.global_step,
-                prog_bar=True,
-                batch_size=1,
-            )
-
-            self.lightning_module.log(
-                "step",
-                self.trainer.global_step,
-            )
-
-            if self.log_memory_usage:
-                max_memory_reserved = torch.cuda.max_memory_reserved()
-                memory_allocated = torch.cuda.memory_allocated()
-                self.lightning_module.log(
-                    "peak_memory_usage",
-                    max_memory_reserved,
-                    prog_bar=True,
-                    batch_size=1,
-                )
-                self.lightning_module.log(
-                    "memory_allocated",
-                    memory_allocated,
-                    prog_bar=True,
-                    batch_size=1,
-                )
-
-            if self.log_train_loss:
-                # p2p now, broadcast later at ckpt. only with pp, some ranks will log 0.0
-                # WHICH IS OK because we broadcast later at checkpoint time
-                _strategy_lib._sync_from_last_pipeline_stage(reduced_train_loss, broadcast=False)
-                self.lightning_module.log(
-                    "reduced_train_loss", reduced_train_loss, prog_bar=True, batch_size=1, sync_dist=False
-                )
-
-            return model_outputs
-
-    @override
-    def validation_step(self, dataloader_iter, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
-        assert self.lightning_module is not None
-        assert self.model is not None
-        kwargs = self._update_step_kwargs(dataloader_iter, kwargs, "validation")
-
-        with self.precision_plugin.val_step_context():  # TODO: Do we need this?
-            model_outputs = self.model(dataloader_iter, forward_only=True, *args, **kwargs)
-            if torch.is_tensor(model_outputs):
-                reduced_val_loss = model_outputs
-            else:
-                reduced_val_loss = model_outputs["loss"]
-
-            from megatron.core import parallel_state
-
-            pp_size = parallel_state.get_pipeline_model_parallel_world_size()
-            if pp_size > 1:
-                # ranks that are not final pp stage have 0 for loss, and out will be mean-reduced over pp
-                # groups (due to sync_dist), which divides val_loss by pp_size. so we multiply by pp_size to cancel out
-                self.lightning_module.log(
-                    "val_loss",
-                    reduced_val_loss * pp_size,
-                    prog_bar=True,
-                    sync_dist=True,
-                    sync_dist_group=parallel_state.get_pipeline_model_parallel_group(),
-                    on_epoch=True,
-                )
-            else:
-                self.lightning_module.log("val_loss", reduced_val_loss, prog_bar=True, on_epoch=True)
-
-            return model_outputs
-
-
-# TODO(@sichu) upstream to NeMo2.0
 class TypedMegatronCallback(CallbackMethods):  # noqa: D101
     def on_megatron_step_start(  # noqa: D102
         self,
