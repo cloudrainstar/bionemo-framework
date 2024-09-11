@@ -14,12 +14,15 @@
 # limitations under the License.
 
 
+from typing import Dict, List
+from unittest import mock
+
 import pytest
 import torch
 from torch import nn
 
 from bionemo.llm import lightning as bnptl
-from bionemo.llm.lightning import MegatronStrategy, batch_collator, get_dtype_device
+from bionemo.llm.lightning import MegatronStrategy, PerplexityLoggingCallback, batch_collator, get_dtype_device
 from bionemo.testing import megatron_parallel_state_utils
 
 
@@ -176,3 +179,136 @@ def test_mixin_strategy_contract_get_loss_reduction():
         mixin = bnptl.LightningPassthroughPredictionMixin()
         strategy_reduction_function = strategy._get_loss_reduction("predict")
         assert isinstance(strategy_reduction_function(mixin), bnptl.PassthroughLossReduction)
+
+
+
+def test_PerplexityLoggingCallback_golden_values_in_validation():
+    with megatron_parallel_state_utils.distributed_model_parallel_state():
+        mock_pl_module = mock.MagicMock()
+        mock_pl_module.log.return_value = None
+
+        mock_trainer = mock.MagicMock()
+        mock_trainer.training = False
+
+        callback = PerplexityLoggingCallback(log_train=False, log_val=True)
+
+        def call_on_megatron_reduce_microbatches_end(
+            max_sequence_length: int,
+            microbatch_size: int,
+            num_microbatches: int,
+            microbatch_outputs: List[Dict[str, Dict[str, torch.Tensor]]],
+        ) -> None:
+            callback.on_megatron_reduce_microbatches_end(
+                data=None,
+                forward_only=None,
+                data_step=None,
+                forward_step=None,
+                loss_reduction=None,
+                seq_length=max_sequence_length,
+                micro_batch_size=microbatch_size,
+                num_microbatches=num_microbatches,
+                wrap_forward_step=None,
+                pipeline=None,
+                use_global_batch_sampler=None,
+                data_iterator=None,
+                pl_module=mock_pl_module,
+                trainer=mock_trainer,
+                microbatch_outputs=microbatch_outputs,
+                loss_mean=None,
+            )
+
+        # 1. Test with a single microbatch
+        microbatch_size, max_sequence_length, vocab_size = 1, 1024, 2
+        num_microbatches = 1
+        microbatch_outputs = [
+            {
+                "batch": {
+                    "labels": torch.zeros(microbatch_size, max_sequence_length, dtype=torch.long),  # [b s]
+                    "loss_mask": torch.ones(microbatch_size, max_sequence_length, dtype=torch.long),  # [b s]
+                },
+                "forward_out": {
+                    "token_logits": torch.ones(microbatch_size, max_sequence_length, vocab_size),  # [b s v]
+                },
+            },
+        ]
+
+        call_on_megatron_reduce_microbatches_end(
+            max_sequence_length=max_sequence_length,
+            microbatch_size=microbatch_size,
+            num_microbatches=num_microbatches,
+            microbatch_outputs=microbatch_outputs,
+        )
+
+        val_ppl = mock_pl_module.log.call_args[0][1]
+        torch.testing.assert_close(
+            val_ppl, torch.tensor(vocab_size, dtype=torch.float32), msg="fail test on single microbatch"
+        )
+
+        # 2. Test with a single microbatch with masking
+        microbatch_size, max_sequence_length, vocab_size = 1, 1024, 2
+        num_microbatches = 1
+        microbatch_outputs = [
+            {
+                "batch": {
+                    "labels": torch.zeros(microbatch_size, max_sequence_length, dtype=torch.long),  # [b s]
+                    "loss_mask": torch.ones(microbatch_size, max_sequence_length, dtype=torch.long),  # [b s]
+                },
+                "forward_out": {
+                    "token_logits": torch.ones(microbatch_size, max_sequence_length, vocab_size),  # [b s v]
+                },
+            },
+        ]
+
+        half_idx = max_sequence_length // 2
+        microbatch_outputs[0]["batch"]["labels"][:, :half_idx] = -100
+        microbatch_outputs[0]["batch"]["loss_mask"][:, :half_idx] = 0
+
+        call_on_megatron_reduce_microbatches_end(
+            max_sequence_length=max_sequence_length,
+            microbatch_size=microbatch_size,
+            num_microbatches=num_microbatches,
+            microbatch_outputs=microbatch_outputs,
+        )
+
+        val_ppl = mock_pl_module.log.call_args[0][1]
+        torch.testing.assert_close(
+            val_ppl, torch.tensor(vocab_size, dtype=torch.float32), msg="fail test on single microbatch with masking"
+        )
+
+        # 3. Test with multiple microbatches with variable length
+        microbatch_size, max_sequence_length, vocab_size = 2, 1024, 2
+        num_microbatches = 2
+        microbatch_outputs = [
+            {
+                "batch": {
+                    "labels": torch.zeros(microbatch_size, max_sequence_length // 2, dtype=torch.long),  # [b s]
+                    "loss_mask": torch.ones(microbatch_size, max_sequence_length // 2, dtype=torch.long),  # [b s]
+                },
+                "forward_out": {
+                    "token_logits": torch.ones(microbatch_size, max_sequence_length // 2, vocab_size),  # [b s v]
+                },
+            },
+            {
+                "batch": {
+                    "labels": torch.zeros(microbatch_size, max_sequence_length, dtype=torch.long),  # [b s]
+                    "loss_mask": torch.ones(microbatch_size, max_sequence_length, dtype=torch.long),  # [b s]
+                },
+                "forward_out": {
+                    "token_logits": torch.ones(microbatch_size, max_sequence_length, vocab_size),  # [b s v]
+                },
+            },
+        ]
+
+        call_on_megatron_reduce_microbatches_end(
+            max_sequence_length=max_sequence_length,
+            microbatch_size=microbatch_size,
+            num_microbatches=num_microbatches,
+            microbatch_outputs=microbatch_outputs,
+        )
+
+        val_ppl = mock_pl_module.log.call_args[0][1]
+        torch.testing.assert_close(
+            val_ppl,
+            torch.tensor(vocab_size, dtype=torch.float32),
+            msg="fail test on multiple microbatches with variable length",
+        )

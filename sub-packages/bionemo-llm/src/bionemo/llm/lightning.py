@@ -481,18 +481,23 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
         self.log_train = log_train
         self.log_val = log_val
 
-    def _pad_to_max_length(self, microbatch_outputs: List[Dict[str, Dict[str, torch.Tensor]]], key1: str, key2: str, pad_value: int = 0) -> torch.Tensor:
+    def _pad_to_max_length(
+        self, microbatch_outputs: List[Dict[str, Dict[str, torch.Tensor]]], key1: str, key2: str, pad_value: int = 0
+    ) -> torch.Tensor:
         """Pad tensors to max length in microbatch_outputs."""
         max_sequence_length = max(output[key1][key2].size(1) for output in microbatch_outputs)
 
         tensors = []
         for microbatch_output in microbatch_outputs:
             tensor = microbatch_output[key1][key2]
-            assert tensor.dim() >= 2, f"Tensor in microbatch_outputs must have at least 2 dimensions, but got {tensor.dim()} dimensions"
+            assert (
+                tensor.dim() >= 2
+            ), f"Tensor in microbatch_outputs must have at least 2 dimensions, but got {tensor.dim()} dimensions"
             tensors.append(
                 torch.nn.functional.pad(  # padding reverse in order
                     tensor,
-                    (0, 0) * (tensor.dim() - 2) + (0, max_sequence_length-tensor.shape[1], 0, 0),  # [b s *] -> [* s b]
+                    (0, 0) * (tensor.dim() - 2)
+                    + (0, max_sequence_length - tensor.shape[1], 0, 0),  # [b s *] -> [* s b]
                     value=pad_value,
                 )
             )
@@ -525,6 +530,7 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
         Expected microbatch_outputs to be a list of dicts with the following keys:
             - batch: dict of tensors with the following keys:
                 - labels: [b s]
+                - loss_mask: [b s]; 1 means included 0 means ignored
             - forward_out: dict of tensors with the following keys:
                 - token_logits: [b s vocab]
         """
