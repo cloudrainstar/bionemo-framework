@@ -17,12 +17,13 @@
 from typing import Any, Dict, List
 from unittest import mock
 
+import nemo.lightning as nl
 import pytest
 import torch
 from torch import nn
 
 from bionemo.llm import lightning as bnptl
-from bionemo.llm.lightning import MegatronStrategy, PerplexityLoggingCallback, batch_collator, get_dtype_device
+from bionemo.llm.lightning import PerplexityLoggingCallback, batch_collator, get_dtype_device
 from bionemo.testing import megatron_parallel_state_utils
 
 
@@ -168,7 +169,7 @@ class NestedModule(nn.Module):
 
 def test_mixin_strategy_contract_get_loss_reduction():
     with megatron_parallel_state_utils.clean_parallel_state_context():
-        strategy = MegatronStrategy(
+        strategy = nl.MegatronStrategy(
             tensor_model_parallel_size=1,
             pipeline_model_parallel_size=1,
             ddp="megatron",
