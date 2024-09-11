@@ -14,8 +14,8 @@
 # limitations under the License.
 
 
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, asdict
+from typing import Any, Callable, List
 import pathlib
 import nemo_run as run
 from typing import Sequence, Literal
@@ -45,6 +45,8 @@ from bionemo.llm.model.biobert.lightning import BioBertLightningModule
 from bionemo.llm.model.biobert.model import BiobertSpecOption
 from bionemo.llm.utils.datamodule_utils import float_or_int_or_none, infer_global_batch_size
 from bionemo.llm.utils.logger_utils import WandbLoggerOptions, setup_nemo_lightning_logger
+
+
 @dataclass
 class DataConfig:
     data_dir: str
@@ -177,14 +179,56 @@ def setup_trainer_from_configs(parallel_config: ParallelConfig, training_config:
     )
     return trainer
 
+@dataclass
+class ExposedGeneformerConfig:
+    ''' NeMo run does not like GeneformerConfig due to use its use of lambdas. 
+    
+    So I basicaly need a method that does This -> GeneformerConfig
+    then use regular recipes/factories on the parent and do this transform at the last step. 
+    '''
+    params_dtype: PrecisionTypes
+    pipeline_dtype: PrecisionTypes
+    autocast_dtype: PrecisionTypes
+    num_layers: int =6
+    hidden_size: int =256
+    ffn_hidden_size: int =512
+    num_attention_heads: int =4
+    seq_length: int = 512
+    fp32_residual_connection: bool =False
+    hidden_dropout: float =0.02
+    init_method_std: float =0.02
+    kv_channels: Optional[int]=None
+    apply_query_key_layer_scaling: bool =False
+    make_vocab_size_divisible_by: int =128
+    masked_softmax_fusion: bool =True
+    fp16_lm_cross_entropy: bool =False
+    gradient_accumulation_fusion: bool =False
+    layernorm_zero_centered_gamma: bool =False
+    layernorm_epsilon: float=1.0e-12
+    activation_func: Callable =F.gelu
+    qk_layernorm: bool=False
+    apply_residual_connection_post_layernorm: bool=False
+    bias_activation_fusion: bool =True
+    bias_dropout_fusion: bool =True
+    get_attention_mask_from_fusion: bool =False
+    attention_dropout: float =0.1
+    share_embeddings_and_output_weights: bool =True
+    enable_autocast: bool = False
+    nemo1_ckpt_path: Optional[str] = None
+    biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_local_spec.value
+
+def exposed_to_internal_geneformer_config(arg: ExposedGeneformerConfig) -> GeneformerConfig:
+    return GeneformerConfig(**asdict(arg))
 
 @run.cli.factory
 @run.autoconvert
-def basic_geneformer_config_recipe(seq_length: int = 128, precision: PrecisionTypes='bf16-mixed', nemo1_init_path: Optional[str]=None, biobert_spec_option: BiobertSpecOption=BiobertSpecOption.bert_layer_local_spec.value) -> GeneformerConfig:
-    # TODO seq_length must match the datamodule. We can pass in the DataConfig but I dont know how to enforce that its the same everywhere.
-    #           another option is to construct this ad-hoc like we do with wandb 
+def basic_wrapped_geneformer_config_recipe(seq_length: int = 128, 
+                                   precision: PrecisionTypes='bf16-mixed', 
+                                   nemo1_init_path: Optional[str]=None, 
+                                   biobert_spec_option: BiobertSpecOption=BiobertSpecOption.bert_layer_local_spec.value
+                                   ) -> ExposedGeneformerConfig:
     ''' Sets up the base GeneformerConfig. Recipes on geneformer configs should choose what to expose and come with sensible defaults. '''
-    geneformer_config = GeneformerConfig(
+    geneformer_config = ExposedGeneformerConfig(
         num_layers=6,
         hidden_size=256,
         ffn_hidden_size=512,
@@ -345,9 +389,38 @@ def nemo_logger_factory(experiment_config: ExperimentConfig, wandb_config: Optio
     )
     return nemo_logger
 
+def pretrain_partial(
+        geneformer_config: ExposedGeneformerConfig, 
+        data_config: DataConfig, 
+        parallel_config: ParallelConfig, 
+        training_config: TrainingConfig, 
+        optim_config: OptimizerSchedulerConfig,
+        experiment_config: ExperimentConfig, 
+        resume_if_exists: bool = True,
+        wandb_entity: Optional[str] = None,
+        wandb_project: Optional[str] = None,
+        wandb_offline: bool = True,
+) -> run.Partial:
+    ''' Same as pretrain but in partial form instead of an entrypoint. '''
+
+    return run.Partial(pretrain, 
+        geneformer_config=geneformer_config,
+        data_config=data_config,
+        parallel_config=parallel_config,
+        training_config=training_config,
+        optim_config=optim_config,
+        experiment_config=experiment_config,
+        # Remaining are things that live outside a config
+        resume_if_exists=resume_if_exists,
+        # These could live as their own config, but they dont make sense to use factories with since theyre dependent on the environment.
+        wandb_entity=wandb_entity,
+        wandb_project=wandb_project,
+        wandb_offline=wandb_offline
+    )
+
 @run.cli.entrypoint
 def pretrain(
-        geneformer_config: GeneformerConfig, 
+        geneformer_config: ExposedGeneformerConfig,  #noqa
         data_config: DataConfig, 
         parallel_config: ParallelConfig, 
         training_config: TrainingConfig, 
@@ -355,18 +428,21 @@ def pretrain(
         experiment_config: ExperimentConfig, 
         # Remaining are things that live outside a config
         resume_if_exists: bool = True,
+        # These could live as their own config, but they dont make sense to use factories with since theyre dependent on the environment.
         wandb_entity: Optional[str] = None,
         wandb_project: Optional[str] = None,
         wandb_offline: bool = True,
-        copy_val_check_interval_for_save_every_n_steps: bool = True
+        new_experiment_title = 'asdf'
     ):
-    # NOTE: any config passed into the entrypoint can be MUTATED by the CLI.
+
+    # To make this work correctly as an entrypoint we must actually wrap it in something else due how how certain local variables are used as defaults.
+    geneformer_config: GeneformerConfig = exposed_to_internal_geneformer_config(geneformer_config)
 
     # Setup.
     # Create requisite directory.
     pathlib.Path(data_config.result_dir).mkdir(parents=True, exist_ok=True)
 
-    if copy_val_check_interval_for_save_every_n_steps and experiment_config.save_every_n_steps != training_config.val_check_interval:
+    if experiment_config.save_every_n_steps != training_config.val_check_interval:
         logging.warning("Mutating training_config.save_every_n_steps to be equal to val_check_interval.")
         experiment_config.save_every_n_steps = training_config.val_check_interval
 
