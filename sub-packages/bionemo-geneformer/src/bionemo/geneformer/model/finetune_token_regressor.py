@@ -19,6 +19,9 @@ import torch
 from megatron.core import parallel_state
 from megatron.core.transformer.module import MegatronModule
 from megatron.core.transformer.transformer_config import TransformerConfig
+from nemo.collections.llm import fn
+from nemo.collections.llm.fn.mixin import FNMixin
+from nemo.collections.llm.peft.lora import AdapterParallelAdd, LoRA
 from nemo.collections.nlp.modules.common.megatron.utils import average_losses_across_data_parallel_group
 from nemo.lightning.megatron_parallel import (
     MegatronLossReduction,
@@ -177,3 +180,61 @@ class FineTuneSeqLenBioBertConfig(
 
     def get_loss_reduction_class(self) -> Type[MegatronLossReduction]:
         return SequenceLengthRMSEPlusBERTMLMLossWithReduction
+
+
+class LoRAForGeneFormerTokenRegressor(LoRA):
+    def __call__(self, model: nn.Module) -> nn.Module:
+        fn.walk(model, self.selective_freeze)
+        fn.walk(model, self.transform)
+        return model
+
+    def selective_freeze(self, m: nn.Module, name=None, prefix=None):
+        if name in ["encoder", "embedding"]:
+            FNMixin.freeze(m)
+        return m
+
+    def transform(self, m: nn.Module, name=None, prefix=None):
+        from nemo.collections.nlp.modules.common.megatron.adapters.parallel_adapters import ParallelLinearAdapter
+
+        tp_size = parallel_state.get_tensor_model_parallel_world_size()
+        if name in self.target_modules:
+            # m.in_features and m.out_features are divided by tp_size already,
+            # but in_features and out_features passed to ParallelLinearAdapter are not.
+            if prefix is not None and "regression_head" in prefix:
+                return m
+            if name in ["linear_qkv", "linear_fc1"]:
+                # Column Parallel Linear
+                input_is_parallel = False
+                in_features = m.input_size  # TODO(@georgea) note that this could break depending on the impl of `m`
+                out_features = m.output_size * tp_size
+                # LoRA is applied after layernorm, so layernorm output must be returned
+                m.return_layernorm_output = True
+                # perf optimization for LoRA + SP
+                if m.config.sequence_parallel and not m.ub_overlap_ag:
+                    m.return_layernorm_output_gathered = True
+            else:  # name in ['linear_proj', 'linear_fc2']
+                # Row Parallel Linear
+                input_is_parallel = True
+                in_features = (
+                    m.input_size * tp_size
+                )  # TODO(@georgea) note this could break depending on the impl of `m`
+                out_features = m.output_size
+
+            adapter = ParallelLinearAdapter(
+                in_features,
+                out_features,
+                self.dim,
+                activation="identity",
+                norm_position=None,
+                norm_type=None,
+                column_init_method=self.lora_A_init_method,
+                row_init_method=self.lora_B_init_method,
+                gather_output=False,
+                input_is_parallel=input_is_parallel,
+                dropout=self.dropout,
+                dropout_position=self.dropout_position,
+                model_parallel_config=getattr(m, "config", None),
+                alpha=self.alpha,
+            )
+            return AdapterParallelAdd(m, adapter)
+        return m

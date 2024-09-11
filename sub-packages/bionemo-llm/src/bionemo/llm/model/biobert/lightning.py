@@ -190,6 +190,7 @@ class BioBertLightningModule(  # noqa: D101
         ),
         data_step_function: DataStepFunction = biobert_data_step,
         forward_step_function: ForwardStepFunction = bert_forward_step,
+        model_transform=None,
     ):
         """A pytorch lightning module for BioBert-derived models. This module is designed to be used with the Megatron-LM strategy and nemo 2.0 conventions.
         To change the your loss, pass in a different config object that returns a different loss reduction class. To change your model and what it outputs,
@@ -208,6 +209,8 @@ class BioBertLightningModule(  # noqa: D101
         self.optim.connect(self)  # This will bind the `configure_optimizers` method
         self.data_step_function: DataStepFunction = data_step_function
         self.forward_step_function: ForwardStepFunction = forward_step_function
+        if model_transform is not None:
+            self.model_transform = model_transform
 
     def configure_model(self) -> None:  # noqa: D102
         self.module = self.config.configure_model(self.tokenizer)
