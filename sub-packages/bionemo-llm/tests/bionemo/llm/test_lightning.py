@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-from typing import Dict, List
+from typing import Dict, List, Any
 from unittest import mock
 
 import pytest
@@ -24,6 +24,9 @@ from torch import nn
 from bionemo.llm import lightning as bnptl
 from bionemo.llm.lightning import MegatronStrategy, PerplexityLoggingCallback, batch_collator, get_dtype_device
 from bionemo.testing import megatron_parallel_state_utils
+from nemo.lightning.megatron_parallel import (
+    CallbackMethods,
+)
 
 
 def test_batch_collate_tuple():
@@ -181,7 +184,48 @@ def test_mixin_strategy_contract_get_loss_reduction():
         assert isinstance(strategy_reduction_function(mixin), bnptl.PassthroughLossReduction)
 
 
-def test_PerplexityLoggingCallback_golden_values_in_validation():
+def call_perplexity_logging_callback_on_megatron_reduce_microbatches_end(
+    callback: PerplexityLoggingCallback,
+    pl_module: Any,
+    trainer: Any,
+    max_sequence_length: int,
+    microbatch_size: int,
+    num_microbatches: int,
+    microbatch_outputs: List[Dict[str, Dict[str, torch.Tensor]]],
+) -> None:
+    """Helper function to call on_megatron_reduce_microbatches_end for PerplexityLoggingCallback testing.
+
+    Args:
+        callback (PerplexityLoggingCallback): PerplexityLoggingCallback instance
+        pl_module (Any): object with method `log`
+        trainer (Any): object with attribute `training`
+        max_sequence_length (int): maximum of sequence length in the batch
+        microbatch_size (int): batch size of each microbatch
+        num_microbatches (int): number of microbatches
+        microbatch_outputs (List[Dict[str, Dict[str, torch.Tensor]]]): dictionary outputs from microbatches
+    """
+    callback.on_megatron_reduce_microbatches_end(
+        data=None,
+        forward_only=None,
+        data_step=None,
+        forward_step=None,
+        loss_reduction=None,
+        seq_length=max_sequence_length,
+        micro_batch_size=microbatch_size,
+        num_microbatches=num_microbatches,
+        wrap_forward_step=None,
+        pipeline=None,
+        use_global_batch_sampler=None,
+        data_iterator=None,
+        pl_module=pl_module,
+        trainer=trainer,
+        microbatch_outputs=microbatch_outputs,
+        loss_mean=None,
+    )
+
+
+def test_perplexity_logging_callback_with_single_microbatch_without_parallelism():
+    """Test PerplexityLoggingCallback with a single microbatch without parallelism"""
     with megatron_parallel_state_utils.distributed_model_parallel_state():
         mock_pl_module = mock.MagicMock()
         mock_pl_module.log.return_value = None
@@ -191,32 +235,6 @@ def test_PerplexityLoggingCallback_golden_values_in_validation():
 
         callback = PerplexityLoggingCallback(log_train=False, log_val=True)
 
-        def call_on_megatron_reduce_microbatches_end(
-            max_sequence_length: int,
-            microbatch_size: int,
-            num_microbatches: int,
-            microbatch_outputs: List[Dict[str, Dict[str, torch.Tensor]]],
-        ) -> None:
-            callback.on_megatron_reduce_microbatches_end(
-                data=None,
-                forward_only=None,
-                data_step=None,
-                forward_step=None,
-                loss_reduction=None,
-                seq_length=max_sequence_length,
-                micro_batch_size=microbatch_size,
-                num_microbatches=num_microbatches,
-                wrap_forward_step=None,
-                pipeline=None,
-                use_global_batch_sampler=None,
-                data_iterator=None,
-                pl_module=mock_pl_module,
-                trainer=mock_trainer,
-                microbatch_outputs=microbatch_outputs,
-                loss_mean=None,
-            )
-
-        # 1. Test with a single microbatch
         microbatch_size, max_sequence_length, vocab_size = 1, 1024, 2
         num_microbatches = 1
         microbatch_outputs = [
@@ -231,7 +249,10 @@ def test_PerplexityLoggingCallback_golden_values_in_validation():
             },
         ]
 
-        call_on_megatron_reduce_microbatches_end(
+        call_perplexity_logging_callback_on_megatron_reduce_microbatches_end(
+            callback=callback,
+            pl_module=mock_pl_module,
+            trainer=mock_trainer,
             max_sequence_length=max_sequence_length,
             microbatch_size=microbatch_size,
             num_microbatches=num_microbatches,
@@ -243,7 +264,18 @@ def test_PerplexityLoggingCallback_golden_values_in_validation():
             val_ppl, torch.tensor(vocab_size, dtype=torch.float32), msg="fail test on single microbatch"
         )
 
-        # 2. Test with a single microbatch with masking
+
+def test_perplexity_logging_callback_with_single_masked_microbatch_without_parallelism():
+    """Test PerplexityLoggingCallback with a single masked microbatch without parallelism"""
+    with megatron_parallel_state_utils.distributed_model_parallel_state():
+        mock_pl_module = mock.MagicMock()
+        mock_pl_module.log.return_value = None
+
+        mock_trainer = mock.MagicMock()
+        mock_trainer.training = False
+
+        callback = PerplexityLoggingCallback(log_train=False, log_val=True)
+
         microbatch_size, max_sequence_length, vocab_size = 1, 1024, 2
         num_microbatches = 1
         microbatch_outputs = [
@@ -262,7 +294,10 @@ def test_PerplexityLoggingCallback_golden_values_in_validation():
         microbatch_outputs[0]["batch"]["labels"][:, :half_idx] = -100
         microbatch_outputs[0]["batch"]["loss_mask"][:, :half_idx] = 0
 
-        call_on_megatron_reduce_microbatches_end(
+        call_perplexity_logging_callback_on_megatron_reduce_microbatches_end(
+            callback=callback,
+            pl_module=mock_pl_module,
+            trainer=mock_trainer,
             max_sequence_length=max_sequence_length,
             microbatch_size=microbatch_size,
             num_microbatches=num_microbatches,
@@ -274,7 +309,18 @@ def test_PerplexityLoggingCallback_golden_values_in_validation():
             val_ppl, torch.tensor(vocab_size, dtype=torch.float32), msg="fail test on single microbatch with masking"
         )
 
-        # 3. Test with multiple microbatches with variable length
+
+def test_perplexity_logging_callback_with_variable_length_microbatches_without_parallelism():
+    """Test PerplexityLoggingCallback with variable-length microbatches without parallelism"""
+    with megatron_parallel_state_utils.distributed_model_parallel_state():
+        mock_pl_module = mock.MagicMock()
+        mock_pl_module.log.return_value = None
+
+        mock_trainer = mock.MagicMock()
+        mock_trainer.training = False
+
+        callback = PerplexityLoggingCallback(log_train=False, log_val=True)
+
         microbatch_size, max_sequence_length, vocab_size = 2, 1024, 2
         num_microbatches = 2
         microbatch_outputs = [
@@ -298,7 +344,10 @@ def test_PerplexityLoggingCallback_golden_values_in_validation():
             },
         ]
 
-        call_on_megatron_reduce_microbatches_end(
+        call_perplexity_logging_callback_on_megatron_reduce_microbatches_end(
+            callback=callback,
+            pl_module=mock_pl_module,
+            trainer=mock_trainer,
             max_sequence_length=max_sequence_length,
             microbatch_size=microbatch_size,
             num_microbatches=num_microbatches,
