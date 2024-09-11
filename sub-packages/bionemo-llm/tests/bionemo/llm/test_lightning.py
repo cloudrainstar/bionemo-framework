@@ -181,7 +181,6 @@ def test_mixin_strategy_contract_get_loss_reduction():
         assert isinstance(strategy_reduction_function(mixin), bnptl.PassthroughLossReduction)
 
 
-
 def test_PerplexityLoggingCallback_golden_values_in_validation():
     with megatron_parallel_state_utils.distributed_model_parallel_state():
         mock_pl_module = mock.MagicMock()

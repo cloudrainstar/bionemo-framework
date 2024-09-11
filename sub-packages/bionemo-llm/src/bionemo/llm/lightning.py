@@ -555,16 +555,13 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
         if self.log_val and trainer.training is False:
             pp_size = parallel_state.get_pipeline_model_parallel_world_size()
             if pp_size > 1:
-                # ranks that are not final pp stage have 0 for loss, and out will be mean-reduced over pp
-                # groups (due to sync_dist), which divides val_loss by pp_size. so we multiply by pp_size to cancel out
-                pl_module.log(
-                    "val_ppl",
-                    ppl_for_microbatch * pp_size,
-                    prog_bar=True,
-                    sync_dist=True,
-                    sync_dist_group=parallel_state.get_pipeline_model_parallel_group(),
-                    on_epoch=True,
-                )
+                if parallel_state.is_pipeline_last_stage():
+                    pl_module.log(
+                        "val_ppl",
+                        ppl_for_microbatch * pp_size,
+                        prog_bar=True,
+                        on_epoch=True,
+                    )
             else:
                 pl_module.log("val_ppl", ppl_for_microbatch, prog_bar=True, on_epoch=True)
         elif self.log_train and trainer.training is True:
