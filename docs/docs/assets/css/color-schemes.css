@@ -3,6 +3,8 @@
   --md-header-bg-color: #76b900;
   --md-header-fg-color: #050505;
   --md-logo-url: url("../images/logo-icon-black.svg");
+  --md-nav-color: black;
+  --md-nav-container-color: black;
 
   --md-typeset-table-header-bg-color: hsla(var(--md-hue), 100%, 36.3%, 1);
   --md-admonition-hue-under-construction: 32.2;
@@ -62,7 +64,10 @@
   --md-admonition-fg-color: var(--md-default-fg-color);
   --md-admonition-bg-color: var(--md-default-bg-color);
   --md-footer-bg-color: hsla(var(--md-hue), 15%, 12%, 0.87);
-  --md-footer-bg-color--dark: hsla(var(--md-hue), 15%, 10%, 1);
+  --md-footer-bg-color--dark: #fafafa;
+  --md-footer-fg-color--light: black;
+  --md-footer-fg-color--lighter: #9ca4af;
+  --md-footer-border-top: 1px solid #9ca4af;
 }
 
 [data-md-color-scheme="nvidia-dark"] {
@@ -70,6 +75,8 @@
   --md-header-bg-color: #76b900;
   --md-header-fg-color: #050505;
   --md-logo-url: url("../images/logo-icon-black.svg");
+  --md-nav-color: #9ca4af;
+  --md-nav-container-color: white;
 
   --md-typeset-table-header-bg-color: hsla(var(--md-hue), 50%, 26.3%, 1);
   --md-admonition-hue-under-construction: 39.2;
@@ -86,7 +93,7 @@
   --md-admonition-value-azure-only: 52%;
   --md-admonition-hue-azure-only: 206;
 
-  /* customized values from their theme */
+  /* customized values from their theme #15181f */
   --md-text-font: "NVIDIA Sans";
   --md-hue: 81.7;
   --md-primary-fg-color: hsla(var(--md-hue), 100%, 36.3%, 1);
@@ -95,10 +102,10 @@
   --md-accent-fg-color--transparent: hsla(var(--md-hue), 85%, 95%, 0.12);
   --md-accent-fg-color: hsla(201.7, 100%, 65%, 1);
   --md-default-fg-color: hsla(var(--md-hue), 11%, 100%, 1);
-  --md-default-fg-color--light: hsla(var(--md-hue), 95%, 50%, 0.82);
+  --md-default-fg-color--light: white; /*hsla(var(--md-hue), 95%, 50%, 0.82);*/
   --md-default-fg-color--lighter: hsla(var(--md-hue), 35%, 60%, 0.32);
   --md-default-fg-color--lightest: hsla(var(--md-hue), 45%, 90%, 0.12);
-  --md-default-bg-color: hsla(var(--md-hue), 8%, 11%, 1);
+  --md-default-bg-color: #15181f; /*hsla(var(--md-hue), 8%, 11%, 1);*/
   --md-default-bg-color--light: hsla(var(--md-hue), 15%, 21%, 0.54);
   --md-default-bg-color--lighter: hsla(var(--md-hue), 15%, 21%, 0.26);
   --md-default-bg-color--lightest: hsla(var(--md-hue), 15%, 21%, 0.07);
@@ -129,4 +136,8 @@
   --md-admonition-bg-color: var(--md-default-bg-color);
   --md-footer-bg-color: hsla(var(--md-hue), 15%, 12%, 0.87);
   --md-footer-bg-color--dark: hsla(var(--md-hue), 15%, 20%, 1);
+  --md-footer-bg-color--dark: #15181f;
+  --md-footer-fg-color--light: white;
+  --md-footer-fg-color--lighter: #9ca4af;
+  --md-footer-border-top: 1px solid #9ca4af;
 }

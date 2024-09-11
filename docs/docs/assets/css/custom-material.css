@@ -1,4 +1,4 @@
-Customizations to support logo and other color changes img[alt="logo"] {
+img[alt="logo"] {
   content: var(--md-logo-url);
 }
 
@@ -226,4 +226,16 @@ Customizations to support logo and other color changes img[alt="logo"] {
 .md-typeset .md-button--small {
   padding: 0.075em 0.6em;
   border: 1px solid hsla(var(--md-hue), 20%, 20%, 0.6);
+}
+
+.md-nav__item {
+  color: var(--md-nav-color);
+}
+
+.md-footer {
+  border-top: var(--md-footer-border-top);
+}
+
+.md-nav__container {
+  color: var(--md-nav-container-color);
 }

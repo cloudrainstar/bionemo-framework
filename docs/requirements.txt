@@ -5,3 +5,4 @@ mkdocs-gen-files
 pymdown-extensions
 mkdocs-jupyter
 mkdocs-include-dir-to-nav
+mkdocs-literate-nav

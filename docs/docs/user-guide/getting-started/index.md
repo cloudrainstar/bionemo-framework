@@ -28,13 +28,13 @@ Generative AI and large language models (LLMs) are achieving incredible breakthr
 
 **BioNeMo NIMs** are easy-to-use enterprise-ready inference microservices with built-in API endpoints. NIMs are engineered for scalable, self-hosted or cloud-hosted deployment of optimized, production-grade biomolecular foundation models on any cloud or data center. Check out the growing list of BioNeMo NIMs [here](https://build.nvidia.com/explore/biology).
 
-![](../assets/old_images/bionemo_overview_2.png)
+![](../../assets/old_images/bionemo_overview_2.png)
 
 ## BioNeMo Framework: Fundamentals
 
 BioNeMo Framework provides versatile functionalities for developing and training large-scale biology-based models. BioNeMo allows users to build and train biomolecular models by providing access to pre-trained models and common model components for accelerating drug discovery workflows. Built for supercomputing scale, the framework allows developers to easily configure and train distributed multi-node jobs with minimal code.
 
-![](../assets/old_images/bionemo_overview_1.png)
+![](../../assets/old_images/bionemo_overview_1.png)
 
 BioNeMo is built on [NeMo](https://docs.nvidia.com/deeplearning/nemo/user-guide/docs/en/stable/starthere/intro.html), a scalable and cloud-native generative AI framework for researchers to create, customize, and deploy large language models (LLMs). NeMo provides a robust environment for working with large learning models, including [NVIDIA Megatron](https://docs.nvidia.com/deeplearning/nemo/user-guide/docs/en/stable/nlp/megatron.html) models. The BioNeMo Framework provides enhancements to PyTorch Lighting, such as hyperparameter configurability with YAML files and checkpoint management. Users can conveniently and quickly train models using these features, test them for desired tasks, and integrate them alongside existing applications.
 

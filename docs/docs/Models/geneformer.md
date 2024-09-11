@@ -151,15 +151,15 @@ NVIDIA believes Trustworthy AI is a shared responsibility and we have establishe
 ### geneformer-10M-240530
 
 This checkpoint was trained for approximately 11 epochs through the CELLxGENE split. Training was performed on 8 servers with 8 A100 GPUs each for a total of 115430 steps of per-gpu micro batch size 32 and global batch size of 2048. Training took a total of 1 day, 20 hours and 19 minutes of wallclock time. As can be seen in the following image, training and validation curves both decreased fairly smoothly throughout the course of training. In fact validation (blue) and training (orange) loss were both still decreasing at the end of 11 epochs through the dataset. The model could likely be trained for more epochs without overfitting.
-![Validation and training losses both decreased smoothly through training](.../assets/old_images/sc_fm/geneformer-10m-240530-val-train-loss.png)
+![Validation and training losses both decreased smoothly through training](../assets/old_images/sc_fm/geneformer-10m-240530-val-train-loss.png)
 
 ### geneformer-106M-240530
 
 This checkpoint was trained for approximately 11 epochs through the CELLxGENE split. Training was performed on 16 servers with 8 A100 GPUs each for a total of 115430 steps of per-gpu micro batch size 16 and global batch size of 2048. Training took a total of 3 days, 18 hours and 55 minutes of wallclock time. As can be seen in the following image, training and validation curves both decreased fairly smoothly throughout the course of training. In fact validation (blue) and training (orange) loss were both still decreasing at the end of 11 epochs through the dataset. The model could likely be trained for more epochs without overfitting.
-![Validation and training losses both decreased smoothly through training](.../assets/old_images/sc_fm/geneformer-106m-240530-val-train-loss.png)
+![Validation and training losses both decreased smoothly through training](../assets/old_images/sc_fm/geneformer-106m-240530-val-train-loss.png)
 
 Additionally, validation loss decreased both faster and continued to decrease at the same improved rate throughout training in the 106M parameter model (red) as compared to the 10M parameter model (blue). It would be interesting to test even larger models to see if we continue to observe improved performance in larger models.
-![106M parameter model outperformed 10M parameter model](.../assets/old_images/sc_fm/geneformer-240530-val-comparison.png)
+![106M parameter model outperformed 10M parameter model](../assets/old_images/sc_fm/geneformer-240530-val-comparison.png)
 
 ## Benchmarking
 
@@ -186,11 +186,11 @@ Elmentaite et al. (2020), Developmental Cell. This dataset contains approximatel
 
 For more details see the example notebook titled Geneformer-celltype-classification-example.ipynb
 
-![F1-score for both released models, a random baseline, and a PCA based transformation of the raw expression.](.../assets/old_images/sc_fm/F1-score-models.png)
-![Average accuracy across cell types for both released models, a random baseline, and a PCA based transformation of the raw expression.](.../assets/old_images/sc_fm/average-accuracy-models.png)
+![F1-score for both released models, a random baseline, and a PCA based transformation of the raw expression.](../assets/old_images/sc_fm/F1-score-models.png)
+![Average accuracy across cell types for both released models, a random baseline, and a PCA based transformation of the raw expression.](../assets/old_images/sc_fm/average-accuracy-models.png)
 
 ### Performance Benchmarks
 
 The 106M parameter variant of Geneformer achieves over 50 TFLOPS per GPU during training. This is consistent whether trained with 1 or 8 A100s.
 
-![TFLOPs per GPU (A100) shows improved utilization by 106M variant](.../assets/old_images/sc_fm/model_tflops_per_gpu_chart_tight_layout.png)
+![TFLOPs per GPU (A100) shows improved utilization by 106M variant](../assets/old_images/sc_fm/model_tflops_per_gpu_chart_tight_layout.png)
