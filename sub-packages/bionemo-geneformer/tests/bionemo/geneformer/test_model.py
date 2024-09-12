@@ -1048,3 +1048,9 @@ def test_finetune_geneformer_with_peft(
         assert io.is_distributed_ckpt(weights_ckpt)
         assert ft_trainer.model.config.num_layers == n_layers_test
         assert simple_ft_metrics.collection_train["loss"][0] > simple_ft_metrics.collection_train["loss"][-1]
+
+        model = ft_trainer.model[0].module.module.module
+        assert all(not p.requires_grad for p in model.embedding.parameters())
+        assert all(not p.requires_grad for name, p in model.encoder.named_parameters() if "adapter" not in name)
+        assert all(p.requires_grad for name, p in model.encoder.named_parameters() if "adapter" in name)
+        assert all(p.requires_grad for p in model.regression_head.parameters())
