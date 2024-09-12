@@ -11,15 +11,15 @@
 
     Install BioNeMo and set up your environment to start accelerating your bioinformatics workflows
 
-    [:octicons-arrow-right-24: User Guide](user-guide/getting-started)
+    [Get Started](user-guide/getting-started){ .md-button .md-button }
 
 -   :material-scale-balance:{ .lg .middle } __API Reference__
 
     ---
 
-    Access comprehensive documentation of BioNeMo's functions and classes
+    Access comprehensive documentation on BioNeMo's sub-packages, functions and classes
 
-    [:octicons-arrow-right-24: API Reference](API_reference/bionemo/core/api/)
+    [API Reference](API_reference/bionemo/core/api/){ .md-button .md-button }
 
 -   :material-format-font:{ .lg .middle } __Models__
 
@@ -27,7 +27,9 @@
 
     Explore detailed instructions and best practices for using BioNeMo in your research
 
-    [:octicons-arrow-right-24: Models](models)
+    [Explore Models](models){ .md-button .md-button }
+
+
 
 -   :fontawesome-brands-markdown:{ .lg .middle } __Datasets__
 
@@ -35,6 +37,7 @@
 
     Join the BioNeMo community and learn how to contribute to this open-source project
 
-    [:octicons-arrow-right-24: Datasets](datasets)
+    [Explore Datasets](datasets){ .md-button .md-button }
+
 
 </div>
