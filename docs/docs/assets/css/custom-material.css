@@ -164,3 +164,7 @@
 .md-search__icon svg {
   fill: #ffffff;
 }
+
+.md-typeset .grid.cards > ul > li:hover {
+  border-color: var(--md-default-fg-color--lightest);
+}
