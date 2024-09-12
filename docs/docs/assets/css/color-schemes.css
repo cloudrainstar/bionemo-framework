@@ -1,4 +1,4 @@
-/* NVIDIA Light Theme */
+/* Light Theme */
 [data-md-color-scheme="light"] {
   --md-primary-fg-color: #76b900;
   --md-primary-fg-color--light: #8ed100;
@@ -30,15 +30,17 @@
   --svg-color: black;
   --md-header-bg-color: white;
   --md-header-color: black;
+  --md-search-hover-color: #999999;
 }
 
-/* NVIDIA Dark Theme */
+/* Dark Theme */
 [data-md-color-scheme="dark"] {
   --md-primary-fg-color: #76b900;
   --md-primary-fg-color--light: #8ed100;
   --md-primary-fg-color--dark: #5f9300;
   --md-primary-bg-color: #1a1a1a;
-  --md-accent-fg-color: #8ed100; /* Lighter green for better visibility in dark mode */
+  /* Lighter green for better visibility in dark mode */
+  --md-accent-fg-color: #8ed100;
   /* text color */
   --md-default-fg-color: #ffffff;
   /* title text */
@@ -66,8 +68,10 @@
   --md-footer-fg-color--light: #ffffff;
 
   --md-footer-border: 0px solid #c9d1d9;
+  --md-footer-border-bottom: 1px solid #2a2a2a;
   --md-header-border: 0px solid #c9d1d9;
   --svg-color: white;
-  --md-header-bg-color: black;
+  --md-header-bg-color: #1a1a1a;
   --md-header-color: white;
+  --md-search-hover-color: #2a2a2a;
 }

@@ -156,3 +156,11 @@
 .md-grid {
   max-width: 67rem;
 }
+
+.md-search__form:hover {
+  background-color: var(--md-search-hover-color);
+}
+
+.md-search__icon svg {
+  fill: #ffffff;
+}
