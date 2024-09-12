@@ -5,6 +5,7 @@ repo_name: NVIDIA/bionemo-fw-ea
 
 theme:
   name: "material"
+  custom_dir: overrides
   features:
     - content.code.annotate
     - navigation.tabs
@@ -14,6 +15,7 @@ theme:
     - navigation.path
     - navigation.instant.prefetch
     - navigation.top
+    - navigation.footer
     - search.suggest
     - search.highlight
     - content.code.copy
@@ -21,23 +23,25 @@ theme:
     text: NVIDIA Sans
     code: Roboto Mono
   favicon: assets/images/favicon.png
-  logo: assets/images/logo-white.svg
   language: en
   palette:
     - media: "(prefers-color-scheme: light)"
-      scheme: nvidia-light
+      scheme: light
       primary: custom
       accent: red
       toggle:
-        icon: material/toggle-switch
+        icon: material/toggle-switch-off
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
-      scheme: nvidia-dark
+      scheme: dark
       primary: custom
       accent: lime
       toggle:
-        icon: material/toggle-switch-off
+        icon: material/toggle-switch
         name: Switch to system preference
+  icon:
+    logo: nvidia/nvidia-logo
+    repo: fontawesome/brands/github
 
 extra_css:
   - assets/css/color-schemes.css
@@ -72,8 +76,16 @@ markdown_extensions:
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      options:
+        custom_icons:
+          - overrides/.icons
   - def_list
   - admonition
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/NVIDIA/bionemo-fw-ea
 
 copyright: |
   &copy; Copyright 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
