@@ -9,10 +9,6 @@
 .md-tabs {
   background-color: var(--md-header-bg-color);
   color: var(--md-header-color);
-  /* background-color: white;
-  color: black; */
-  /* background-color: var(--md-primary-fg-color);
-  color: var(--md-primary-bg-color); */
 }
 
 .md-tabs {
@@ -155,4 +151,8 @@
 
 .md-copyright {
   color: var(--md-header-color);
+}
+
+.md-grid {
+  max-width: 67rem;
 }
