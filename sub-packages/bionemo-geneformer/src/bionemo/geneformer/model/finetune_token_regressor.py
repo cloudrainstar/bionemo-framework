@@ -183,6 +183,24 @@ class FineTuneSeqLenBioBertConfig(
 
 
 class LoRAForGeneFormerTokenRegressor(LoRA):
+    def input_size_getter(self, m: nn.Module):
+        match m:
+            case object(input_size=n):
+                return n
+            case object(in_features=n):
+                return n
+            case _:
+                raise ValueError(f"Module {m} does not have a supported input size calculation.")
+
+    def output_size_getter(self, m: nn.Module):
+        match m:
+            case object(output_size=n):
+                return n
+            case object(out_features=n):
+                return n
+            case _:
+                raise ValueError(f"Module {m} does not have a supported output size calculation.")
+
     def __call__(self, model: nn.Module) -> nn.Module:
         fn.walk(model, self.selective_freeze)
         fn.walk(model, self.transform)
@@ -205,8 +223,10 @@ class LoRAForGeneFormerTokenRegressor(LoRA):
             if name in ["linear_qkv", "linear_fc1"]:
                 # Column Parallel Linear
                 input_is_parallel = False
-                in_features = m.input_size  # TODO(@georgea) note that this could break depending on the impl of `m`
-                out_features = m.output_size * tp_size
+                in_features = self.input_size_getter(
+                    m
+                )  # TODO(@georgea) note that this could break depending on the impl of `m`
+                out_features = self.output_size_getter(m) * tp_size
                 # LoRA is applied after layernorm, so layernorm output must be returned
                 m.return_layernorm_output = True
                 # perf optimization for LoRA + SP
@@ -216,9 +236,9 @@ class LoRAForGeneFormerTokenRegressor(LoRA):
                 # Row Parallel Linear
                 input_is_parallel = True
                 in_features = (
-                    m.input_size * tp_size
+                    self.input_size_getter(m) * tp_size
                 )  # TODO(@georgea) note this could break depending on the impl of `m`
-                out_features = m.output_size
+                out_features = self.output_size_getter(m)
 
             adapter = ParallelLinearAdapter(
                 in_features,
