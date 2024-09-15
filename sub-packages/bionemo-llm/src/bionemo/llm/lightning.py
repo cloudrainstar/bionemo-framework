@@ -393,7 +393,7 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
 
         assert num_microbatches > 0, "num_microbatches must be greater than 0"
         assert len(microbatch_outputs) == num_microbatches, "microbatch_outputs length does not match num_microbatches"
-        labels = self._pad_to_max_length(microbatch_outputs, "batch", "labels", pad_value=-100)
+        labels = self._pad_to_max_length(microbatch_outputs, "batch", "labels", pad_value=-1)
         loss_mask = self._pad_to_max_length(microbatch_outputs, "batch", "loss_mask")
         token_logits = self._pad_to_max_length(microbatch_outputs, "forward_out", "token_logits")
 
