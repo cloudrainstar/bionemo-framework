@@ -391,6 +391,9 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
         if trainer.training and not self.log_train:
             return
 
+        if not parallel_state.is_pipeline_last_stage():
+            return
+
         assert num_microbatches > 0, "num_microbatches must be greater than 0"
         assert len(microbatch_outputs) == num_microbatches, "microbatch_outputs length does not match num_microbatches"
         labels = self._pad_to_max_length(microbatch_outputs, "batch", "labels", pad_value=-100)
@@ -406,19 +409,6 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
             raise NotImplementedError("Context parallel perplexity logging is not supported yet")
 
         if self.log_val and trainer.training is False:
-            pp_size = parallel_state.get_pipeline_model_parallel_world_size()
-            if pp_size > 1:
-                if parallel_state.is_pipeline_last_stage():
-                    pl_module.log(
-                        "val_ppl",
-                        ppl,
-                        prog_bar=True,
-                        on_epoch=True,
-                    )
-            else:
-                pl_module.log("val_ppl", ppl, prog_bar=True, on_epoch=True)
+            pl_module.log("val_ppl", ppl, prog_bar=True, on_epoch=True)
         elif self.log_train and trainer.training is True:
-            if (
-                parallel_state.is_pipeline_last_stage()
-            ):  # TODO(@sichu) is it possible to sync across last pp stage of different dp groups?
-                pl_module.log("train_ppl", ppl, prog_bar=True, batch_size=1, sync_dist=False)
+            pl_module.log("train_ppl", ppl, prog_bar=True, batch_size=1, sync_dist=False)
