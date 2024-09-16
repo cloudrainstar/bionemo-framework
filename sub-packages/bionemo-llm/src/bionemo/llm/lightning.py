@@ -32,7 +32,7 @@ from nemo.lightning.pytorch.trainer import Trainer
 from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
 from typing_extensions import override
 
-from bionemo.llm.model.loss import per_sequence_masked_token_loss, unreduced_token_loss_fn
+from bionemo.llm.model.loss import unreduced_token_loss_fn
 
 
 __all__: Sequence[str] = (
@@ -401,8 +401,7 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
 
         cp_size = parallel_state.get_context_parallel_world_size()
         if cp_size == 1:
-            losses_for_microbatch = per_sequence_masked_token_loss(unreduced_token_loss, loss_mask)  # [b]
-            ppl_for_microbatch = torch.exp(losses_for_microbatch).mean()
+            ppl_for_microbatch = (torch.exp(unreduced_token_loss) * loss_mask).sum() / loss_mask.sum()
         else:
             raise NotImplementedError("Context parallel perplexity logging is not supported yet")
 

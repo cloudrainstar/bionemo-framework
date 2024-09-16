@@ -242,18 +242,3 @@ def unreduced_sequence_loss_fn(self, logits: torch.Tensor, labels: torch.Tensor)
     # TODO (@jstjohn): implement this function to handle the next sequence prediction task
     # TODO (@jstjohn): determine expected shapes of logits/labels in this case and add that to the docstring
     raise NotImplementedError("Sequence loss not implemented yet.")
-
-
-def per_sequence_masked_token_loss(tensor: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-    """Computes the per-sequence token loss for a given tensor and mask.
-
-    Args:
-        tensor (torch.Tensor): 2D tensor of shape [batch_size, sequence_length] containing the token logits.
-        mask (torch.Tensor): 2D tensor of shape [batch_size, sequence_length] containing the loss mask.
-
-    Returns:
-        torch.Tensor: Scalar tensor containing the per-sequence token loss.
-    """
-    losses = tensor.float()
-    per_sequence_losses = (losses * mask).sum(-1) / mask.sum(-1)
-    return per_sequence_losses
