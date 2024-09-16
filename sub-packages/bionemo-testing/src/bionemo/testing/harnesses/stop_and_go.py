@@ -24,6 +24,7 @@ from nemo.collections import llm
 from nemo.lightning import nemo_logger, resume
 from nemo.lightning.pytorch import callbacks as nl_callbacks
 
+from bionemo.core import BIONEMO_CACHE_DIR
 from bionemo.testing import testing_callbacks
 from bionemo.testing.megatron_parallel_state_utils import distributed_model_parallel_state
 
@@ -104,7 +105,7 @@ class StopAndGoHarness(ABC):
 
     def __init__(
         self,
-        root_dir: pathlib.Path | str = pathlib.Path("./"),
+        root_dir: pathlib.Path | str = BIONEMO_CACHE_DIR,
         val_check_interval=2,
         exp_name="stop_and_go_harness",
         extra_metrics_dict: dict[str, Callable[[pl.Trainer, pl.LightningModule], Any]] | None = None,
@@ -202,12 +203,11 @@ class StopAndGoHarness(ABC):
                 ),
                 testing_callbacks.RaiseAfterMetadataCallback(metadata_path=self.metadata_dir),
                 nl_callbacks.ModelCheckpoint(
-                    save_best_model=False,
                     save_last=True,
                     monitor="reduced_train_loss",
                     save_top_k=2,
                     every_n_train_steps=self.val_check_interval,
-                    enable_nemo_ckpt_io=True,
+                    always_save_context=True,
                     try_restore_best_ckpt=False,
                 ),
             ]
@@ -218,12 +218,11 @@ class StopAndGoHarness(ABC):
                     metadata_path=self.metadata_dir, metrics_getter=self.metrics_getter
                 ),
                 nl_callbacks.ModelCheckpoint(
-                    save_best_model=False,
                     save_last=True,
                     monitor="reduced_train_loss",
                     save_top_k=2,
                     every_n_train_steps=self.val_check_interval,
-                    enable_nemo_ckpt_io=True,
+                    always_save_context=True,
                     try_restore_best_ckpt=False,
                 ),
             ]
@@ -255,7 +254,6 @@ class StopAndGoHarness(ABC):
                     log=self.nemo_logger,
                     optim=opt,
                     resume=resume.AutoResume(
-                        path=None,  # Overrides the path found by resume_if_exists when set.
                         resume_if_exists=False,  # Looks for the -last checkpoint to continue training.
                         resume_ignore_no_checkpoint=True,  # When false this will throw an error with no existing checkpoint.
                     ),
@@ -275,7 +273,6 @@ class StopAndGoHarness(ABC):
                 log=self.nemo_logger,
                 optim=opt,
                 resume=resume.AutoResume(
-                    path=None,  # Overrides the path found by resume_if_exists when set.
                     resume_if_exists=True,  # Looks for the -last checkpoint to continue training.
                     resume_ignore_no_checkpoint=True,  # When false this will throw an error with no existing checkpoint.
                 ),

@@ -2,31 +2,19 @@
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
-# For guidance, see: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 [project]
 name = "bionemo-webdatamodule"
-version = "0.0.1"
+license.file = "LICENSE"
+readme = "README.md"
+description = "PyTorch Lightning Data Module for WebDataset files."
 authors = [
     { name = "Dejun Lin", email = "dejunl@nvidia.com" },
+    { name = "Malcolm Greaves", email = "mgreaves@nvidia.com" },
 ]
-description = ""
-readme = "README.md"
-requires-python = ">=3.10"
-keywords = []
-license = {file = "LICENSE"}
-classifiers = [
-    "Programming Language :: Python :: 3.10",
-    "Private :: Do Not Upload",
-]
-dynamic = ["dependencies"]
+dynamic = ["dependencies", "version"]
 
-[project.optional-dependencies]
-test = [
-    "pytest",
-]
-
-[tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
-
-[tool.ruff]
-lint.ignore = ["C901", "E741", "E501", "E731"]
+[tool.setuptools.packages.find]
+where = ["src"]
+include=["bionemo.*"]
+namespaces = true
+exclude = ["test*."]

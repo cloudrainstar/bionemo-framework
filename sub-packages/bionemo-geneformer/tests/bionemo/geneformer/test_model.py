@@ -34,7 +34,6 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from bionemo import geneformer
 from bionemo.core.data.resamplers import PRNGResampleDataset
 from bionemo.core.utils.batching_utils import pad_token_ids
 from bionemo.core.utils.dtypes import get_autocast_dtype
@@ -57,17 +56,6 @@ from bionemo.testing.data.load import load
 from bionemo.testing.utils import assert_matrix_correlation_above_value, assert_matrix_mape_below_value
 
 
-# TODO(@jstjohn) use fixtures for pulling down data and checkpoints
-# python scripts/download_artifacts.py --models all --model_dir ./models --data all --data_dir ./ --verbose --source pbss
-bionemo2_root: Path = (
-    # geneformer module's path is the most dependable --> don't expect this to change!
-    Path(geneformer.__file__)
-    # This gets us from 'sub-packages/bionemo-geneformer/src/bionemo/geneformer/__init__.py' to 'sub-packages/bionemo-geneformer'
-    .parent.parent.parent.parent
-    # From here, we want to get to the root of the repository: _before_ sub-packages/
-    .parent.parent
-).absolute()
-assert bionemo2_root != Path("/")
 nemo1_checkpoint_path: Path = load("geneformer/qa")
 nemo1_release_checkpoint_path: Path = load("geneformer/10M_240530")
 nemo_1_per_layer_outputs_path: Path = load("single_cell/nemo1-geneformer-per-layer-outputs")
@@ -174,19 +162,13 @@ def geneformer_config():
     )
 
 
-def test_bionemo2_rootdir():
-    assert (bionemo2_root / "sub-packages").exists(), "Could not find bionemo2 root directory."
-    assert (bionemo2_root / "sub-packages").is_dir(), "sub-packages is supposed to be a directory."
-
-
 def test_nemo1_nemo2_weight_shapes_match(geneformer_config, seed: int = 42):
-    data_error_str = "Please download test data with:\n`python scripts/download_artifacts.py --models all --model_dir ./models --data all --data_dir ./ --verbose --source pbss`"
     data_dir = Path(data_path)
     train_data_path = data_dir / "train"
     if not nemo1_checkpoint_path.exists():
-        raise FileNotFoundError(f"Could not find checkpoint at {nemo1_checkpoint_path}. {data_error_str}")
+        raise FileNotFoundError(f"Could not find checkpoint at {nemo1_checkpoint_path}. {data_dir}")
     if not train_data_path.exists():
-        raise FileNotFoundError(f"Could not find train data at {train_data_path}. {data_error_str}")
+        raise FileNotFoundError(f"Could not find train data at {train_data_path}. {data_dir}")
 
     with (
         tarfile.open(nemo1_checkpoint_path, "r") as old_ckpt,
@@ -382,13 +364,12 @@ def test_geneformer_nemo1_v_nemo2_inference_golden_values(
 
     assert nemo_1_expected_values_path.exists(), f"Could not find expected values at {nemo_1_expected_values_path}."
 
-    data_error_str = "Please download test data with:\n`python scripts/download_artifacts.py --models all --model_dir ./models --data all --data_dir ./ --verbose --source pbss`"
     data_dir = Path(data_path)
     train_data_path = data_dir / "train"
     if not nemo1_checkpoint_path.exists():
-        raise FileNotFoundError(f"Could not find checkpoint at {nemo1_checkpoint_path}. {data_error_str}")
+        raise FileNotFoundError(f"Could not find checkpoint at {nemo1_checkpoint_path}. {data_dir}")
     if not train_data_path.exists():
-        raise FileNotFoundError(f"Could not find train data at {train_data_path}. {data_error_str}")
+        raise FileNotFoundError(f"Could not find train data at {train_data_path}. {data_dir}")
 
     preprocessor = GeneformerPreprocess(
         download_directory=train_data_path,
@@ -462,13 +443,12 @@ def test_geneformer_inference_nemo1_v_nemo2_golden_values_by_layer(
     assert (
         nemo_1_per_layer_outputs_path.exists()
     ), f"Could not find per-layer expected values at {nemo_1_per_layer_outputs_path}."
-    data_error_str = "Please download test data with:\n`python scripts/download_artifacts.py --models all --model_dir ./models --data all --data_dir ./ --verbose --source pbss`"
     data_dir = Path(data_path)
     train_data_path = data_dir / "train"
     if not nemo1_checkpoint_path.exists():
-        raise FileNotFoundError(f"Could not find checkpoint at {nemo1_checkpoint_path}. {data_error_str}")
+        raise FileNotFoundError(f"Could not find checkpoint at {nemo1_checkpoint_path}. {data_dir}")
     if not train_data_path.exists():
-        raise FileNotFoundError(f"Could not find train data at {train_data_path}. {data_error_str}")
+        raise FileNotFoundError(f"Could not find train data at {train_data_path}. {data_dir}")
 
     with (
         tarfile.open(nemo1_checkpoint_path, "r") as old_ckpt,
@@ -827,12 +807,11 @@ def _train_model_get_ckpt(
     )
 
     checkpoint_callback = nl_callbacks.ModelCheckpoint(
-        save_best_model=False,
         save_last=True,
         save_on_train_epoch_end=True,
         monitor="reduced_train_loss",  # TODO find out how to get val_loss logged and use "val_loss",
         every_n_train_steps=n_steps_train // 2,
-        enable_nemo_ckpt_io=True,  # Enables the .nemo file-like checkpointing where all IOMixins are under SerDe
+        always_save_context=True,  # Enables the .nemo file-like checkpointing where all IOMixins are under SerDe
     )
     save_dir = root_dir / name
     tb_logger = TensorBoardLogger(save_dir=save_dir, name=name)
@@ -861,7 +840,7 @@ def _train_model_get_ckpt(
         pipeline_model_parallel_size=1,
         ddp="megatron",
         find_unused_parameters=True,
-        enable_nemo_ckpt_io=True,
+        always_save_context=True,
     )
     metric_tracker = MetricTracker(metrics_to_track_val=["loss"], metrics_to_track_train=["loss"])
     trainer = nl.Trainer(
@@ -882,7 +861,6 @@ def _train_model_get_ckpt(
         trainer=trainer,
         log=nemo_logger,
         resume=resume.AutoResume(
-            path=None,  # Overrides the path found by resume_if_exists when set.
             resume_if_exists=True,  # Looks for the -last checkpoint to continue training.
             resume_ignore_no_checkpoint=True,  # When false this will throw an error with no existing checkpoint.
         ),
@@ -917,9 +895,10 @@ def test_continue_from_checkpoint_geneformer(
             n_steps_train=n_steps_train,
             batch_size=batch_size,
         )
-        assert ckpt_path.exists()
-        assert ckpt_path.is_dir()
-        assert io.is_distributed_ckpt(ckpt_path)
+        weights_ckpt = ckpt_path / "weights"
+        assert weights_ckpt.exists()
+        assert weights_ckpt.is_dir()
+        assert io.is_distributed_ckpt(weights_ckpt)
         assert initial_trainer.model.config.num_layers == n_layers_test
         assert initial_metrics.collection_train["loss"][0] > initial_metrics.collection_train["loss"][-1]
     with megatron_parallel_state_utils.distributed_model_parallel_state(43):
@@ -934,9 +913,10 @@ def test_continue_from_checkpoint_geneformer(
             n_steps_train=n_steps_train,
             batch_size=batch_size,
         )
-        assert continue_checkpoint.exists()
-        assert continue_checkpoint.is_dir()
-        assert io.is_distributed_ckpt(continue_checkpoint)
+        weights_ckpt = ckpt_path / "weights"
+        assert weights_ckpt.exists()
+        assert weights_ckpt.is_dir()
+        assert io.is_distributed_ckpt(weights_ckpt)
         assert continue_trainer.model.config.num_layers == n_layers_test
         assert continue_metrics.collection_train["loss"][0] > continue_metrics.collection_train["loss"][-1]
         assert sum(continue_metrics.collection_train["loss"][:5]) < sum(initial_metrics.collection_train["loss"][-5:])
@@ -968,9 +948,10 @@ def test_finetune_geneformer(
             n_steps_train=n_steps_train,
             batch_size=batch_size,
         )
-        assert ckpt_path.exists()
-        assert ckpt_path.is_dir()
-        assert io.is_distributed_ckpt(ckpt_path)
+        weights_ckpt = ckpt_path / "weights"
+        assert weights_ckpt.exists()
+        assert weights_ckpt.is_dir()
+        assert io.is_distributed_ckpt(weights_ckpt)
         assert initial_trainer.model.config.num_layers == n_layers_test
         assert initial_metrics.collection_train["loss"][0] > initial_metrics.collection_train["loss"][-1]
     with megatron_parallel_state_utils.distributed_model_parallel_state(43):
@@ -985,8 +966,9 @@ def test_finetune_geneformer(
             n_steps_train=n_steps_train,
             batch_size=batch_size,
         )
-        assert simple_ft_checkpoint.exists()
-        assert simple_ft_checkpoint.is_dir()
-        assert io.is_distributed_ckpt(simple_ft_checkpoint)
+        weights_ckpt = simple_ft_checkpoint / "weights"
+        assert weights_ckpt.exists()
+        assert weights_ckpt.is_dir()
+        assert io.is_distributed_ckpt(weights_ckpt)
         assert ft_trainer.model.config.num_layers == n_layers_test
         assert simple_ft_metrics.collection_train["loss"][0] > simple_ft_metrics.collection_train["loss"][-1]
