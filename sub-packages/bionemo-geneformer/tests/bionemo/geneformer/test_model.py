@@ -494,7 +494,7 @@ def test_distributed_inference_workflow(tmpdir, geneformer_config, cells: List[L
     data_dir = Path(data_path)
     train_data_path = data_dir / "train"
     if not nemo1_checkpoint_path.exists():
-        raise FileNotFoundError(f"Could not find checkpoint at {nemo1_checkpoint_path}. {data_dir}")
+        raise FileNotFoundError(f"Could not find checkpoint at {nemo1_checkpoint_path}. {data_dir=}")
     if not train_data_path.exists():
         raise FileNotFoundError(f"Could not find train data at {train_data_path}. {data_dir}")
 
