@@ -28,17 +28,17 @@ theme:
     - media: "(prefers-color-scheme: light)"
       scheme: light
       primary: custom
-      accent: red
+      accent: lime
       toggle:
-        icon: material/toggle-switch-off
+        icon: material/weather-night
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: dark
       primary: custom
       accent: lime
       toggle:
-        icon: material/toggle-switch
-        name: Switch to system preference
+        icon: material/weather-sunny
+        name: Switch to light mode
   icon:
     logo: nvidia/nvidia-logo
     repo: fontawesome/brands/github
