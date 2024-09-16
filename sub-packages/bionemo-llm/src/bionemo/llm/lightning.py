@@ -393,7 +393,7 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
 
         assert num_microbatches > 0, "num_microbatches must be greater than 0"
         assert len(microbatch_outputs) == num_microbatches, "microbatch_outputs length does not match num_microbatches"
-        labels = self._pad_to_max_length(microbatch_outputs, "batch", "labels", pad_value=-1)
+        labels = self._pad_to_max_length(microbatch_outputs, "batch", "labels", pad_value=-100)
         loss_mask = self._pad_to_max_length(microbatch_outputs, "batch", "loss_mask")
         token_logits = self._pad_to_max_length(microbatch_outputs, "forward_out", "token_logits")
 
@@ -418,5 +418,7 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
             else:
                 pl_module.log("val_ppl", ppl, prog_bar=True, on_epoch=True)
         elif self.log_train and trainer.training is True:
-            if parallel_state.is_pipeline_last_stage():  # TODO(@sichu) is it possible to sync across last pp stage of different dp groups?
+            if (
+                parallel_state.is_pipeline_last_stage()
+            ):  # TODO(@sichu) is it possible to sync across last pp stage of different dp groups?
                 pl_module.log("train_ppl", ppl, prog_bar=True, batch_size=1, sync_dist=False)
