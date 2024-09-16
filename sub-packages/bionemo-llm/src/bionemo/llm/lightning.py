@@ -401,24 +401,22 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
 
         cp_size = parallel_state.get_context_parallel_world_size()
         if cp_size == 1:
-            ppl_for_microbatch = (torch.exp(unreduced_token_loss) * loss_mask).sum() / loss_mask.sum()
+            ppl = (torch.exp(unreduced_token_loss) * loss_mask).sum() / loss_mask.sum()
         else:
             raise NotImplementedError("Context parallel perplexity logging is not supported yet")
 
         if self.log_val and trainer.training is False:
             pp_size = parallel_state.get_pipeline_model_parallel_world_size()
             if pp_size > 1:
-                val_ppl = ppl_for_microbatch if parallel_state.is_pipeline_last_stage() else torch.tensor(0.0, device=ppl_for_microbatch.device)
-                pl_module.log(
-                    "val_ppl",
-                    val_ppl * pp_size,
-                    prog_bar=True,
-                    on_epoch=True,
-                    sync_dist=True,
-                    sync_dist_group=parallel_state.get_pipeline_model_parallel_group(),
-                )
+                if parallel_state.is_pipeline_last_stage():
+                    pl_module.log(
+                        "val_ppl",
+                        ppl,
+                        prog_bar=True,
+                        on_epoch=True,
+                    )
             else:
-                pl_module.log("val_ppl", ppl_for_microbatch, prog_bar=True, on_epoch=True)
+                pl_module.log("val_ppl", ppl, prog_bar=True, on_epoch=True)
         elif self.log_train and trainer.training is True:
             if parallel_state.is_pipeline_last_stage():  # TODO(@sichu) is it possible to sync across last pp stage of different dp groups?
-                pl_module.log("train_ppl", ppl_for_microbatch, prog_bar=True, batch_size=1, sync_dist=False)
+                pl_module.log("train_ppl", ppl, prog_bar=True, batch_size=1, sync_dist=False)
