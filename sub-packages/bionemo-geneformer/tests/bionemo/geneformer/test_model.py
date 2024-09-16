@@ -183,8 +183,8 @@ class BatchPredictionWriter(BasePredictionWriter, pl.Callback):
 
     def write_on_batch_end(
         self,
-        trainer: "pl.Trainer",
-        pl_module: "pl.LightningModule",
+        trainer: pl.Trainer,
+        pl_module: pl.LightningModule,
         prediction: Any,
         batch_indices: Sequence[int] | None,
         batch: Any,
