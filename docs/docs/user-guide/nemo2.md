@@ -57,7 +57,7 @@ across several child GPUs. Examples of this include `parallel_state.is_pipeline_
 used to tell if a particular node is on last pipeline stage, where you compute the final head outputs, loss, etc.
 ![Pipeline Parallelism](../assets/images/megatron_background/pipeline_parallelism.jpg). Similarly there are convenience
 environmental lookups for the first pipeline stage (where you compute the embedding for example)
-`parallel_state.is_pipeline_first_stage()`. 
+`parallel_state.is_pipeline_first_stage()`.
 
 #### Tensor Parallelism
 Tensor parallelism represents splitting single layers across GPUs. This can also solve the problem where some individual
@@ -73,29 +73,29 @@ the only dimension that `LayerNorm` is applied over. Similarly, Dropout (outside
 that is applied on the last embedding dimension. These two layers are independent over the sequence dimension, so they
 can be processed in blocks on separate GPUs. As can be seen in the following figure, the initial `LayerNorm` in a
 multi-headed transformer block is executed in parallel. Next the results are gathered for the self attention and linear
-layers (which are typically set up for tensor parallelism). Next the result from those layers is scattered back to 
-sequence parallel nodes which execute dropout, do a residual connection from the previous sequence parallel output, and 
+layers (which are typically set up for tensor parallelism). Next the result from those layers is scattered back to
+sequence parallel nodes which execute dropout, do a residual connection from the previous sequence parallel output, and
 a layernorm. Next those results are again gathered for the final FFN and activation layers prior to a final scattering
 across sequence parallel GPUs for the output of that transformer block.
 ![Sequence Parallelism](../assets/images/megatron_background/sp_korthikanti_2022_fig5.png)
 
-As a user, if you know that your transformer is executed in parallel and you have custom losses or downstream layers, 
+As a user, if you know that your transformer is executed in parallel and you have custom losses or downstream layers,
 you need to make sure that the appropriate gather operations are occurring for your loss computation etc.
 
 #### Context Parallelism
-[Context parallelism](https://docs.nvidia.com/megatron-core/developer-guide/latest/api-guide/context_parallel.html) 
-extends sequence parallelism by also parallelizing the attention mechanism itself, similar to 
-[Ring Attention](https://arxiv.org/abs/2310.01889). In general, if you are using a transformer, context parallelism is 
+[Context parallelism](https://docs.nvidia.com/megatron-core/developer-guide/latest/api-guide/context_parallel.html)
+extends sequence parallelism by also parallelizing the attention mechanism itself, similar to
+[Ring Attention](https://arxiv.org/abs/2310.01889). In general, if you are using a transformer, context parallelism is
 going to perform better than sequence parallelism for very long input sequences. That said, due to the necessity of
 all-gather and reduce scatter operations throughout the architecture, the general advice that you should avoid these
-kinds of parallelism if a microbatch fits on a single device still holds. Splitting across elements in a global batch 
+kinds of parallelism if a microbatch fits on a single device still holds. Splitting across elements in a global batch
 represent the fewest necessary communications between GPUs on your cluster, so standard DDP should run the fastest if
 you can get your training loop for a micro batch to fit on one GPU.
 
 #### Mixing parallelism strategies
 You can mix multiple kinds of parallelism together to achieve a more performant result. In general experimentation
-should be done to identify the optimal mix of parallelism. See this 
-[YouTube tutorial from Jared Casper](https://youtu.be/gHaNUcS1_O4) for more background on megatron parallelism 
+should be done to identify the optimal mix of parallelism. See this
+[YouTube tutorial from Jared Casper](https://youtu.be/gHaNUcS1_O4) for more background on megatron parallelism
 strategies.
 
 Below is a figure demonstrating how mixing strategies results in larger "virtual GPUs", which similarly means you have
