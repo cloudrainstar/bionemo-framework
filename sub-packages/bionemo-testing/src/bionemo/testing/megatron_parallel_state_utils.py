@@ -69,7 +69,6 @@ def _teardown_apex_megatron_cuda():
 
 
 def _initialize_distributed_parallel_state(
-    local_rank: int = 0,
     devices: int = 1,
     tensor_model_parallel_size: int = 1,
     pipeline_model_parallel_size: int = 1,
@@ -113,7 +112,6 @@ def clean_parallel_state_context() -> Iterator[None]:
 @contextmanager
 def distributed_model_parallel_state(
     seed: Optional[int] = 42,
-    local_rank: int = 0,
     devices: int = 1,
     tensor_model_parallel_size: int = 1,
     pipeline_model_parallel_size: int = 1,
@@ -132,7 +130,6 @@ def distributed_model_parallel_state(
     try:
         _teardown_apex_megatron_cuda()
         _initialize_distributed_parallel_state(
-            local_rank=local_rank,
             devices=devices,
             tensor_model_parallel_size=tensor_model_parallel_size,
             pipeline_model_parallel_size=pipeline_model_parallel_size,
