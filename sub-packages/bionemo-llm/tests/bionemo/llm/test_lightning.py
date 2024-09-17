@@ -20,19 +20,11 @@ from unittest import mock
 import nemo.lightning as nl
 import pytest
 import torch
-from megatron.core import parallel_state
 from torch import nn
 
 from bionemo.llm import lightning as bnptl
 from bionemo.llm.lightning import PerplexityLoggingCallback, batch_collator, get_dtype_device
 from bionemo.testing import megatron_parallel_state_utils
-
-import torch
-from torch._C._distributed_c10d import PrefixStore
-from torch.distributed import rendezvous
-import os
-
-import megatron.core.parallel_state as ps
 
 
 def test_batch_collate_tuple():
@@ -190,7 +182,9 @@ def test_mixin_strategy_contract_get_loss_reduction():
         assert isinstance(strategy_reduction_function(mixin), bnptl.PassthroughLossReduction)
 
 
-def get_single_microbatch_outputs(microbatch_size: int = 1, max_sequence_length: int = 1024, vocab_size: int = 2) -> Tuple[int, List]:
+def get_single_microbatch_outputs(
+    microbatch_size: int = 1, max_sequence_length: int = 1024, vocab_size: int = 2
+) -> Tuple[int, List]:
     num_microbatches = 1
     microbatch_outputs = [
         {
@@ -268,11 +262,17 @@ def test_perplexity_logging_callback_with_single_microbatch_without_parallelism(
         microbatch_outputs = [
             {
                 "batch": {
-                    "labels": torch.zeros(microbatch_size, max_sequence_length, dtype=torch.long, device=torch.cuda.current_device()),  # [b s]
-                    "loss_mask": torch.ones(microbatch_size, max_sequence_length, dtype=torch.long, device=torch.cuda.current_device()),  # [b s]
+                    "labels": torch.zeros(
+                        microbatch_size, max_sequence_length, dtype=torch.long, device=torch.cuda.current_device()
+                    ),  # [b s]
+                    "loss_mask": torch.ones(
+                        microbatch_size, max_sequence_length, dtype=torch.long, device=torch.cuda.current_device()
+                    ),  # [b s]
                 },
                 "forward_out": {
-                    "token_logits": torch.ones(microbatch_size, max_sequence_length, vocab_size, device=torch.cuda.current_device()),  # [b s v]
+                    "token_logits": torch.ones(
+                        microbatch_size, max_sequence_length, vocab_size, device=torch.cuda.current_device()
+                    ),  # [b s v]
                 },
             },
         ]
@@ -289,7 +289,8 @@ def test_perplexity_logging_callback_with_single_microbatch_without_parallelism(
 
         val_ppl = mock_pl_module.log.call_args[0][1]
         torch.testing.assert_close(
-            val_ppl, torch.tensor(vocab_size, dtype=torch.float32, device=torch.cuda.current_device()),
+            val_ppl,
+            torch.tensor(vocab_size, dtype=torch.float32, device=torch.cuda.current_device()),
         )
 
 
