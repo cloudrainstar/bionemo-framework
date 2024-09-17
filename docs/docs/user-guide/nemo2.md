@@ -105,7 +105,7 @@ needs to be a multiple of 4 in this case.
 ![Mixing Tensor and Pipeline Parallelism](../assets/images/megatron_background/tensor_and_pipeline_parallelism.jpg)
 
 #### Scheduling model parallelism
-You can improve on naieve schedules by splitting up micro-batches into smaller pieces, executing multiple stages of the
+You can improve on naive schedules by splitting up micro-batches into smaller pieces, executing multiple stages of the
 model on single GPUs, and starting computing the backwards pass of one micro-batch while another is going through forward.
 These optimizations allow for better cluster GPU utilization to be achieved. For example the following figure shows
 how more advanced splitting techniques in megatron (eg the interleaved scheduler) provide better utilization when model
