@@ -1,13 +1,13 @@
 # NeMo2
 NeMo2 represents tools and utilities to extend the capabilities of `pytorch-lightning` to support training and inference
 with megatron models. While pytorch-lightning supports parallel abstractions sufficient for LLMs that fit on single GPUs
-(distributed data parallel, aka DDP) and even somewhat larger architectures that need to be shareded across small
-clusters of GPUs (fully sharded data parallel, aka FSDP), when you get to very large architectures and want the most
-efficient pretraining and inference possible, megatron supported parallelism is a great option.
+(distributed data parallel, aka DDP) and even somewhat larger architectures that need to be sharded across small
+clusters of GPUs (Fully Sharded Data Parallel, aka FSDP), when you get to very large architectures and want the most
+efficient pretraining and inference possible, megatron-supported parallelism is a great option.
 
 So in other words, NeMo2 adds the Megatron strategy in addition to the standard DDP and FSDP strategies.
 
-Many downstream constraints, and conventions are driven by the underlying constraints of megatron.
+Many downstream constraints and conventions are driven by the underlying constraints of megatron.
 
 ## Deeper background on megatron
 ### Other options for parallelizing smaller models
@@ -48,7 +48,7 @@ Model parallelism is the catch-all term for the variety of different parallelism
 that could be applied to parallelizing your model across a cluster. Below we explain several varieties of model
 parallelism that are implemented in megatron. As mentioned in the previous section, one key advantage to the
 megatron-specific parallelism types described next are that they co-locate storage and compute of the layers. Inefficiencies
-caused by naieve scheduler implementations are also addressed (discussed in the section on schedulers).
+caused by naive scheduler implementations are also addressed (discussed in the section on schedulers).
 
 #### Pipeline Parallelism
 Pipeline parallelism is similar to FSDP, but the model blocks that are sharded are also computed in parallel on the
