@@ -858,7 +858,7 @@ def _train_model_get_ckpt(
         max_steps=n_steps_train,
         num_nodes=1,
         log_every_n_steps=n_steps_train // 2,
-        callbacks=[metric_tracker],
+        callbacks=callbacks,
         plugins=nl.MegatronMixedPrecision(precision=MODEL_PRECISION),
     )
     nllm.train(
