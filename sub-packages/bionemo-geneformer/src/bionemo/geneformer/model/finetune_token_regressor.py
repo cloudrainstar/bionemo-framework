@@ -183,6 +183,23 @@ class FineTuneSeqLenBioBertConfig(
 
 
 class LoRAForGeneFormerTokenRegressor(LoRA):
+    """LoRA for Genformer Token Regression.
+
+    There are a few tricky things here to get everything to work right:
+
+    1. Freezing logic for the transformer has to be updated in order to not freeze the new head layers.
+    2. The LoRA adapter logic has to be updated to pull the input/output sizes of the layers to be adapted from the
+       modules that are passed (the previous method was compatible with nn and TE, but not megatrons tensor_parallel
+       modules that are currently used by geneformer). This method contains a suggested refactor to make these methods
+       a little more general and extensible with structural pattern matching as well. We should push this
+       requirement onto NeMo, since we shouldn't duplicate the adapter method.
+    3. There's a ton of assumptions in NeMo about which module is being called and that it inherits specific mixins.
+       This could break the if it is updated from a megatron module to a torch module or something else. Functional
+       calls are generally favored for this reason and some have been made here to avoid updating inheritance throughout
+       the code base.
+
+    """
+
     def input_size_getter(self, m: nn.Module):
         match m:
             case object(input_size=n):

@@ -28,6 +28,8 @@ from nemo.collections import llm as nllm
 from nemo.lightning import io, resume
 from nemo.lightning.nemo_logger import NeMoLogger
 from nemo.lightning.pytorch import callbacks as nl_callbacks
+from nemo.lightning.pytorch.callbacks.model_transform import ModelTransform
+from nemo.lightning.pytorch.callbacks.peft import PEFT
 from nemo.lightning.pytorch.optim.megatron import MegatronOptimizerModule
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import functional as F
@@ -789,7 +791,7 @@ def _train_model_get_ckpt(
     config: GeneformerConfig,
     n_steps_train: int,
     batch_size: int,
-    peft=None,
+    peft: PEFT | None = None,
 ) -> Tuple[Path, MetricTracker, nl.Trainer]:
     data_error_str = "Please download test data with:\n`python scripts/download_artifacts.py --models all --model_dir ./models --data all --data_dir ./ --verbose --source pbss`"
     data_dir = Path(data_path)
@@ -862,8 +864,6 @@ def _train_model_get_ckpt(
     metric_tracker = MetricTracker(metrics_to_track_val=["loss"], metrics_to_track_train=["loss"])
     callbacks = [LossLoggingCallback(), metric_tracker]
     if peft is not None:
-        from nemo.lightning.pytorch.callbacks.model_transform import ModelTransform
-
         callbacks.append(ModelTransform())
     trainer = nl.Trainer(
         accelerator="gpu",
