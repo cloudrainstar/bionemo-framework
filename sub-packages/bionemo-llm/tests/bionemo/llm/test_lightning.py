@@ -14,17 +14,25 @@
 # limitations under the License.
 
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 from unittest import mock
 
 import nemo.lightning as nl
 import pytest
 import torch
+from megatron.core import parallel_state
 from torch import nn
 
 from bionemo.llm import lightning as bnptl
 from bionemo.llm.lightning import PerplexityLoggingCallback, batch_collator, get_dtype_device
 from bionemo.testing import megatron_parallel_state_utils
+
+import torch
+from torch._C._distributed_c10d import PrefixStore
+from torch.distributed import rendezvous
+import os
+
+import megatron.core.parallel_state as ps
 
 
 def test_batch_collate_tuple():
@@ -182,6 +190,28 @@ def test_mixin_strategy_contract_get_loss_reduction():
         assert isinstance(strategy_reduction_function(mixin), bnptl.PassthroughLossReduction)
 
 
+def get_single_microbatch_outputs(microbatch_size: int = 1, max_sequence_length: int = 1024, vocab_size: int = 2) -> Tuple[int, List]:
+    num_microbatches = 1
+    microbatch_outputs = [
+        {
+            "batch": {
+                "labels": torch.zeros(
+                    microbatch_size, max_sequence_length, dtype=torch.long, device=torch.cuda.current_device()
+                ),  # [b s]
+                "loss_mask": torch.ones(
+                    microbatch_size, max_sequence_length, dtype=torch.long, device=torch.cuda.current_device()
+                ),  # [b s]
+            },
+            "forward_out": {
+                "token_logits": torch.ones(
+                    microbatch_size, max_sequence_length, vocab_size, device=torch.cuda.current_device()
+                ),  # [b s v]
+            },
+        },
+    ]
+    return num_microbatches, microbatch_outputs
+
+
 def call_perplexity_logging_callback_on_megatron_reduce_microbatches_end(
     callback: PerplexityLoggingCallback,
     pl_module: Any,
@@ -238,11 +268,11 @@ def test_perplexity_logging_callback_with_single_microbatch_without_parallelism(
         microbatch_outputs = [
             {
                 "batch": {
-                    "labels": torch.zeros(microbatch_size, max_sequence_length, dtype=torch.long),  # [b s]
-                    "loss_mask": torch.ones(microbatch_size, max_sequence_length, dtype=torch.long),  # [b s]
+                    "labels": torch.zeros(microbatch_size, max_sequence_length, dtype=torch.long, device=torch.cuda.current_device()),  # [b s]
+                    "loss_mask": torch.ones(microbatch_size, max_sequence_length, dtype=torch.long, device=torch.cuda.current_device()),  # [b s]
                 },
                 "forward_out": {
-                    "token_logits": torch.ones(microbatch_size, max_sequence_length, vocab_size),  # [b s v]
+                    "token_logits": torch.ones(microbatch_size, max_sequence_length, vocab_size, device=torch.cuda.current_device()),  # [b s v]
                 },
             },
         ]
@@ -259,7 +289,7 @@ def test_perplexity_logging_callback_with_single_microbatch_without_parallelism(
 
         val_ppl = mock_pl_module.log.call_args[0][1]
         torch.testing.assert_close(
-            val_ppl, torch.tensor(vocab_size, dtype=torch.float32), msg="fail test on single microbatch"
+            val_ppl, torch.tensor(vocab_size, dtype=torch.float32, device=torch.cuda.current_device()),
         )
 
 
@@ -275,18 +305,9 @@ def test_perplexity_logging_callback_with_single_masked_microbatch_without_paral
         callback = PerplexityLoggingCallback(log_train=False, log_val=True)
 
         microbatch_size, max_sequence_length, vocab_size = 1, 1024, 2
-        num_microbatches = 1
-        microbatch_outputs = [
-            {
-                "batch": {
-                    "labels": torch.zeros(microbatch_size, max_sequence_length, dtype=torch.long),  # [b s]
-                    "loss_mask": torch.ones(microbatch_size, max_sequence_length, dtype=torch.long),  # [b s]
-                },
-                "forward_out": {
-                    "token_logits": torch.ones(microbatch_size, max_sequence_length, vocab_size),  # [b s v]
-                },
-            },
-        ]
+        num_microbatches, microbatch_outputs = get_single_microbatch_outputs(
+            microbatch_size, max_sequence_length, vocab_size
+        )
 
         half_idx = max_sequence_length // 2
         microbatch_outputs[0]["batch"]["labels"][:, :half_idx] = -100
@@ -304,7 +325,7 @@ def test_perplexity_logging_callback_with_single_masked_microbatch_without_paral
 
         val_ppl = mock_pl_module.log.call_args[0][1]
         torch.testing.assert_close(
-            val_ppl, torch.tensor(vocab_size, dtype=torch.float32), msg="fail test on single microbatch with masking"
+            val_ppl, torch.tensor(vocab_size, dtype=torch.float32, device=torch.cuda.current_device())
         )
 
 
@@ -320,27 +341,14 @@ def test_perplexity_logging_callback_with_variable_length_microbatches_without_p
         callback = PerplexityLoggingCallback(log_train=False, log_val=True)
 
         microbatch_size, max_sequence_length, vocab_size = 2, 1024, 2
-        num_microbatches = 2
-        microbatch_outputs = [
-            {
-                "batch": {
-                    "labels": torch.zeros(microbatch_size, max_sequence_length // 2, dtype=torch.long),  # [b s]
-                    "loss_mask": torch.ones(microbatch_size, max_sequence_length // 2, dtype=torch.long),  # [b s]
-                },
-                "forward_out": {
-                    "token_logits": torch.ones(microbatch_size, max_sequence_length // 2, vocab_size),  # [b s v]
-                },
-            },
-            {
-                "batch": {
-                    "labels": torch.zeros(microbatch_size, max_sequence_length, dtype=torch.long),  # [b s]
-                    "loss_mask": torch.ones(microbatch_size, max_sequence_length, dtype=torch.long),  # [b s]
-                },
-                "forward_out": {
-                    "token_logits": torch.ones(microbatch_size, max_sequence_length, vocab_size),  # [b s v]
-                },
-            },
-        ]
+        num_microbatches_1, microbatch_outputs_1 = get_single_microbatch_outputs(
+            microbatch_size, max_sequence_length // 2, vocab_size
+        )
+        num_microbatches_2, microbatch_outputs_2 = get_single_microbatch_outputs(
+            microbatch_size, max_sequence_length, vocab_size
+        )
+        num_microbatches = num_microbatches_1 + num_microbatches_2
+        microbatch_outputs = microbatch_outputs_1 + microbatch_outputs_2
 
         call_perplexity_logging_callback_on_megatron_reduce_microbatches_end(
             callback=callback,
@@ -355,6 +363,58 @@ def test_perplexity_logging_callback_with_variable_length_microbatches_without_p
         val_ppl = mock_pl_module.log.call_args[0][1]
         torch.testing.assert_close(
             val_ppl,
-            torch.tensor(vocab_size, dtype=torch.float32),
-            msg="fail test on multiple microbatches with variable length",
+            torch.tensor(vocab_size, dtype=torch.float32, device=torch.cuda.current_device()),
         )
+
+
+def test_perplexity_logging_callback_with_single_microbatch_only_log_at_pipeline_parallel_last_stage():
+    """Test PerplexityLoggingCallback only log at pipeline parallel last stage"""
+    # TODO(@sichu) investigate into non-mock solution
+    with (
+        megatron_parallel_state_utils.distributed_model_parallel_state(),
+        mock.patch("megatron.core.parallel_state.get_pipeline_model_parallel_world_size", return_value=2),
+    ):
+        mock_pl_module = mock.MagicMock()
+        mock_pl_module.log.return_value = None
+
+        mock_trainer = mock.MagicMock()
+        mock_trainer.training = False
+
+        callback = PerplexityLoggingCallback(log_train=False, log_val=True)
+
+        microbatch_size, max_sequence_length, vocab_size = 1, 1024, 2
+        num_microbatches, microbatch_outputs = get_single_microbatch_outputs(
+            microbatch_size, max_sequence_length, vocab_size
+        )
+
+        with mock.patch("megatron.core.parallel_state.is_pipeline_last_stage", return_value=True):
+            call_perplexity_logging_callback_on_megatron_reduce_microbatches_end(
+                callback=callback,
+                pl_module=mock_pl_module,
+                trainer=mock_trainer,
+                max_sequence_length=max_sequence_length,
+                microbatch_size=microbatch_size,
+                num_microbatches=num_microbatches,
+                microbatch_outputs=microbatch_outputs,
+            )
+            mock_pl_module.log.assert_called_once()
+
+            val_ppl = mock_pl_module.log.call_args[0][1]
+            torch.testing.assert_close(
+                val_ppl,
+                torch.tensor(vocab_size, dtype=torch.float32, device=torch.cuda.current_device()),
+                msg="fail test on single microbatch in pipeline parallel",
+            )
+            mock_pl_module.log.reset_mock()
+
+        with mock.patch("megatron.core.parallel_state.is_pipeline_last_stage", return_value=False):
+            call_perplexity_logging_callback_on_megatron_reduce_microbatches_end(
+                callback=callback,
+                pl_module=mock_pl_module,
+                trainer=mock_trainer,
+                max_sequence_length=max_sequence_length,
+                microbatch_size=microbatch_size,
+                num_microbatches=num_microbatches,
+                microbatch_outputs=microbatch_outputs,
+            )
+            mock_pl_module.log.assert_not_called()
