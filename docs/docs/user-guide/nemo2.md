@@ -88,7 +88,7 @@ extends sequence parallelism by also parallelizing the attention mechanism itsel
 [Ring Attention](https://arxiv.org/abs/2310.01889). In general, if you are using a transformer, context parallelism is
 going to perform better than sequence parallelism for very long input sequences. That said, due to the necessity of
 all-gather and reduce scatter operations throughout the architecture, the general advice that you should avoid these
-kinds of parallelism if a microbatch fits on a single device still holds. Splitting across elements in a global batch
+kinds of parallelism if a micro-batch fits on a single device still holds. Splitting across elements in a global batch
 represent the fewest necessary communications between GPUs on your cluster, so standard DDP should run the fastest if
 you can get your training loop for a micro batch to fit on one GPU.
 
