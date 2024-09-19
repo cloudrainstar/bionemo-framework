@@ -30,7 +30,6 @@ def my_test():
 
 """
 
-import contextlib
 import os
 from contextlib import contextmanager
 from typing import Any, Iterator, Optional, Sequence
@@ -185,45 +184,46 @@ def mock_distributed_parallel_state(
         expert_model_parallel_size: expert model parallel size. Defaults to 1.
         seed: seed for RNG state. Defaults to 42.
     """
+
+    # First set up mocks for torch.distributed state/info
     ori_device_count = torch.cuda.device_count()
-    with contextlib.ExitStack() as stack:
+    # Conditionally mock torch.distributed.new_group based on backend argument
+    ori_dist_new_group = torch.distributed.new_group
+
+    def mock_new_group(*args, **kwargs):
+        if kwargs.get("backend") == "gloo":
+            # Return a specific mock if backend is 'gloo'
+            return MagicMock(name="gloo_group")
+        else:
+            # Return another mock or a different behavior for other backends
+            return ori_dist_new_group(*args, **kwargs)
+
+    ori_destroy_pg = torch.distributed.destroy_process_group
+
+    def mock_destroy_gloo_group(pg=None):
+        if isinstance(pg, MagicMock):
+            return None
+        ori_destroy_pg(pg)
+
+    # The next mock is required to "set the device" to one that is greater than the number of actual GPUs
+    #  the consequence of this mock is that the device is always dev 0
+    ori_set_device = torch._C._cuda_setDevice
+
+    def mock_set_device(device):
+        if ori_device_count > 0:
+            ori_set_device(device % ori_device_count)  # wrap around the request
+
+    with (
+        mock.patch("torch.distributed.new_group", side_effect=mock_new_group),
+        mock.patch("torch.distributed.destroy_process_group", side_effect=mock_destroy_gloo_group),
+        mock.patch("torch._C._cuda_setDevice", side_effect=mock_set_device),
+    ):
+        # Next set up state etc
         state_util = _MockMegatronParallelStateSingleton()  # static singleton class
         state_util.world_size = world_size
         state_util.rank = rank
         initial_states: Optional[Any] = None
         try:
-            # Conditionally mock torch.distributed.new_group based on backend argument
-            ori_dist_new_group = torch.distributed.new_group
-
-            def mock_new_group(*args, **kwargs):
-                if kwargs.get("backend") == "gloo":
-                    # Return a specific mock if backend is 'gloo'
-                    return MagicMock(name="gloo_group")
-                else:
-                    # Return another mock or a different behavior for other backends
-                    return ori_dist_new_group(*args, **kwargs)
-
-            ori_destroy_pg = torch.distributed.destroy_process_group
-
-            def mock_destroy_gloo_group(pg=None):
-                if isinstance(pg, MagicMock):
-                    return None
-                ori_destroy_pg(pg)
-
-            # Apply the conditional mock to torch.distributed.new_group
-            stack.enter_context(mock.patch("torch.distributed.new_group", side_effect=mock_new_group))
-            stack.enter_context(
-                mock.patch("torch.distributed.destroy_process_group", side_effect=mock_destroy_gloo_group)
-            )
-            # The next mock is required to "set the device" to one that is greater than the number of actual GPUs
-            #  the consequence of this mock is that the device is always dev 0
-            ori_set_device = torch._C._cuda_setDevice
-
-            def mock_set_device(device):
-                if ori_device_count > 0:
-                    ori_set_device(device % ori_device_count)  # wrap around the request
-
-            stack.enter_context(mock.patch("torch._C._cuda_setDevice", side_effect=mock_set_device))
             state_util.set_world_size(world_size=world_size, rank=rank)
             state_util.initialize_model_parallel(
                 tensor_model_parallel_size=tensor_model_parallel_size,
