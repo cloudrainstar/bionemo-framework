@@ -117,10 +117,10 @@ TWINE_PASSWORD="<pypi pass>" TWINE_USERNAME="<pypi user>" python -m twine upload
 ### Geneformer
 #### Get test data for geneformer
 ```bash
-mkdir -p /workspace/bionemo2/data
+mkdir -p /workspace/bionemo-fw-ea/data
 aws s3 cp \
   s3://general-purpose/cellxgene_2023-12-15_small \
-  /workspace/bionemo2/data/cellxgene_2023-12-15_small \
+  /workspace/bionemo-fw-ea/data/cellxgene_2023-12-15_small \
   --recursive \
   --endpoint-url https://pbss.s8k.io
 ```
