@@ -65,14 +65,6 @@ def test_rank7_last_pipeline():
         assert parallel_state.is_pipeline_last_stage()
 
 
-def test_pg_ok():
-    with megatron_parallel_state_utils.mock_distributed_parallel_state(
-        world_size=8, rank=7, pipeline_model_parallel_size=8
-    ):
-        assert not parallel_state.is_pipeline_first_stage()
-        assert parallel_state.is_pipeline_last_stage()
-
-
 def test_all_reduce():
     with megatron_parallel_state_utils.mock_distributed_parallel_state(world_size=2, rank=1):
         output = torch.ones(3, 3) * dist.get_rank()
