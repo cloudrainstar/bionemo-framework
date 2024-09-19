@@ -66,6 +66,7 @@ def test_rank7_last_pipeline():
 
 
 def test_all_reduce():
+    # Adapted from https://github.com/pytorch/pytorch/blob/main/test/distributed/test_fake_pg.py
     with megatron_parallel_state_utils.mock_distributed_parallel_state(world_size=2, rank=1):
         output = torch.ones(3, 3).cuda() * dist.get_rank()
         dist.all_reduce(output)
@@ -73,6 +74,7 @@ def test_all_reduce():
 
 
 def test_allgather():
+    # Adapted from https://github.com/pytorch/pytorch/blob/main/test/distributed/test_fake_pg.py
     with megatron_parallel_state_utils.mock_distributed_parallel_state(world_size=2, rank=1):
         input_tensor = torch.ones(3, 3) * dist.get_rank()
         output_tensors = [torch.empty_like(input_tensor) for _ in range(2)]
@@ -82,6 +84,7 @@ def test_allgather():
 
 
 def test_reduce_scatter():
+    # Adapted from https://github.com/pytorch/pytorch/blob/main/test/distributed/test_fake_pg.py
     with megatron_parallel_state_utils.mock_distributed_parallel_state(world_size=2, rank=1):
         to_reduce_scatter = [torch.ones(3, 3) * rank for rank in range(2)]
         output_tensor = torch.empty(3, 3)

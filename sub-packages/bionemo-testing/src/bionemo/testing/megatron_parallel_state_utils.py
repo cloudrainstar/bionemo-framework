@@ -170,11 +170,20 @@ def mock_distributed_parallel_state(
     expert_model_parallel_size: int = 1,
     seed: int | None = 42,
 ):
-    """A function that facilitates easy mocking of state for an arbitrary GPU in a simulated cluster.
+    """A context manager that facilitates easy mocking of torch.distributed for an arbitrary GPU in a simulated cluster.
+
+    Key functions that are mocked:
+        * `torch.distributed.new_group` when `backend="gloo"` which doesn't support a `backend="fake"`
+        * `torch.distributed.destroy_process_group` when `backend="gloo"` since new "gloo" groups are not actually made
+        * `torch._C._cuda_setDevice` which changes the current device behind the scenes. We assign devices round-robin
+            to support `world_size > torch.cuda.device_count()`.
+
+    Outside of this mocking, a fake cluster is initialized using `backend="fake"` in `torch.distributed`. This sets up
+        enough global state and environment for megatron to think that it is initializing a larger cluster with some
+        settings where the current context has some user defined rank. You can then test the megatron state on a
+        hypothetical rank in some large world size.
 
     Args:
-        mocker: pytest mock object, this is needed to patch a few torch.distributed calls that megatron parallel makes
-            that are incompatible with the fake cluster environment. For example Gloo related groups are not supported.
         world_size: The world size (cluster size). Defaults to 8.
         rank: the GPU number globally in the cluster. Defaults to 0.
         tensor_model_parallel_size: tensor model parallel setting for megatron. Defaults to 1.
@@ -184,7 +193,6 @@ def mock_distributed_parallel_state(
         expert_model_parallel_size: expert model parallel size. Defaults to 1.
         seed: seed for RNG state. Defaults to 42.
     """
-
     # First set up mocks for torch.distributed state/info
     ori_device_count = torch.cuda.device_count()
     # Conditionally mock torch.distributed.new_group based on backend argument
@@ -275,6 +283,14 @@ class _MockMegatronParallelStateSingleton:
         inited=False,
         store=FakeStore(),
     ):
+        """A singleton to deal with global megatron state for simulating a fake cluster.
+
+        Args:
+            world_size: the cluster size. Defaults to torch.cuda.device_count().
+            rank: rank of this node. Defaults to int(os.getenv("LOCAL_RANK", 0)).
+            inited: if this global cluster has been initiated. Defaults to False.
+            store: the FakeStore for process groups. Defaults to FakeStore().
+        """
         self.world_size = world_size
         self.rank = rank
         self.inited = inited
