@@ -30,15 +30,18 @@ def my_test():
 
 """
 
+import os
 from contextlib import contextmanager
 from typing import Any, Iterator, Optional, Sequence
 
 import megatron.core.num_microbatches_calculator
 import pytorch_lightning as pl
 import torch
+import torch.distributed
 from megatron.core import parallel_state
 from megatron.core.tensor_parallel import random as tp_random
 from nemo.utils import logging
+from torch.testing._internal.distributed.fake_pg import FakeStore
 
 
 __all__: Sequence[str] = (
@@ -151,3 +154,73 @@ def distributed_model_parallel_state(seed: Optional[int] = 42) -> Iterator[None]
             # Reset to the unset state
             tp_random.get_cuda_rng_tracker().reset()
         _teardown_apex_megatron_cuda()
+
+
+class Utils:
+    world_size = torch.cuda.device_count()
+    rank = int(os.getenv("LOCAL_RANK", 0))
+    inited = False
+    store = FakeStore()
+
+    @staticmethod
+    def initialize_distributed():
+        if not torch.distributed.is_initialized() and Utils.rank >= 0:
+            print(f"Initializing torch.distributed with rank: {Utils.rank}, " f"world_size: {Utils.world_size}")
+            torch.cuda.set_device(Utils.rank % torch.cuda.device_count())
+            # init_method = 'tcp://'
+            # master_ip = os.getenv('MASTER_ADDR', 'localhost')
+            # master_port = os.getenv('MASTER_PORT', '6000')
+            # init_method += master_ip + ':' + master_port
+            # rendezvous_iterator = rendezvous(
+            #     init_method, Utils.rank, Utils.world_size, timeout=timedelta(minutes=1)
+            # )
+            # store, rank, world_size = next(rendezvous_iterator)
+            # store.set_timeout(timedelta(minutes=1))
+
+            # Use a PrefixStore to avoid accidental overrides of keys used by
+            # different systems (e.g. RPC) in case the store is multi-tenant.
+
+            torch.distributed.init_process_group(
+                backend="fake", world_size=Utils.world_size, rank=Utils.rank, store=Utils.store
+            )
+
+            # torch.distributed.barrier()
+        Utils.inited = True
+
+    @staticmethod
+    def set_world_size(world_size=None, rank=None):
+        Utils.world_size = torch.cuda.device_count() if world_size is None else world_size
+        if torch.distributed.is_initialized() and Utils.world_size != torch.distributed.get_world_size():
+            torch.distributed.destroy_process_group()
+
+        if rank is None:
+            Utils.rank = int(os.environ.get("LOCAL_RANK", 0))
+            if Utils.rank >= Utils.world_size:
+                Utils.rank = -1
+        else:
+            Utils.rank = rank
+
+    @staticmethod
+    def destroy_model_parallel():
+        if not Utils.inited:
+            return
+        # torch.distributed.barrier()
+        parallel_state.destroy_model_parallel()
+        Utils.inited = False
+
+    @staticmethod
+    def initialize_model_parallel(
+        tensor_model_parallel_size=1,
+        pipeline_model_parallel_size=1,
+        virtual_pipeline_model_parallel_size=None,
+        **kwargs,
+    ):
+        parallel_state.destroy_model_parallel()
+        Utils.initialize_distributed()
+        parallel_state.initialize_model_parallel(
+            tensor_model_parallel_size,
+            pipeline_model_parallel_size,
+            virtual_pipeline_model_parallel_size,
+            **kwargs,
+        )
+        Utils.inited = True
