@@ -184,6 +184,7 @@ def mock_distributed_parallel_state(
         expert_model_parallel_size: expert model parallel size. Defaults to 1.
         seed: seed for RNG state. Defaults to 42.
     """
+    ori_device_count = torch.cuda.device_count()
     with contextlib.ExitStack() as stack:
         state_util = MockMegatronParallelStateSingleton  # static
         state_util.world_size = world_size
@@ -215,7 +216,13 @@ def mock_distributed_parallel_state(
             )
             # The next mock is required to "set the device" to one that is greater than the number of actual GPUs
             #  the consequence of this mock is that the device is always dev 0
-            stack.enter_context(mock.patch("torch._C._cuda_setDevice", MagicMock()))
+            ori_set_device = torch._C._cuda_setDevice
+
+            def mock_set_device(device):
+                if ori_device_count > 0:
+                    ori_set_device(device % ori_device_count)  # wrap around the request
+
+            stack.enter_context(mock.patch("torch._C._cuda_setDevice", side_effect=mock_set_device))
             state_util.set_world_size(world_size=world_size, rank=rank)
             state_util.initialize_model_parallel(
                 tensor_model_parallel_size=tensor_model_parallel_size,
