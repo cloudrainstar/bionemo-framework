@@ -23,7 +23,7 @@ def test_no_parallelism_raises():
         is_only_data_parallel()
 
 
-def test_base_case_false():
+def test_base_case():
     with mpsu.distributed_model_parallel_state():
         # our test instance with 1 GPU is trivially this case, also default initializations should be this case.
         assert is_only_data_parallel()
@@ -41,6 +41,18 @@ def test_cp2():
 
 def test_tp2():
     with mpsu.mock_distributed_parallel_state(world_size=8, tensor_model_parallel_size=2):
+        assert not is_only_data_parallel()
+
+
+def test_tp2pp2cp2():
+    with mpsu.mock_distributed_parallel_state(
+        world_size=8, tensor_model_parallel_size=2, pipeline_model_parallel_size=2, context_parallel_size=2
+    ):
+        assert not is_only_data_parallel()
+
+
+def test_tp8():
+    with mpsu.mock_distributed_parallel_state(world_size=8, tensor_model_parallel_size=8):
         assert not is_only_data_parallel()
 
 
