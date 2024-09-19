@@ -268,24 +268,13 @@ class MockMegatronParallelStateSingleton:
     world_size = torch.cuda.device_count()
     rank = int(os.getenv("LOCAL_RANK", 0))
     inited = False
+    # Fake store idea: see https://github.com/pytorch/pytorch/blob/main/test/distributed/test_fake_pg.py
     store = FakeStore()
 
     @staticmethod
     def initialize_distributed():
         torch.cuda.set_device(MockMegatronParallelStateSingleton.rank % MockMegatronParallelStateSingleton.world_size)
-        # init_method = 'tcp://'
-        # master_ip = os.getenv('MASTER_ADDR', 'localhost')
-        # master_port = os.getenv('MASTER_PORT', '6000')
-        # init_method += master_ip + ':' + master_port
-        # rendezvous_iterator = rendezvous(
-        #     init_method, Utils.rank, Utils.world_size, timeout=timedelta(minutes=1)
-        # )
-        # store, rank, world_size = next(rendezvous_iterator)
-        # store.set_timeout(timedelta(minutes=1))
-
-        # Use a PrefixStore to avoid accidental overrides of keys used by
-        # different systems (e.g. RPC) in case the store is multi-tenant.
-
+        # Fake store idea: see https://github.com/pytorch/pytorch/blob/main/test/distributed/test_fake_pg.py
         torch.distributed.init_process_group(
             backend="fake",
             world_size=MockMegatronParallelStateSingleton.world_size,
