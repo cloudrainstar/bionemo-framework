@@ -18,7 +18,7 @@ from megatron.core import parallel_state
 
 
 def is_only_data_parallel() -> bool:
-    """Checks to see if you are in a distributed megatron environment with parallelism settings active.
+    """Checks to see if you are in a distributed megatron environment with only data parallelism active.
 
     This is useful if you are working on a model, loss, etc and you know that you do not yet support megatron model
     parallelism. You can test that the only kind of parallelism in use is data parallelism.
