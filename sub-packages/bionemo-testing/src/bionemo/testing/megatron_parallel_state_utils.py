@@ -187,7 +187,7 @@ def mock_distributed_parallel_state(
     """
     ori_device_count = torch.cuda.device_count()
     with contextlib.ExitStack() as stack:
-        state_util = _MockMegatronParallelStateSingleton  # static
+        state_util = _MockMegatronParallelStateSingleton()  # static singleton class
         state_util.world_size = world_size
         state_util.rank = rank
         initial_states: Optional[Any] = None
@@ -266,66 +266,71 @@ def mock_distributed_parallel_state(
 
 
 class _MockMegatronParallelStateSingleton:
-    world_size = torch.cuda.device_count()
-    rank = int(os.getenv("LOCAL_RANK", 0))
-    inited = False
-    # Fake store idea: see https://github.com/pytorch/pytorch/blob/main/test/distributed/test_fake_pg.py
-    store = FakeStore()
+    _instance = None
 
-    @staticmethod
-    def initialize_distributed():
-        torch.cuda.set_device(
-            _MockMegatronParallelStateSingleton.rank % _MockMegatronParallelStateSingleton.world_size
-        )
+    def __init__(
+        self,
+        world_size=torch.cuda.device_count(),
+        rank=int(os.getenv("LOCAL_RANK", 0)),
+        inited=False,
+        store=FakeStore(),
+    ):
+        self.world_size = world_size
+        self.rank = rank
+        self.inited = inited
+        # Fake store idea: see https://github.com/pytorch/pytorch/blob/main/test/distributed/test_fake_pg.py
+        self.store = store
+
+    def __new__(cls):
+        # Makes this a singleton
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def initialize_distributed(self):
+        torch.cuda.set_device(self.rank % self.world_size)
         # Fake store idea: see https://github.com/pytorch/pytorch/blob/main/test/distributed/test_fake_pg.py
         torch.distributed.init_process_group(
             backend="fake",
-            world_size=_MockMegatronParallelStateSingleton.world_size,
-            rank=_MockMegatronParallelStateSingleton.rank,
-            store=_MockMegatronParallelStateSingleton.store,
+            world_size=self.world_size,
+            rank=self.rank,
+            store=self.store,
         )
-        _MockMegatronParallelStateSingleton.inited = True
+        self.inited = True
 
-    @staticmethod
-    def set_world_size(world_size=None, rank=None):
-        _MockMegatronParallelStateSingleton.world_size = (
-            torch.cuda.device_count() if world_size is None else world_size
-        )
-        if (
-            torch.distributed.is_initialized()
-            and _MockMegatronParallelStateSingleton.world_size != torch.distributed.get_world_size()
-        ):
+    def set_world_size(self, world_size=None, rank=None):
+        self.world_size = torch.cuda.device_count() if world_size is None else world_size
+        if torch.distributed.is_initialized() and self.world_size != torch.distributed.get_world_size():
             torch.distributed.destroy_process_group()
 
         if rank is None:
-            _MockMegatronParallelStateSingleton.rank = int(os.environ.get("LOCAL_RANK", 0))
-            if _MockMegatronParallelStateSingleton.rank >= _MockMegatronParallelStateSingleton.world_size:
-                _MockMegatronParallelStateSingleton.rank = -1
+            self.rank = int(os.environ.get("LOCAL_RANK", 0))
+            if self.rank >= self.world_size:
+                self.rank = -1
         else:
-            _MockMegatronParallelStateSingleton.rank = rank
+            self.rank = rank
 
-    @staticmethod
-    def destroy_model_parallel():
-        if not _MockMegatronParallelStateSingleton.inited:
+    def destroy_model_parallel(self):
+        if not self.inited:
             return
         # torch.distributed.barrier()
         parallel_state.destroy_model_parallel()
-        _MockMegatronParallelStateSingleton.inited = False
+        self.inited = False
         torch.distributed.destroy_process_group()
 
-    @staticmethod
     def initialize_model_parallel(
+        self,
         tensor_model_parallel_size=1,
         pipeline_model_parallel_size=1,
         virtual_pipeline_model_parallel_size=None,
         **kwargs,
     ):
         parallel_state.destroy_model_parallel()
-        _MockMegatronParallelStateSingleton.initialize_distributed()
+        self.initialize_distributed()
         parallel_state.initialize_model_parallel(
             tensor_model_parallel_size,
             pipeline_model_parallel_size,
             virtual_pipeline_model_parallel_size,
             **kwargs,
         )
-        _MockMegatronParallelStateSingleton.inited = True
+        self.inited = True
