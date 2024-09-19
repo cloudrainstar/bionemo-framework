@@ -30,11 +30,14 @@ def my_test():
 
 """
 
+import contextlib
 import os
 from contextlib import contextmanager
 from typing import Any, Iterator, Optional, Sequence
+from unittest.mock import MagicMock
 
 import megatron.core.num_microbatches_calculator
+import mock
 import pytorch_lightning as pl
 import torch
 import torch.distributed
@@ -156,7 +159,100 @@ def distributed_model_parallel_state(seed: Optional[int] = 42) -> Iterator[None]
         _teardown_apex_megatron_cuda()
 
 
-class Utils:
+@contextmanager
+def mock_distributed_parallel_state(
+    world_size: int = 8,
+    rank: int = 0,
+    tensor_model_parallel_size: int = 1,
+    pipeline_model_parallel_size: int = 1,
+    virtual_pipeline_model_parallel_size: Optional[int] = None,
+    context_parallel_size: int = 1,
+    expert_model_parallel_size: int = 1,
+    seed: int | None = 42,
+):
+    """A function that facilitates easy mocking of state for an arbitrary GPU in a simulated cluster.
+
+    Args:
+        mocker: pytest mock object, this is needed to patch a few torch.distributed calls that megatron parallel makes
+            that are incompatible with the fake cluster environment. For example Gloo related groups are not supported.
+        world_size: The world size (cluster size). Defaults to 8.
+        rank: the GPU number globally in the cluster. Defaults to 0.
+        tensor_model_parallel_size: tensor model parallel setting for megatron. Defaults to 1.
+        pipeline_model_parallel_size: pipeline model parallel setting for megatron. Defaults to 1.
+        virtual_pipeline_model_parallel_size: virtual pipeline model parallel size for megatron. Defaults to None.
+        context_parallel_size: context parallel size. Defaults to 1.
+        expert_model_parallel_size: expert model parallel size. Defaults to 1.
+        seed: seed for RNG state. Defaults to 42.
+    """
+    with contextlib.ExitStack() as stack:
+        state_util = MockMegatronParallelStateSingleton  # static
+        initial_states: Optional[Any] = None
+        try:
+            # Conditionally mock torch.distributed.new_group based on backend argument
+            ori_dist_new_group = torch.distributed.new_group
+
+            def mock_new_group(*args, **kwargs):
+                if kwargs.get("backend") == "gloo":
+                    # Return a specific mock if backend is 'gloo'
+                    return MagicMock(name="gloo_group")
+                else:
+                    # Return another mock or a different behavior for other backends
+                    return ori_dist_new_group(*args, **kwargs)
+
+            ori_destroy_pg = torch.distributed.destroy_process_group
+
+            def mock_destroy_gloo_group(pg=None):
+                if isinstance(pg, MagicMock):
+                    return None
+                ori_destroy_pg(pg)
+
+            # Apply the conditional mock to torch.distributed.new_group
+            stack.enter_context(mock.patch("torch.distributed.new_group", side_effect=mock_new_group))
+            stack.enter_context(
+                mock.patch("torch.distributed.destroy_process_group", side_effect=mock_destroy_gloo_group)
+            )
+            state_util.set_world_size(world_size=world_size, rank=rank)
+            state_util.initialize_model_parallel(
+                tensor_model_parallel_size=tensor_model_parallel_size,
+                pipeline_model_parallel_size=pipeline_model_parallel_size,
+                virtual_pipeline_model_parallel_size=virtual_pipeline_model_parallel_size,
+                context_parallel_size=context_parallel_size,
+                expert_model_parallel_size=expert_model_parallel_size,
+            )
+            # Our goal is to set required state on entry, and then restore current state on exit for the RNGs.
+            #  there are two possibilities that are handled below:
+            # 1. If the RNG state is not initialized, we need to set it up and then
+            #     unset it on exit to restore the current state. We track that this is the case when `initial_states` is `None`.
+            # 2. If the RNG state is initialized, we need to track this state and reset it on exit to be what it was on entry.
+            #    We track that this is the case when `initial_states` is not `None`.
+            if tp_random.get_cuda_rng_tracker().is_initialized():
+                initial_states = tp_random.get_cuda_rng_tracker().get_states()
+            if seed is not None:
+                # Set the seed if provided, this case is valid whether or not the RNG had state previously.
+                #  on exit the RNG state will be restored to what it was on entry.
+                tp_random.model_parallel_cuda_manual_seed(seed)
+            else:
+                # This is the case where the RNG state is not initialized and no seed was provided.
+                #  We need to raise an error in this case, as we cannot restore the RNG state on exit and we need a seed
+                #  to initialize the RNG state to. This only happens if the user overrides the default seed and sets it
+                #  to None, and additionally if the RNG state was not initialized externally, as there is a default seed of 42.
+                if initial_states is None:
+                    raise ValueError(
+                        "You must provide a seed if the initial parallel state is unset. "
+                        "Either provide a seed or leave the default seed (rather setting to None) "
+                        "or initialize the RNG state externally."
+                    )
+            yield
+        finally:
+            if initial_states is not None:
+                tp_random.get_cuda_rng_tracker().set_states(initial_states)
+            else:
+                # Reset to the unset state
+                tp_random.get_cuda_rng_tracker().reset()
+            state_util.destroy_model_parallel()
+
+
+class MockMegatronParallelStateSingleton:
     world_size = torch.cuda.device_count()
     rank = int(os.getenv("LOCAL_RANK", 0))
     inited = False
@@ -164,9 +260,12 @@ class Utils:
 
     @staticmethod
     def initialize_distributed():
-        if not torch.distributed.is_initialized() and Utils.rank >= 0:
-            print(f"Initializing torch.distributed with rank: {Utils.rank}, " f"world_size: {Utils.world_size}")
-            torch.cuda.set_device(Utils.rank % torch.cuda.device_count())
+        if not torch.distributed.is_initialized() and MockMegatronParallelStateSingleton.rank >= 0:
+            print(
+                f"Initializing torch.distributed with rank: {MockMegatronParallelStateSingleton.rank}, "
+                f"world_size: {MockMegatronParallelStateSingleton.world_size}"
+            )
+            torch.cuda.set_device(MockMegatronParallelStateSingleton.rank % torch.cuda.device_count())
             # init_method = 'tcp://'
             # master_ip = os.getenv('MASTER_ADDR', 'localhost')
             # master_port = os.getenv('MASTER_PORT', '6000')
@@ -181,32 +280,38 @@ class Utils:
             # different systems (e.g. RPC) in case the store is multi-tenant.
 
             torch.distributed.init_process_group(
-                backend="fake", world_size=Utils.world_size, rank=Utils.rank, store=Utils.store
+                backend="fake",
+                world_size=MockMegatronParallelStateSingleton.world_size,
+                rank=MockMegatronParallelStateSingleton.rank,
+                store=MockMegatronParallelStateSingleton.store,
             )
 
             # torch.distributed.barrier()
-        Utils.inited = True
+        MockMegatronParallelStateSingleton.inited = True
 
     @staticmethod
     def set_world_size(world_size=None, rank=None):
-        Utils.world_size = torch.cuda.device_count() if world_size is None else world_size
-        if torch.distributed.is_initialized() and Utils.world_size != torch.distributed.get_world_size():
+        MockMegatronParallelStateSingleton.world_size = torch.cuda.device_count() if world_size is None else world_size
+        if (
+            torch.distributed.is_initialized()
+            and MockMegatronParallelStateSingleton.world_size != torch.distributed.get_world_size()
+        ):
             torch.distributed.destroy_process_group()
 
         if rank is None:
-            Utils.rank = int(os.environ.get("LOCAL_RANK", 0))
-            if Utils.rank >= Utils.world_size:
-                Utils.rank = -1
+            MockMegatronParallelStateSingleton.rank = int(os.environ.get("LOCAL_RANK", 0))
+            if MockMegatronParallelStateSingleton.rank >= MockMegatronParallelStateSingleton.world_size:
+                MockMegatronParallelStateSingleton.rank = -1
         else:
-            Utils.rank = rank
+            MockMegatronParallelStateSingleton.rank = rank
 
     @staticmethod
     def destroy_model_parallel():
-        if not Utils.inited:
+        if not MockMegatronParallelStateSingleton.inited:
             return
         # torch.distributed.barrier()
         parallel_state.destroy_model_parallel()
-        Utils.inited = False
+        MockMegatronParallelStateSingleton.inited = False
 
     @staticmethod
     def initialize_model_parallel(
@@ -216,11 +321,11 @@ class Utils:
         **kwargs,
     ):
         parallel_state.destroy_model_parallel()
-        Utils.initialize_distributed()
+        MockMegatronParallelStateSingleton.initialize_distributed()
         parallel_state.initialize_model_parallel(
             tensor_model_parallel_size,
             pipeline_model_parallel_size,
             virtual_pipeline_model_parallel_size,
             **kwargs,
         )
-        Utils.inited = True
+        MockMegatronParallelStateSingleton.inited = True
