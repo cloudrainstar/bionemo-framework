@@ -186,6 +186,8 @@ def mock_distributed_parallel_state(
     """
     with contextlib.ExitStack() as stack:
         state_util = MockMegatronParallelStateSingleton  # static
+        state_util.world_size = world_size
+        state_util.rank = rank
         initial_states: Optional[Any] = None
         try:
             # Conditionally mock torch.distributed.new_group based on backend argument
@@ -211,6 +213,9 @@ def mock_distributed_parallel_state(
             stack.enter_context(
                 mock.patch("torch.distributed.destroy_process_group", side_effect=mock_destroy_gloo_group)
             )
+            # The next mock is required to "set the device" to one that is greater than the number of actual GPUs
+            #  the consequence of this mock is that the device is always dev 0
+            stack.enter_context(mock.patch("torch._C._cuda_setDevice", MagicMock()))
             state_util.set_world_size(world_size=world_size, rank=rank)
             state_util.initialize_model_parallel(
                 tensor_model_parallel_size=tensor_model_parallel_size,
@@ -260,33 +265,26 @@ class MockMegatronParallelStateSingleton:
 
     @staticmethod
     def initialize_distributed():
-        if not torch.distributed.is_initialized() and MockMegatronParallelStateSingleton.rank >= 0:
-            print(
-                f"Initializing torch.distributed with rank: {MockMegatronParallelStateSingleton.rank}, "
-                f"world_size: {MockMegatronParallelStateSingleton.world_size}"
-            )
-            torch.cuda.set_device(MockMegatronParallelStateSingleton.rank % torch.cuda.device_count())
-            # init_method = 'tcp://'
-            # master_ip = os.getenv('MASTER_ADDR', 'localhost')
-            # master_port = os.getenv('MASTER_PORT', '6000')
-            # init_method += master_ip + ':' + master_port
-            # rendezvous_iterator = rendezvous(
-            #     init_method, Utils.rank, Utils.world_size, timeout=timedelta(minutes=1)
-            # )
-            # store, rank, world_size = next(rendezvous_iterator)
-            # store.set_timeout(timedelta(minutes=1))
+        torch.cuda.set_device(MockMegatronParallelStateSingleton.rank % MockMegatronParallelStateSingleton.world_size)
+        # init_method = 'tcp://'
+        # master_ip = os.getenv('MASTER_ADDR', 'localhost')
+        # master_port = os.getenv('MASTER_PORT', '6000')
+        # init_method += master_ip + ':' + master_port
+        # rendezvous_iterator = rendezvous(
+        #     init_method, Utils.rank, Utils.world_size, timeout=timedelta(minutes=1)
+        # )
+        # store, rank, world_size = next(rendezvous_iterator)
+        # store.set_timeout(timedelta(minutes=1))
 
-            # Use a PrefixStore to avoid accidental overrides of keys used by
-            # different systems (e.g. RPC) in case the store is multi-tenant.
+        # Use a PrefixStore to avoid accidental overrides of keys used by
+        # different systems (e.g. RPC) in case the store is multi-tenant.
 
-            torch.distributed.init_process_group(
-                backend="fake",
-                world_size=MockMegatronParallelStateSingleton.world_size,
-                rank=MockMegatronParallelStateSingleton.rank,
-                store=MockMegatronParallelStateSingleton.store,
-            )
-
-            # torch.distributed.barrier()
+        torch.distributed.init_process_group(
+            backend="fake",
+            world_size=MockMegatronParallelStateSingleton.world_size,
+            rank=MockMegatronParallelStateSingleton.rank,
+            store=MockMegatronParallelStateSingleton.store,
+        )
         MockMegatronParallelStateSingleton.inited = True
 
     @staticmethod
@@ -312,6 +310,7 @@ class MockMegatronParallelStateSingleton:
         # torch.distributed.barrier()
         parallel_state.destroy_model_parallel()
         MockMegatronParallelStateSingleton.inited = False
+        torch.distributed.destroy_process_group()
 
     @staticmethod
     def initialize_model_parallel(
