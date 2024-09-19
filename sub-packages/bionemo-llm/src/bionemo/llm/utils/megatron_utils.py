@@ -24,7 +24,7 @@ def is_only_data_parallel() -> bool:
     parallelism. You can test that the only kind of parallelism in use is data parallelism.
 
     Returns:
-        True if you are in this kind of parallel environment, False otherwise.
+        True if data parallel is the only parallel mode, False otherwise.
     """
     if not (torch.distributed.is_available() and parallel_state.is_initialized()):
         raise RuntimeError("This function is only defined within an initialized megatron parallel environment.")
