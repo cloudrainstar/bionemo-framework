@@ -228,17 +228,13 @@ def unreduced_token_loss_fn(logits: torch.Tensor, labels: torch.Tensor) -> torch
     Returns:
         Tensor: The unreduced token loss of shape [batch_size, sequence_length].
     """
-    if parallel_state.get_tensor_model_parallel_world_size() > 1:
-        # [b s] => [s b]  # for both of these for the vocab parallel cross entropy calculation. Is this necessary?
-        labels = labels.transpose(0, 1).contiguous()
-        logits = logits.transpose(0, 1).contiguous().float()
-        loss = tensor_parallel.vocab_parallel_cross_entropy(logits, labels)
+    # [b s] => [s b]  # for both of these for the vocab parallel cross entropy calculation. Is this necessary?
+    labels = labels.transpose(0, 1).contiguous()
+    logits = logits.transpose(0, 1).contiguous().float()
+    loss = tensor_parallel.vocab_parallel_cross_entropy(logits, labels)
 
-        # [s b] => [b, s]
-        loss = loss.transpose(0, 1).contiguous()
-    else:
-        logits = logits.transpose(1, 2).contiguous().float()
-        loss = torch.nn.functional.cross_entropy(logits, labels, reduction="none")
+    # [s b] => [b, s]
+    loss = loss.transpose(0, 1).contiguous()
     return loss
 
 

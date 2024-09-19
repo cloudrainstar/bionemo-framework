@@ -368,6 +368,7 @@ def test_perplexity_logging_callback_with_variable_length_microbatches_without_p
         )
 
 
+@pytest.mark.skip(reason="tensor_parallel.vocab_parallel_cross_entropy requires tensor parallel group")
 def test_perplexity_logging_callback_with_single_microbatch_only_log_at_pipeline_parallel_last_stage():
     """Test PerplexityLoggingCallback only log at pipeline parallel last stage"""
     # TODO(@sichu) investigate into non-mock solution
