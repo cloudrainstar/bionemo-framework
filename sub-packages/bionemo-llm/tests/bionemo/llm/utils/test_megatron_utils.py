@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pytest
+from megatron.core import parallel_state
 
 from bionemo.llm.utils.megatron_utils import is_only_data_parallel
 from bionemo.testing import megatron_parallel_state_utils as mpsu
@@ -59,3 +60,28 @@ def test_tp8():
 def test_dp_only():
     with mpsu.mock_distributed_parallel_state(world_size=8):
         assert is_only_data_parallel()
+
+
+def test_get_pp_group():
+    with mpsu.mock_distributed_parallel_state(world_size=2, pipeline_model_parallel_size=2):
+        assert parallel_state.get_pipeline_model_parallel_group() is not None
+
+
+def test_get_tp_group():
+    with mpsu.mock_distributed_parallel_state(world_size=2, tensor_model_parallel_size=2):
+        assert parallel_state.get_tensor_model_parallel_group() is not None
+
+
+def test_get_cp_group():
+    with mpsu.mock_distributed_parallel_state(world_size=2, context_parallel_size=2):
+        assert parallel_state.get_context_parallel_group() is not None
+
+
+def test_pp_stage():
+    with mpsu.mock_distributed_parallel_state(world_size=2, pipeline_model_parallel_size=2, rank=0):
+        assert parallel_state.is_pipeline_first_stage()
+        assert not parallel_state.is_pipeline_last_stage()
+
+    with mpsu.mock_distributed_parallel_state(world_size=2, pipeline_model_parallel_size=2, rank=1):
+        assert not parallel_state.is_pipeline_first_stage()
+        assert parallel_state.is_pipeline_last_stage()
