@@ -67,7 +67,7 @@ def test_rank7_last_pipeline():
 
 def test_all_reduce():
     with megatron_parallel_state_utils.mock_distributed_parallel_state(world_size=2, rank=1):
-        output = torch.ones(3, 3) * dist.get_rank()
+        output = torch.ones(3, 3).cuda() * dist.get_rank()
         dist.all_reduce(output)
         assert tuple(output.shape) == (3, 3)
 
