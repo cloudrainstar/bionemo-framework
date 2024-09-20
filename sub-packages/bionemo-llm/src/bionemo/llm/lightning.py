@@ -24,9 +24,8 @@ from nemo.lightning.megatron_parallel import (
     CallbackMethods,
     DataT,
     MegatronLossReduction,
-    MegatronParallel,
     ReductionT,
-    _ModuleStepFunction,
+    MegatronStep,
 )
 from nemo.lightning.pytorch.trainer import Trainer
 from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
@@ -167,158 +166,7 @@ class LightningPassthroughPredictionMixin:
         """For the predict step, pass through the forward pass output."""
         return PassthroughLossReduction()
 
-
-class TypedMegatronCallback(CallbackMethods):  # noqa: D101
-    def on_megatron_step_start(  # noqa: D102
-        self,
-        data: _DataFetcherWrapper,
-        forward_only: bool,
-        data_step: _ModuleStepFunction,
-        forward_step: _ModuleStepFunction,
-        loss_reduction: _ModuleStepFunction,
-        seq_length: int,
-        micro_batch_size: int,
-        num_microbatches: int,
-        wrap_forward_step: bool,
-        pipeline: MegatronParallel,
-        use_global_batch_sampler: bool,
-        data_iterator: _DataFetcherWrapper,
-        pl_module: MegatronParallel,
-        trainer: Trainer,
-    ) -> None: ...
-
-    def on_megatron_microbatch_start(
-        self,
-        data: _DataFetcherWrapper,
-        forward_only: bool,
-        data_step: _ModuleStepFunction,
-        forward_step: _ModuleStepFunction,
-        loss_reduction: _ModuleStepFunction,
-        seq_length: int,
-        micro_batch_size: int,
-        num_microbatches: int,
-        wrap_forward_step: bool,
-        pipeline: MegatronParallel,
-        use_global_batch_sampler: bool,
-        data_iterator: _DataFetcherWrapper,
-        pl_module: MegatronParallel,
-        trainer: Trainer,
-        # method specific
-        batch: Dict,
-        forward_callback: MegatronLossReduction,
-    ):
-        """Same as on_megatron_step_start."""
-        ...
-
-    def on_megatron_microbatch_end(  # noqa: D102
-        self,
-        data: _DataFetcherWrapper,
-        forward_only: bool,
-        data_step: _ModuleStepFunction,
-        forward_step: _ModuleStepFunction,
-        loss_reduction: _ModuleStepFunction,
-        seq_length: int,
-        micro_batch_size: int,
-        num_microbatches: int,
-        wrap_forward_step: bool,
-        pipeline: MegatronParallel,
-        use_global_batch_sampler: bool,
-        data_iterator: _DataFetcherWrapper,
-        pl_module: MegatronParallel,
-        trainer: Trainer,
-        # method specific
-        batch: Dict,
-        forward_callback: MegatronLossReduction,
-        microbatch_outputs: List[Any],  # outputs from forward method in MegatronLossReduction across microbatches
-    ): ...
-
-    def on_megatron_reduce_microbatches_start(
-        self,
-        data: _DataFetcherWrapper,
-        forward_only: bool,
-        data_step: _ModuleStepFunction,
-        forward_step: _ModuleStepFunction,
-        loss_reduction: _ModuleStepFunction,
-        seq_length: int,
-        micro_batch_size: int,
-        num_microbatches: int,
-        wrap_forward_step: bool,
-        pipeline: MegatronParallel,
-        use_global_batch_sampler: bool,
-        data_iterator: _DataFetcherWrapper,
-        pl_module: MegatronParallel,
-        trainer: Trainer,
-        # method specific
-        microbatch_outputs: List[Any],  # outputs from forward method in MegatronLossReduction across microbatches
-    ) -> None:
-        """Same as on_megatron_microbatch_end if microbatch_outputs is not None."""
-        ...
-
-    def on_megatron_reduce_microbatches_end(  # noqa: D102
-        self,
-        data: _DataFetcherWrapper,
-        forward_only: bool,
-        data_step: _ModuleStepFunction,
-        forward_step: _ModuleStepFunction,
-        loss_reduction: _ModuleStepFunction,
-        seq_length: int,
-        micro_batch_size: int,
-        num_microbatches: int,
-        wrap_forward_step: bool,
-        pipeline: MegatronParallel,
-        use_global_batch_sampler: bool,
-        data_iterator: _DataFetcherWrapper,
-        pl_module: MegatronParallel,
-        trainer: Trainer,
-        # method specific
-        microbatch_outputs: List[Any],  # outputs from forward method in MegatronLossReduction across microbatches
-        loss_mean: Any,  # output from reduce method in MegatronLossReduction
-    ) -> None: ...
-
-    def on_megatron_log_step_end(  # noqa: D102
-        self,
-        data: _DataFetcherWrapper,
-        forward_only: bool,
-        data_step: _ModuleStepFunction,
-        forward_step: _ModuleStepFunction,
-        loss_reduction: _ModuleStepFunction,
-        seq_length: int,
-        micro_batch_size: int,
-        num_microbatches: int,
-        wrap_forward_step: bool,
-        pipeline: MegatronParallel,
-        use_global_batch_sampler: bool,
-        data_iterator: _DataFetcherWrapper,
-        pl_module: MegatronParallel,
-        trainer: Trainer,
-        # method specific
-        microbatch_outputs: List[Any],
-        loss_mean: Any,  # output from reduce method in MegatronLossReduction
-    ) -> None: ...
-
-    def on_megatron_step_end(  # noqa: D102
-        self,
-        data: _DataFetcherWrapper,
-        forward_only: bool,
-        data_step: _ModuleStepFunction,
-        forward_step: _ModuleStepFunction,
-        loss_reduction: _ModuleStepFunction,
-        seq_length: int,
-        micro_batch_size: int,
-        num_microbatches: int,
-        wrap_forward_step: bool,
-        pipeline: MegatronParallel,
-        use_global_batch_sampler: bool,
-        data_iterator: _DataFetcherWrapper,
-        pl_module: MegatronParallel,
-        trainer: Trainer,
-        # method specific
-        microbatch_outputs: List[Any],  # outputs from forward method in MegatronLossReduction
-        loss_mean: Any,  # output from reduce method in MegatronLossReduction
-    ) -> None: ...
-
-
-class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
+class PerplexityLoggingCallback(pl.Callback, CallbackMethods):
     """Megatron Callback to log perplexity in validation and optionally training.
 
     NeMo2.0 checks whether a callback is an instance of {LightningModule,LightningDataModule,Callback} but only megatron_hooks are useful.
@@ -361,23 +209,10 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
     @override
     def on_megatron_reduce_microbatches_end(
         self,
-        data: _DataFetcherWrapper,
-        forward_only: bool,
-        data_step: _ModuleStepFunction,
-        forward_step: _ModuleStepFunction,
-        loss_reduction: _ModuleStepFunction,
-        seq_length: int,
-        micro_batch_size: int,
-        num_microbatches: int,
-        wrap_forward_step: bool,
-        pipeline: MegatronParallel,
-        use_global_batch_sampler: bool,
-        data_iterator: _DataFetcherWrapper,
-        pl_module: MegatronParallel,
-        trainer: Trainer,
-        # method specific
-        microbatch_outputs: List[Any],  # outputs from forward method in MegatronLossReduction
-        loss_mean: Any,  # output from reduce method in MegatronLossReduction
+        step: MegatronStep,
+        microbatch_outputs: List[Any],
+        loss_reduction: "MegatronLossReduction",
+        reduced: Union[torch.Tensor, Dict[str, torch.Tensor]],
     ) -> None:
         """Log after MegatronReductionLoss.reduce is called.
 
@@ -388,14 +223,14 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
             - forward_out: dict of tensors with the following keys:
                 - token_logits: [b s vocab]
         """
-        if trainer.training and not self.log_train:
+        if step.trainer.training and not self.log_train:
             return
 
         if not parallel_state.is_pipeline_last_stage():
             return
 
-        assert num_microbatches > 0, "num_microbatches must be greater than 0"
-        assert len(microbatch_outputs) == num_microbatches, "microbatch_outputs length does not match num_microbatches"
+        assert step.num_microbatches > 0, "num_microbatches must be greater than 0"
+        assert len(microbatch_outputs) == step.num_microbatches, "microbatch_outputs length does not match num_microbatches"
         labels = self._pad_to_max_length(microbatch_outputs, "batch", "labels", pad_value=-100)
         loss_mask = self._pad_to_max_length(microbatch_outputs, "batch", "loss_mask")
         token_logits = self._pad_to_max_length(microbatch_outputs, "forward_out", "token_logits")
@@ -408,7 +243,7 @@ class PerplexityLoggingCallback(pl.Callback, TypedMegatronCallback):
         else:
             raise NotImplementedError("Context parallel perplexity logging is not supported yet")
 
-        if self.log_val and trainer.training is False:
-            pl_module.log("val_ppl", ppl, prog_bar=True, on_epoch=True)
-        elif self.log_train and trainer.training is True:
-            pl_module.log("train_ppl", ppl, prog_bar=True, batch_size=1, sync_dist=False)
+        if self.log_val and not step.trainer.training:
+            step.pl_module.log("val_ppl", ppl, prog_bar=True, on_epoch=True)
+        elif self.log_train and step.trainer.training:
+            step.pl_module.log("train_ppl", ppl, prog_bar=True, batch_size=1, sync_dist=False)
