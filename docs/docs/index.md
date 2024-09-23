@@ -1,19 +1,47 @@
-# Getting Started
+---
+hide:
+  - navigation
+---
 
-## Initializing 3rd-party dependencies as git submodules
 
-For development, the NeMo and Megatron-LM dependencies are vendored in the bionemo-2 repository workspace as git
-submodules. The pinned commits for these submodules represent the "last-known-good" versions of these packages that are
-confirmed to be working with bionemo2 (and those that are tested in CI).
+**BioNeMo Framework** is a free to use collection of programming tools and packages offering access to optimized, pre-trained biomolecular models and workflows, along with versatile functionalities for building and customizing models, including training and fine-tuning. Capabilities span various workloads and therapeutic modalities, such as molecular generation and representation learning, protein structure prediction and representation learning, protein-ligand and protein-protein docking, and DNA/RNA/single-cell embedding.
 
-To initialize these sub-modules when cloning the repo, add the `--recursive` flag to the git clone command:
 
-```bash
-git clone --recursive git@github.com:NVIDIA/bionemo-fw-ea.git
-```
+<div class="grid cards" markdown>
 
-To download the pinned versions of these submodules within an existing git repository, run
+-   :material-clock-fast:{ .lg .middle } __User Guide__
 
-```bash
-git submodule update --init --recursive
-```
+    ---
+
+    Install BioNeMo and set up your environment to start accelerating your bioinformatics workflows
+
+    [Get Started](user-guide/getting-started){ .md-button .md-button }
+
+-   :material-scale-balance:{ .lg .middle } __API Reference__
+
+    ---
+
+    Access comprehensive documentation on BioNeMo's sub-packages, functions and classes
+
+    [API Reference](API_reference/bionemo/core/api/){ .md-button .md-button }
+
+-   :material-format-font:{ .lg .middle } __Models__
+
+    ---
+
+    Explore detailed instructions and best practices for using BioNeMo in your research
+
+    [Explore Models](models){ .md-button .md-button }
+
+
+
+-   :fontawesome-brands-markdown:{ .lg .middle } __Datasets__
+
+    ---
+
+    Join the BioNeMo community and learn how to contribute to this open-source project
+
+    [Explore Datasets](datasets){ .md-button .md-button }
+
+
+</div>
