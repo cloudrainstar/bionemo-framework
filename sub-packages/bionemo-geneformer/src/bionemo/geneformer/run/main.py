@@ -18,7 +18,6 @@ from typing import Optional, Union
 
 import nemo_run as run
 import pydantic
-import torch
 
 from bionemo.geneformer.run.factories import (
     DataConfig,
@@ -124,9 +123,12 @@ def run_firsttime(
 
 
 if __name__ == "__main__":
+    run.cli.main(run_firsttime)
+
+    """
     if torch.distributed.is_initialized() and torch.distributed.get_rank() == 0:
         run.cli.main(run_firsttime)
     else:
-        run.cli.main(run_firsttime)
+    """
     # run.cli.main(simple_example)
     # run.cli.main(run_again)
