@@ -72,7 +72,8 @@ def run_again(
     ) as exp:
         exp.executor = run.LocalExecutor()  # Can we mutate?
         exp.reset()
-        exp.run(sequential=True)
+        exp.run(direct=True, sequential=True)
+        # exp.run(direct=True, tail_logs=True, sequential=True)
 
 
 @run.cli.entrypoint
@@ -92,8 +93,10 @@ def run_firsttime(
     wandb_entity: Optional[str] = None,
     wandb_project: Optional[str] = None,
     wandb_offline: bool = True,
+    launcher: str | None = None
 ):
-    local_executor = run.LocalExecutor()
+    # Set launcher='torchrun' to execute on the cluster
+    local_executor = run.LocalExecutor(launcher=launcher)
     with run.Experiment(title=experiment_title, executor=local_executor) as e:
         # Input has to be a partial wrapper of pretrain?
         e.add(
@@ -116,4 +119,4 @@ def run_firsttime(
 
 if __name__ == "__main__":
     run.cli.main(run_firsttime)
-    # run.cli.main(pretrain)
+    # run.cli.main(run_again)
