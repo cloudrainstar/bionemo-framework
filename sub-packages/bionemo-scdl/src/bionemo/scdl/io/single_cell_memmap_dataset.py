@@ -206,6 +206,11 @@ class SingleCellMemMapDataset(SingleCellRowDataset):
         num_elements: Optional[int] = None,
         num_rows: Optional[int] = None,
         mode: Mode = Mode.READ_APPEND.value,
+        dtypes: Dict[FileNames, str] = {
+            f"{FileNames.DATA.value}": "float32",
+            f"{FileNames.COLPTR.value}": "uint32",
+            f"{FileNames.ROWPTR.value}": "uint64",
+        },
     ) -> None:
         """Instantiate the class.
 
@@ -235,11 +240,7 @@ class SingleCellMemMapDataset(SingleCellRowDataset):
         self._feature_index: RowFeatureIndex = RowFeatureIndex()
 
         # Variables for int packing / reduced precision
-        self.dtypes: Dict[FileNames, str] = {
-            f"{FileNames.DATA.value}": "float32",
-            f"{FileNames.COLPTR.value}": "uint32",
-            f"{FileNames.ROWPTR.value}": "uint64",
-        }
+        self.dtypes = dtypes
 
         if mode == Mode.CREATE_APPEND.value and os.path.exists(data_path):
             raise FileExistsError(f"Output directory already exists: {data_path}")
