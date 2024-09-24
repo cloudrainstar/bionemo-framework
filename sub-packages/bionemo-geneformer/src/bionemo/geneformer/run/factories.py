@@ -479,7 +479,6 @@ class ExperimentConfig:
     restore_from_checkpoint_path: Optional[str]
     resume_if_exists: bool
     wandb_options: WandbLoggerOptions = None  # TODO(SKH) if we are passing a type in here its gonna blow up.
-    save_best_checkpoint: bool = False
     save_last_checkpoint: bool = True
     metric_to_monitor_for_checkpoints: str = "reduced_train_loss"  # TODO literal?
     save_top_k: int = 2
@@ -495,7 +494,6 @@ def experiment_config_recipe() -> ExperimentConfig:
         experiment_name="default_experiment",
         restore_from_checkpoint_path=None,
         resume_if_exists=True,
-        save_best_checkpoint=False,
         save_last_checkpoint=True,
         metric_to_monitor_for_checkpoints="reduced_train_loss",
         save_top_k=2,
@@ -513,12 +511,10 @@ class WandbConfig:
 
 def nemo_logger_factory(experiment_config: ExperimentConfig, wandb_config: Optional[WandbConfig]) -> nl.NeMoLogger:
     checkpoint_callback = nl_callbacks.ModelCheckpoint(
-        save_best_model=experiment_config.save_best_checkpoint,
         save_last=experiment_config.save_last_checkpoint,
         monitor=experiment_config.metric_to_monitor_for_checkpoints,
         save_top_k=experiment_config.save_top_k,
         every_n_train_steps=experiment_config.save_every_n_steps,
-        enable_nemo_ckpt_io=True,
     )
 
     wandb_options: Optional[WandbLoggerOptions] = (
@@ -630,7 +626,6 @@ def pretrain(
         trainer=trainer,
         log=nemo_logger,
         resume=resume.AutoResume(
-            path=None,
             resume_if_exists=False,  # To resume training a specific checkpoint simply set initial_ckpt_path in the ModelConfig.
             resume_ignore_no_checkpoint=True,  # When false this will throw an error with no existing checkpoint.
         ),
