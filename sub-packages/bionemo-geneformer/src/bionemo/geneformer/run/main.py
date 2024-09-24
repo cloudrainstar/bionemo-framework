@@ -93,7 +93,7 @@ def run_firsttime(
     wandb_entity: Optional[str] = None,
     wandb_project: Optional[str] = None,
     wandb_offline: bool = True,
-    launcher: str | None = None
+    launcher: Optional[str] = None,
 ):
     # Set launcher='torchrun' to execute on the cluster
     local_executor = run.LocalExecutor(launcher=launcher)
