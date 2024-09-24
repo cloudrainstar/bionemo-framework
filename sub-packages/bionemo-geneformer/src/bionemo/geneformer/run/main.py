@@ -120,8 +120,7 @@ def run_firsttime(
                 wandb_offline,
             )
         )
-        # TODO direct
-        e.run(direct=True)
+        e.run()
 
 
 if __name__ == "__main__":
