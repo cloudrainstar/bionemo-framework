@@ -14,10 +14,11 @@
 # limitations under the License.
 
 
-from typing import Optional
+from typing import Optional, Union
 
 import nemo_run as run
 import pydantic
+import torch
 
 from bionemo.geneformer.run.factories import (
     DataConfig,
@@ -72,8 +73,12 @@ def run_again(
     ) as exp:
         exp.executor = run.LocalExecutor()  # Can we mutate?
         exp.reset()
-        exp.run(direct=True, sequential=True)
-        # exp.run(direct=True, tail_logs=True, sequential=True)
+        exp.run(direct=True, tail_logs=True, sequential=True)
+
+
+@run.cli.entrypoint
+def simple_example(this_or_that: Union[str, int]):
+    print(this_or_that)
 
 
 @run.cli.entrypoint
@@ -118,5 +123,7 @@ def run_firsttime(
 
 
 if __name__ == "__main__":
-    run.cli.main(run_firsttime)
+    if torch.distributed.is_initialized() and torch.distributed.get_rank() == 0:
+        run.cli.main(run_firsttime)
+    # run.cli.main(simple_example)
     # run.cli.main(run_again)

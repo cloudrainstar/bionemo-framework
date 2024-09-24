@@ -515,6 +515,7 @@ def nemo_logger_factory(experiment_config: ExperimentConfig, wandb_config: Optio
         monitor=experiment_config.metric_to_monitor_for_checkpoints,
         save_top_k=experiment_config.save_top_k,
         every_n_train_steps=experiment_config.save_every_n_steps,
+        always_save_context=True,
     )
 
     wandb_options: Optional[WandbLoggerOptions] = (
