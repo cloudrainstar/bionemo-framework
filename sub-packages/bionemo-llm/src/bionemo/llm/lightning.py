@@ -24,11 +24,9 @@ from nemo.lightning.megatron_parallel import (
     CallbackMethods,
     DataT,
     MegatronLossReduction,
-    ReductionT,
     MegatronStep,
+    ReductionT,
 )
-from nemo.lightning.pytorch.trainer import Trainer
-from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
 from typing_extensions import override
 
 from bionemo.llm.model.loss import unreduced_token_loss_fn
@@ -39,7 +37,6 @@ __all__: Sequence[str] = (
     "batch_collator",
     "PassthroughLossReduction",
     "LightningPassthroughPredictionMixin",
-    "TypedMegatronCallback",
     "PerplexityLoggingCallback",
 )
 
@@ -166,6 +163,7 @@ class LightningPassthroughPredictionMixin:
         """For the predict step, pass through the forward pass output."""
         return PassthroughLossReduction()
 
+
 class PerplexityLoggingCallback(pl.Callback, CallbackMethods):
     """Megatron Callback to log perplexity in validation and optionally training.
 
@@ -230,7 +228,9 @@ class PerplexityLoggingCallback(pl.Callback, CallbackMethods):
             return
 
         assert step.num_microbatches > 0, "num_microbatches must be greater than 0"
-        assert len(microbatch_outputs) == step.num_microbatches, "microbatch_outputs length does not match num_microbatches"
+        assert (
+            len(microbatch_outputs) == step.num_microbatches
+        ), "microbatch_outputs length does not match num_microbatches"
         labels = self._pad_to_max_length(microbatch_outputs, "batch", "labels", pad_value=-100)
         loss_mask = self._pad_to_max_length(microbatch_outputs, "batch", "loss_mask")
         token_logits = self._pad_to_max_length(microbatch_outputs, "forward_out", "token_logits")
