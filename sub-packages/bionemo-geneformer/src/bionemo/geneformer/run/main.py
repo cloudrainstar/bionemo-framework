@@ -101,7 +101,9 @@ def run_firsttime(
     launcher: Optional[str] = None,
 ):
     # Set launcher='torchrun' to execute on the cluster
-    local_executor = run.LocalExecutor(launcher=launcher)
+    # local_executor = run.LocalExecutor(launcher=launcher)
+
+    local_executor = run.LocalExecutor(ntasks_per_node=parallel_config.num_devices, launcher=launcher)
     with run.Experiment(title=experiment_title, executor=local_executor) as e:
         # Input has to be a partial wrapper of pretrain?
         e.add(
@@ -124,6 +126,8 @@ def run_firsttime(
 
 if __name__ == "__main__":
     if torch.distributed.is_initialized() and torch.distributed.get_rank() == 0:
+        run.cli.main(run_firsttime)
+    else:
         run.cli.main(run_firsttime)
     # run.cli.main(simple_example)
     # run.cli.main(run_again)
