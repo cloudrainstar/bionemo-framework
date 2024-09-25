@@ -160,6 +160,7 @@ class BERTMLMLossWithReduction(_Nemo2CompatibleLossReduceMixin, MegatronLossRedu
         if "labels" not in batch:
             raise ValueError("Labels not provided in the batch. These are required for this loss computation.")
 
+        forward_out_report = {k: v.detach().clone() for k, v in forward_out.items()}  # avoid impact from inplace operation on token_logits in unreduced_token_loss_fn
         unreduced_token_loss = unreduced_token_loss_fn(forward_out["token_logits"], batch["labels"])  # [b s]
 
         # TODO(@jstjohn) also handle different output keys, like the sequence loss.
@@ -213,13 +214,15 @@ class BERTMLMLossWithReduction(_Nemo2CompatibleLossReduceMixin, MegatronLossRedu
         # average the losses across the data parallel group, but also return the unreduced loss
         reduced_loss = average_losses_across_data_parallel_group([loss_for_microbatch])
         if (self.validation_step and self.send_val_output) or (not self.validation_step and self.send_train_output):
-            return loss_for_microbatch * cp_size, {"avg": reduced_loss, "batch": batch, "forward_out": forward_out}
+            return loss_for_microbatch * cp_size, {"avg": reduced_loss, "batch": batch, "forward_out": forward_out_report}
         else:
             return loss_for_microbatch * cp_size, {"avg": reduced_loss}
 
 
 def unreduced_token_loss_fn(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
     """Computes the unreduced token loss given the logits and labels without regard to the loss mask.
+
+    WARNING: This function does not apply a loss mask. Also, it does inplace operation on the inputs.
 
     Args:
         logits (Tensor): The predicted logits of shape [batch_size, sequence_length, num_classes].
@@ -228,14 +231,7 @@ def unreduced_token_loss_fn(logits: torch.Tensor, labels: torch.Tensor) -> torch
     Returns:
         Tensor: The unreduced token loss of shape [batch_size, sequence_length].
     """
-    # [b s] => [s b]  # for both of these for the vocab parallel cross entropy calculation. Is this necessary?
-    labels = labels.transpose(0, 1).contiguous()
-    logits = logits.transpose(0, 1).contiguous().float()
-    loss = tensor_parallel.vocab_parallel_cross_entropy(logits, labels)
-
-    # [s b] => [b, s]
-    loss = loss.transpose(0, 1).contiguous()
-    return loss
+    return tensor_parallel.vocab_parallel_cross_entropy(logits, labels)
 
 
 def unreduced_sequence_loss_fn(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
