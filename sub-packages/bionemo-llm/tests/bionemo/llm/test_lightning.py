@@ -369,7 +369,7 @@ def test_perplexity_logging_callback_with_single_microbatch_golden_value_without
         val_ppl = mock_megatron_step.pl_module.log.call_args[0][1]
         torch.testing.assert_close(
             val_ppl,
-            torch.tensor(ppl_golden_value, dtype=torch.float32, device=torch.cuda.current_device()),
+            torch.ones_like(val_ppl) * ppl_golden_value,
         )
 
 
@@ -401,10 +401,19 @@ def test_perplexity_logging_callback_with_variable_length_microbatches_golden_va
             reduced=torch.empty(1),
         )
 
+        # compare to torchmetric
+        metric = Perplexity(ignore_index=-100).to(torch.cuda.current_device())
+        for microbatch_output in microbatch_outputs:
+            metric.update(
+                microbatch_output["forward_out"]["token_logits"],
+                microbatch_output["batch"]["labels"],
+            )
+        ppl_golden_value = metric.compute()
+
         val_ppl = mock_megatron_step.pl_module.log.call_args[0][1]
         torch.testing.assert_close(
             val_ppl,
-            torch.tensor(vocab_size, dtype=torch.float32, device=torch.cuda.current_device()),
+            torch.ones_like(val_ppl) * ppl_golden_value,
         )
 
 

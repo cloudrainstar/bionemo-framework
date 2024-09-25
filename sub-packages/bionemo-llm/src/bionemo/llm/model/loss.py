@@ -161,7 +161,7 @@ class BERTMLMLossWithReduction(_Nemo2CompatibleLossReduceMixin, MegatronLossRedu
             raise ValueError("Labels not provided in the batch. These are required for this loss computation.")
 
         forward_out_report = {
-            k: v.detach().clone() for k, v in forward_out.items()
+            k: v.detach().clone() if torch.is_tensor(v) else v for k, v in forward_out.items()
         }  # avoid impact from inplace operation on token_logits in unreduced_token_loss_fn
         unreduced_token_loss = unreduced_token_loss_fn(forward_out["token_logits"], batch["labels"])  # [b s]
 
