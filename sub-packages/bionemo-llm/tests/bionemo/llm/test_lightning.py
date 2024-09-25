@@ -185,31 +185,7 @@ def test_mixin_strategy_contract_get_loss_reduction():
         assert isinstance(strategy_reduction_function(mixin), bnptl.PassthroughLossReduction)
 
 
-def get_single_microbatch_outputs(
-    microbatch_size: int = 1, max_sequence_length: int = 1024, vocab_size: int = 2
-) -> Tuple[int, List]:
-    num_microbatches = 1
-    microbatch_outputs = [
-        {
-            "batch": {
-                "labels": torch.zeros(
-                    microbatch_size, max_sequence_length, dtype=torch.long, device=torch.cuda.current_device()
-                ),  # [b s]
-                "loss_mask": torch.ones(
-                    microbatch_size, max_sequence_length, dtype=torch.long, device=torch.cuda.current_device()
-                ),  # [b s]
-            },
-            "forward_out": {
-                "token_logits": torch.ones(
-                    microbatch_size, max_sequence_length, vocab_size, device=torch.cuda.current_device()
-                ),  # [b s v]
-            },
-        },
-    ]
-    return num_microbatches, microbatch_outputs
-
-
-def get_random_microbatches(
+def get_random_microbatch(
     microbatch_size: int, max_sequence_length: int, vocab_size: int, seed: int
 ) -> Dict[str, Dict[str, torch.Tensor]]:
     """Generate random microbatches for testing"""
@@ -339,7 +315,7 @@ def test_perplexity_logging_callback_with_single_microbatch_golden_value_without
     with megatron_parallel_state_utils.distributed_model_parallel_state(seed=seed):
         # setup test input
         microbatch_size, max_sequence_length, vocab_size = 1, 1024, 2
-        microbatch_outputs = [get_random_microbatches(microbatch_size, max_sequence_length, vocab_size, seed)]
+        microbatch_outputs = [get_random_microbatch(microbatch_size, max_sequence_length, vocab_size, seed)]
         num_microbatches = len(microbatch_outputs)
 
         # setup mock objects
@@ -381,8 +357,8 @@ def test_perplexity_logging_callback_with_variable_length_microbatches_golden_va
         # setup test input
         microbatch_size, max_sequence_length, vocab_size = 2, 1024, 2
         microbatch_outputs = [
-            get_random_microbatches(microbatch_size, max_sequence_length // 2, vocab_size, seed),
-            get_random_microbatches(microbatch_size, max_sequence_length, vocab_size, seed),
+            get_random_microbatch(microbatch_size, max_sequence_length // 2, vocab_size, seed),
+            get_random_microbatch(microbatch_size, max_sequence_length, vocab_size, seed),
         ]
         num_microbatches = len(microbatch_outputs)
 
@@ -427,7 +403,7 @@ def test_perplexity_logging_callback_with_single_microbatch_only_log_at_pipeline
     ):
         # setup test input
         microbatch_size, max_sequence_length, vocab_size = 1, 1024, 2
-        microbatch_outputs = [get_random_microbatches(microbatch_size, max_sequence_length, vocab_size, seed=seed)]
+        microbatch_outputs = [get_random_microbatch(microbatch_size, max_sequence_length, vocab_size, seed=seed)]
         num_microbatches = len(microbatch_outputs)
 
         # setup mock objects
