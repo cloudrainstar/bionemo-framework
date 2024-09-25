@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 from unittest import mock
 
 import nemo.lightning as nl
@@ -22,9 +22,11 @@ import pytest
 import torch
 from nemo.lightning.megatron_parallel import MegatronLossReduction
 from torch import nn
+from torchmetrics.text import Perplexity
 
 from bionemo.llm import lightning as bnptl
 from bionemo.llm.lightning import PerplexityLoggingCallback, batch_collator, get_dtype_device
+from bionemo.llm.model.loss import unreduced_token_loss_fn
 from bionemo.testing import megatron_parallel_state_utils
 
 
@@ -207,29 +209,138 @@ def get_single_microbatch_outputs(
     return num_microbatches, microbatch_outputs
 
 
-def test_perplexity_logging_callback_with_single_microbatch_without_parallelism():
+def get_random_microbatches(
+    microbatch_size: int, max_sequence_length: int, vocab_size: int, seed: int
+) -> Dict[str, Dict[str, torch.Tensor]]:
+    """Generate random microbatches for testing"""
+    generator = torch.Generator(device=torch.cuda.current_device()).manual_seed(seed)
+    labels = torch.randint(
+        low=0,
+        high=vocab_size,
+        size=(microbatch_size, max_sequence_length),
+        generator=generator,
+        device=torch.cuda.current_device(),
+    )  # [b s]
+    loss_mask = torch.randint(
+        low=1,
+        high=1 + 1,
+        size=(microbatch_size, max_sequence_length),
+        dtype=torch.long,
+        device=torch.cuda.current_device(),
+        generator=generator,
+    )  # [b s]
+    token_logits = torch.rand(
+        microbatch_size, max_sequence_length, vocab_size, device=torch.cuda.current_device(), generator=generator
+    )  # [b s v]
+    labels[loss_mask == 0] = -100  # propagate masking to labels
+    microbatch_output = {
+        "batch": {"labels": labels, "loss_mask": loss_mask},
+        "forward_out": {"token_logits": token_logits},
+    }
+    return microbatch_output
+
+
+@pytest.mark.skip(reason="demonstrate inplace operation on token_logits in unreduced_token_loss_fn")
+def test_vocab_parallel_cross_entropy_golden_value(seed: int = 42):
     """Test PerplexityLoggingCallback with a single microbatch without parallelism"""
-    with megatron_parallel_state_utils.distributed_model_parallel_state():
+    # setup test input
+    generator = torch.Generator(device=torch.cuda.current_device()).manual_seed(seed)
+
+    microbatch_size, max_sequence_length, vocab_size = 1, 1024, 2
+
+    labels = torch.randint(
+        low=0,
+        high=vocab_size,
+        size=(microbatch_size, max_sequence_length),
+        dtype=torch.long,
+        generator=generator,
+        device=torch.cuda.current_device(),
+    )  # [b s]
+    loss_mask = torch.randint(
+        low=1,  # TODO fail even with low=1
+        high=1 + 1,
+        size=(microbatch_size, max_sequence_length),
+        dtype=torch.long,
+        device=torch.cuda.current_device(),
+    )  # [b s]
+    token_logits = torch.rand(
+        microbatch_size, max_sequence_length, vocab_size, device=torch.cuda.current_device()
+    )  # [b s v]
+
+    # TODO test on simpler cases (always same labels and uniform logits in addition to loss_mask=1)
+    # and it works
+    # labels[:, :] = 0
+    # token_logits[:, :, :] = 1.
+
+    # TODO uniform labels but random token logits
+    # and it fails
+    # labels[:, :] = 0
+
+    # TODO random labels + fixed token logits
+    # and it works of course since labels doesn't matter
+    # token_logits[:, :, :] = 0.
+
+    labels[loss_mask == 0] = -100
+    microbatch_outputs = [
+        {
+            "batch": {"labels": labels, "loss_mask": loss_mask},
+            "forward_out": {"token_logits": token_logits},
+        },
+    ]
+
+    # inconsistent output between repeated runs
+    # is there an inplace operation somewhere?
+    # unreduced_token_loss = unreduced_token_loss_fn(
+    #     logits=microbatch_outputs[0]["forward_out"]["token_logits"],
+    #     labels=microbatch_outputs[0]["batch"]["labels"],
+    # )
+    # unreduced_token_loss_repeated = unreduced_token_loss_fn(
+    #     logits=microbatch_outputs[0]["forward_out"]["token_logits"],
+    #     labels=microbatch_outputs[0]["batch"]["labels"],
+    # )
+    # torch.testing.assert_allclose(unreduced_token_loss, unreduced_token_loss_repeated)
+
+    # reproducible results on cloned tensors
+    unreduced_token_loss = unreduced_token_loss_fn(
+        logits=microbatch_outputs[0]["forward_out"]["token_logits"].clone(),
+        labels=microbatch_outputs[0]["batch"]["labels"].clone(),
+    )
+    unreduced_token_loss_repeated = unreduced_token_loss_fn(
+        logits=microbatch_outputs[0]["forward_out"]["token_logits"].clone(),
+        labels=microbatch_outputs[0]["batch"]["labels"].clone(),
+    )
+    torch.testing.assert_allclose(unreduced_token_loss, unreduced_token_loss_repeated)
+
+    # check if inplace operation on inputs
+    token_logits_clone = microbatch_outputs[0]["forward_out"]["token_logits"].clone()
+    labels_clone = microbatch_outputs[0]["batch"]["labels"].clone()
+    torch.testing.assert_allclose(token_logits, token_logits_clone)
+    torch.testing.assert_allclose(labels, labels_clone)
+
+    _ = unreduced_token_loss_fn(logits=token_logits_clone, labels=labels_clone)
+    torch.testing.assert_allclose(token_logits, token_logits_clone)  # logits_token changed!
+    torch.testing.assert_allclose(labels, labels_clone)  # however, labels didn't change
+
+    # match at unreduced_token_loss golden value on the **first** unreduced_token_loss run
+    loss = torch.nn.functional.cross_entropy(
+        input=microbatch_outputs[0]["forward_out"]["token_logits"].permute(1, 2, 0),
+        target=microbatch_outputs[0]["batch"]["labels"].permute(1, 0),
+        reduction="none",
+        ignore_index=-100,
+    ).transpose(0, 1)
+    torch.testing.assert_close(
+        unreduced_token_loss,
+        loss,
+    )
+
+
+def test_perplexity_logging_callback_with_single_microbatch_golden_value_without_parallelism(seed: int = 42):
+    """Test PerplexityLoggingCallback with a single microbatch without parallelism"""
+    with megatron_parallel_state_utils.distributed_model_parallel_state(seed=seed):
         # setup test input
         microbatch_size, max_sequence_length, vocab_size = 1, 1024, 2
-        num_microbatches = 1
-        microbatch_outputs = [
-            {
-                "batch": {
-                    "labels": torch.zeros(
-                        microbatch_size, max_sequence_length, dtype=torch.long, device=torch.cuda.current_device()
-                    ),  # [b s]
-                    "loss_mask": torch.ones(
-                        microbatch_size, max_sequence_length, dtype=torch.long, device=torch.cuda.current_device()
-                    ),  # [b s]
-                },
-                "forward_out": {
-                    "token_logits": torch.ones(
-                        microbatch_size, max_sequence_length, vocab_size, device=torch.cuda.current_device()
-                    ),  # [b s v]
-                },
-            },
-        ]
+        microbatch_outputs = [get_random_microbatches(microbatch_size, max_sequence_length, vocab_size, seed)]
+        num_microbatches = len(microbatch_outputs)
 
         # setup mock objects
         mock_megatron_step = mock.MagicMock()
@@ -242,64 +353,38 @@ def test_perplexity_logging_callback_with_single_microbatch_without_parallelism(
         callback.on_megatron_reduce_microbatches_end(
             step=mock_megatron_step,
             microbatch_outputs=microbatch_outputs,
-            loss_reduction=MegatronLossReduction(),
-            reduced=torch.empty(1),
+            loss_reduction=MegatronLossReduction(),  # dummy
+            reduced=torch.empty(1),  # dummy
         )
+
+        # compare to torchmetric
+        metric = Perplexity(ignore_index=-100).to(torch.cuda.current_device())
+        for microbatch_output in microbatch_outputs:
+            metric.update(
+                microbatch_output["forward_out"]["token_logits"],
+                microbatch_output["batch"]["labels"],
+            )
+        ppl_golden_value = metric.compute()
 
         val_ppl = mock_megatron_step.pl_module.log.call_args[0][1]
         torch.testing.assert_close(
             val_ppl,
-            torch.tensor(vocab_size, dtype=torch.float32, device=torch.cuda.current_device()),
+            torch.tensor(ppl_golden_value, dtype=torch.float32, device=torch.cuda.current_device()),
         )
 
 
-def test_perplexity_logging_callback_with_single_masked_microbatch_without_parallelism():
-    """Test PerplexityLoggingCallback with a single masked microbatch without parallelism"""
-    with megatron_parallel_state_utils.distributed_model_parallel_state():
-        # setup test input
-        microbatch_size, max_sequence_length, vocab_size = 1, 1024, 2
-        num_microbatches, microbatch_outputs = get_single_microbatch_outputs(
-            microbatch_size, max_sequence_length, vocab_size
-        )
-
-        half_idx = max_sequence_length // 2
-        microbatch_outputs[0]["batch"]["labels"][:, :half_idx] = -100
-        microbatch_outputs[0]["batch"]["loss_mask"][:, :half_idx] = 0
-
-        # setup mock objects
-        mock_megatron_step = mock.MagicMock()
-        mock_megatron_step.pl_module.log.return_value = None
-        mock_megatron_step.trainer.training = False
-        mock_megatron_step.num_microbatches = num_microbatches
-
-        # setup callback
-        callback = PerplexityLoggingCallback(log_train=False, log_val=True)
-        callback.on_megatron_reduce_microbatches_end(
-            step=mock_megatron_step,
-            microbatch_outputs=microbatch_outputs,
-            loss_reduction=MegatronLossReduction(),
-            reduced=torch.empty(1),
-        )
-
-        val_ppl = mock_megatron_step.pl_module.log.call_args[0][1]
-        torch.testing.assert_close(
-            val_ppl, torch.tensor(vocab_size, dtype=torch.float32, device=torch.cuda.current_device())
-        )
-
-
-def test_perplexity_logging_callback_with_variable_length_microbatches_without_parallelism():
+def test_perplexity_logging_callback_with_variable_length_microbatches_golden_value_without_parallelism(
+    seed: int = 42,
+):
     """Test PerplexityLoggingCallback with variable-length microbatches without parallelism"""
     with megatron_parallel_state_utils.distributed_model_parallel_state():
         # setup test input
         microbatch_size, max_sequence_length, vocab_size = 2, 1024, 2
-        num_microbatches_1, microbatch_outputs_1 = get_single_microbatch_outputs(
-            microbatch_size, max_sequence_length // 2, vocab_size
-        )
-        num_microbatches_2, microbatch_outputs_2 = get_single_microbatch_outputs(
-            microbatch_size, max_sequence_length, vocab_size
-        )
-        num_microbatches = num_microbatches_1 + num_microbatches_2
-        microbatch_outputs = microbatch_outputs_1 + microbatch_outputs_2
+        microbatch_outputs = [
+            get_random_microbatches(microbatch_size, max_sequence_length // 2, vocab_size, seed),
+            get_random_microbatches(microbatch_size, max_sequence_length, vocab_size, seed),
+        ]
+        num_microbatches = len(microbatch_outputs)
 
         # setup mock objects
         mock_megatron_step = mock.MagicMock()
@@ -324,7 +409,7 @@ def test_perplexity_logging_callback_with_variable_length_microbatches_without_p
 
 
 @pytest.mark.skip(reason="tensor_parallel.vocab_parallel_cross_entropy requires tensor parallel group")
-def test_perplexity_logging_callback_with_single_microbatch_only_log_at_pipeline_parallel_last_stage():
+def test_perplexity_logging_callback_with_single_microbatch_only_log_at_pipeline_parallel_last_stage(seed: int = 42):
     """Test PerplexityLoggingCallback only log at pipeline parallel last stage"""
     # TODO(@sichu) investigate into non-mock solution
     with (
@@ -333,9 +418,8 @@ def test_perplexity_logging_callback_with_single_microbatch_only_log_at_pipeline
     ):
         # setup test input
         microbatch_size, max_sequence_length, vocab_size = 1, 1024, 2
-        num_microbatches, microbatch_outputs = get_single_microbatch_outputs(
-            microbatch_size, max_sequence_length, vocab_size
-        )
+        microbatch_outputs = [get_random_microbatches(microbatch_size, max_sequence_length, vocab_size, seed=seed)]
+        num_microbatches = len(microbatch_outputs)
 
         # setup mock objects
         mock_megatron_step = mock.MagicMock()
@@ -346,6 +430,16 @@ def test_perplexity_logging_callback_with_single_microbatch_only_log_at_pipeline
         # setup callback
         callback = PerplexityLoggingCallback(log_train=False, log_val=True)
 
+        # compare to torchmetric
+        metric = Perplexity(ignore_index=-100).to(torch.cuda.current_device())
+        for microbatch_output in microbatch_outputs:
+            metric.update(
+                microbatch_output["forward_out"]["token_logits"],
+                microbatch_output["batch"]["labels"],
+            )
+        ppl_golden_value = metric.compute()
+
+        # check callback behavior
         with mock.patch("megatron.core.parallel_state.is_pipeline_last_stage", return_value=True):
             callback.on_megatron_reduce_microbatches_end(
                 step=mock_megatron_step,
@@ -358,7 +452,7 @@ def test_perplexity_logging_callback_with_single_microbatch_only_log_at_pipeline
             val_ppl = mock_megatron_step.pl_module.log.call_args[0][1]
             torch.testing.assert_close(
                 val_ppl,
-                torch.tensor(vocab_size, dtype=torch.float32, device=torch.cuda.current_device()),
+                torch.tensor(ppl_golden_value, dtype=torch.float32, device=torch.cuda.current_device()),
                 msg="fail test on single microbatch in pipeline parallel",
             )
             mock_megatron_step.pl_module.log.reset_mock()

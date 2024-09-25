@@ -235,11 +235,14 @@ class PerplexityLoggingCallback(pl.Callback, CallbackMethods):
         loss_mask = self._pad_to_max_length(microbatch_outputs, "batch", "loss_mask")
         token_logits = self._pad_to_max_length(microbatch_outputs, "forward_out", "token_logits")
 
-        unreduced_token_loss = unreduced_token_loss_fn(token_logits, labels)  #  [b s]
+        unreduced_token_loss = unreduced_token_loss_fn(
+            token_logits.clone(),  # unreduced_token_loss_fn has inplace operation on token_logits
+            labels.clone(),
+        )  #  [b s]
 
         cp_size = parallel_state.get_context_parallel_world_size()
         if cp_size == 1:
-            ppl = (torch.exp(unreduced_token_loss) * loss_mask).sum() / loss_mask.sum()
+            ppl = torch.exp((unreduced_token_loss * loss_mask).sum() / loss_mask.sum())
         else:
             raise NotImplementedError("Context parallel perplexity logging is not supported yet")
 

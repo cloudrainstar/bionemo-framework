@@ -160,7 +160,9 @@ class BERTMLMLossWithReduction(_Nemo2CompatibleLossReduceMixin, MegatronLossRedu
         if "labels" not in batch:
             raise ValueError("Labels not provided in the batch. These are required for this loss computation.")
 
-        forward_out_report = {k: v.detach().clone() for k, v in forward_out.items()}  # avoid impact from inplace operation on token_logits in unreduced_token_loss_fn
+        forward_out_report = {
+            k: v.detach().clone() for k, v in forward_out.items()
+        }  # avoid impact from inplace operation on token_logits in unreduced_token_loss_fn
         unreduced_token_loss = unreduced_token_loss_fn(forward_out["token_logits"], batch["labels"])  # [b s]
 
         # TODO(@jstjohn) also handle different output keys, like the sequence loss.
@@ -205,7 +207,7 @@ class BERTMLMLossWithReduction(_Nemo2CompatibleLossReduceMixin, MegatronLossRedu
             torch.distributed.all_reduce(
                 loss_sum_and_microbatch_size_all_gpu,
                 group=parallel_state.get_data_parallel_group(),
-                op=torch.distributed.ReduceOp.SUM,  # TODO(@sichu) why SUM instead of AVG
+                op=torch.distributed.ReduceOp.SUM,
             )
             return loss_for_microbatch * cp_size, {
                 "loss_sum_and_microbatch_size": loss_sum_and_microbatch_size_all_gpu
@@ -214,7 +216,11 @@ class BERTMLMLossWithReduction(_Nemo2CompatibleLossReduceMixin, MegatronLossRedu
         # average the losses across the data parallel group, but also return the unreduced loss
         reduced_loss = average_losses_across_data_parallel_group([loss_for_microbatch])
         if (self.validation_step and self.send_val_output) or (not self.validation_step and self.send_train_output):
-            return loss_for_microbatch * cp_size, {"avg": reduced_loss, "batch": batch, "forward_out": forward_out_report}
+            return loss_for_microbatch * cp_size, {
+                "avg": reduced_loss,
+                "batch": batch,
+                "forward_out": forward_out_report,
+            }
         else:
             return loss_for_microbatch * cp_size, {"avg": reduced_loss}
 
