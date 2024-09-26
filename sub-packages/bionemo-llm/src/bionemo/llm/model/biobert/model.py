@@ -442,7 +442,9 @@ class BioBertGenericConfig(
 
         # The local specs all require the standard full attention mask. For transformer engine only the NVTE_FLASH_ATTN=0
         #  option requires this full attention mask.
-        use_full_attention_mask: bool = os.getenv("NVTE_FLASH_ATTN") == "0" or "transformer_engine" not in self.biobert_spec_option
+        use_full_attention_mask: bool = (
+            os.getenv("NVTE_FLASH_ATTN") == "0" or "transformer_engine" not in self.biobert_spec_option
+        )
 
         do_next_sentence = False
         if self.model_cls is None:

@@ -33,7 +33,7 @@ from torch import Tensor
 from torch.optim import Optimizer
 
 from bionemo.esm2.data.tokenizer import BioNeMoESMTokenizer
-from bionemo.esm2.model.attention import ESM2DotProductAttention
+from bionemo.esm2.model.attention import ESM2DotProductAttention, ESM2TEDotProductAttention
 from bionemo.esm2.model.embedding import ESM2Embedding
 from bionemo.llm.model.biobert.model import BioBertGenericConfig, MegatronBioBertModel
 from bionemo.llm.model.biobert.transformer_specs import BiobertSpecOption
@@ -279,7 +279,7 @@ class ESM2GenericConfig(BioBertGenericConfig[ESM2ModelT]):
     use_attention_mask: bool = True
 
     # core attention
-    use_esm_attention: bool = True
+    use_esm_attention: bool = False
     attention_softmax_in_fp32: bool = True
     normalize_attention_scores: bool = False
     apply_query_key_layer_scaling: bool = False
@@ -312,13 +312,27 @@ class ESM2GenericConfig(BioBertGenericConfig[ESM2ModelT]):
     #  things as part of the workflow for inference and fine-tuning.
     return_embeddings: bool = False
     return_only_hidden_states: bool = False  # return logits
-    core_attention_override: Type[torch.nn.Module] | None = ESM2DotProductAttention if biobert_spec_option == BiobertSpecOption.esm2_bert_layer_local_spec else None
+
+    match biobert_spec_option:
+        case BiobertSpecOption.esm2_bert_layer_local_spec:
+            core_attention_override: Type[torch.nn.Module] | None = ESM2DotProductAttention
+        case BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec:
+            core_attention_override: Type[torch.nn.Module] | None = ESM2TEDotProductAttention
+        case _:
+            core_attention_override: Type[torch.nn.Module] | None = None
 
     def __post_init__(self):
+        """Check compatibility between biobert_spec_option and apply_query_key_layer_scaling post initialization."""
         super().__post_init__()
-        if self.biobert_spec_option == BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec and self.apply_query_key_layer_scaling:
+        if (
+            self.biobert_spec_option == BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec
+            and self.apply_query_key_layer_scaling
+        ):
             raise ValueError("Expected apply_query_key_layer_scaling=False on transformer engine but got True")
-        elif self.biobert_spec_option == BiobertSpecOption.esm2_bert_layer_local_spec and not self.apply_query_key_layer_scaling:
+        elif (
+            self.biobert_spec_option == BiobertSpecOption.esm2_bert_layer_local_spec
+            and not self.apply_query_key_layer_scaling
+        ):
             raise ValueError("Expected apply_query_key_layer_scaling=True on local spec but got False")
 
 
