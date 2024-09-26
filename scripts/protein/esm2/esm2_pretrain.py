@@ -345,8 +345,8 @@ parser.add_argument(
 )
 parser.add_argument(
     "--min-seq-length",
+    type=int,
     required=False,
-    default=None,
     help="Minimum sequence length.",
 )
 parser.add_argument(
