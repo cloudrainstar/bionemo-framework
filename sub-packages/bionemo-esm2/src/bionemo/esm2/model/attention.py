@@ -234,8 +234,7 @@ class ESM2DotProductAttention(DotProductAttention):
             query.transpose(0, 1),  # [b * np, sq, hn]
             key.transpose(0, 1).transpose(1, 2),  # [b * np, hn, sk]
             beta=0.0,
-            # alpha=(1.0 / self.norm_factor) if self.config.normalize_attention_scores else 1.0,  # TODO diff
-            alpha=1.0 / self.norm_factor,
+            alpha=(1.0 / self.norm_factor) if self.config.normalize_attention_scores else 1.0,
         )
 
         # change view to [b, np, sq, sk]
