@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-from typing import Dict, List, Tuple
+from typing import Dict
 from unittest import mock
 
 import nemo.lightning as nl
