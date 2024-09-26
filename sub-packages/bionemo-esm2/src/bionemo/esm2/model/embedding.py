@@ -60,6 +60,7 @@ class ESM2Embedding(LanguageModelEmbedding):
 
     @property
     def dtype(self) -> torch.dtype:
+        """The dtype of the embedding weights."""
         return self.word_embeddings.weight.dtype
 
     def _apply_esm2_customization(
