@@ -13,13 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pathlib
-from typing import Any, Dict, Optional, Sequence, TypedDict
+from typing import Any, Dict, Optional, Sequence, TypedDict, List
 
 from nemo.lightning.nemo_logger import NeMoLogger
 from nemo.lightning.pytorch import callbacks as nemo_callbacks
 from nemo.utils import logging
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
-
 
 __all__: Sequence[str] = (
     "WandbLoggerOptions",
@@ -32,13 +31,17 @@ class WandbLoggerOptions(TypedDict):
     `directory` is also omitted since it is set by the NeMoLogger.
     """  # noqa: D205
 
-    offline: bool  # offline mode
-    project: str  # project name
-    entity: str  # group name or user name
-    # name: str # experiment name, this is handled by NeMoLogger
-    # the directory is also set by NeMoLogger
-    log_model: bool  # log model
-
+    entity: str #The team posting this run (default: your username or your default team)
+    project: str #The name of the project to which this run will belong.
+    #name: #Display name for the run. "This is handled by NeMoLogger"
+    # save_dir: #Path where data is saved. "This is handled by NeMoLogger"
+    tags: List[str] #Tags associated with this run.
+    group: str #A unique string shared by all runs in a given group
+    offline: bool #Run offline (data can be streamed later to wandb servers).
+    id: str #Sets the version, mainly used to resume a previous run.
+    anonymous: bool #Enables or explicitly disables anonymous logging.
+    version: str #Sets the version, mainly used to resume a previous run.
+    log_model: bool #Save checkpoints in wandb dir to upload on W&B servers.
 
 def setup_nemo_lightning_logger(
     name: str = "default-name",
