@@ -389,7 +389,7 @@ parser.add_argument(
     type=BiobertSpecOption,
     choices=[e.value for e in BiobertSpecOption],
     required=False,
-    default=BiobertSpecOption.esm2_bert_layer_local_spec.value,
+    default=BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec.value,
     help="Biobert spec option to use for the model. Default is 'esm2_bert_layer_local_spec'.",
 )
 parser.add_argument(
