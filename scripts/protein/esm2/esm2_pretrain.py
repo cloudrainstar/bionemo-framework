@@ -49,6 +49,7 @@ def main(
     valid_database_path: Path,
     num_nodes: int,
     devices: int,
+    min_seq_length: Optional[int],
     seq_length: int,
     result_dir: Path,
     wandb_project: Optional[str],
@@ -167,7 +168,7 @@ def main(
         valid_database_path=valid_database_path,
         global_batch_size=global_batch_size,
         micro_batch_size=micro_batch_size,
-        min_seq_length=None,
+        min_seq_length=min_seq_length,
         max_seq_length=seq_length,
         num_workers=num_dataset_workers,
         random_mask_strategy=random_mask_strategy,
@@ -186,7 +187,7 @@ def main(
         biobert_spec_option=biobert_spec_option,
         nemo1_ckpt_path=nemo1_init_path,
         variable_seq_lengths=pipeline_model_parallel_size * tensor_model_parallel_size
-        > 1,  # essential for pipeline/tensor parallel
+        > 1 and min_seq_length != seq_length,  # essential for pipeline/tensor parallel
     )
 
     model = BioBertLightningModule(
@@ -343,11 +344,17 @@ parser.add_argument(
     help="Number of steps between validation. Default is 10000.",
 )
 parser.add_argument(
+    "--min-seq-length",
+    required=False,
+    default=None,
+    help="Minimum sequence length.",
+)
+parser.add_argument(
     "--seq-length",
     type=int,
     required=False,
     default=1024,
-    help="Sequence length of cell. Default is 1024.",
+    help="Sequence length.",
 )
 parser.add_argument(
     "--limit-val-batches",
@@ -478,6 +485,7 @@ if __name__ == "__main__":
         valid_database_path=args.valid_database_path,
         num_nodes=args.num_nodes,
         devices=args.num_gpus,
+        min_seq_length=args.min_seq_length,
         seq_length=args.seq_length,
         result_dir=args.result_dir,
         wandb_project=args.wandb_project,
