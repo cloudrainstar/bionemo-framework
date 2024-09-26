@@ -281,7 +281,7 @@ class ESM2GenericConfig(BioBertGenericConfig[ESM2ModelT]):
     use_esm_attention: bool = True
     attention_softmax_in_fp32: bool = True
     normalize_attention_scores: bool = False
-    apply_query_key_layer_scaling: bool = True
+    apply_query_key_layer_scaling: bool = False
 
     # From megatron.core.models.gpt.bert_model.GPTModel
     fp16_lm_cross_entropy: bool = False  # Move the cross entropy unreduced loss calculation for lm head to fp16
@@ -295,7 +295,7 @@ class ESM2GenericConfig(BioBertGenericConfig[ESM2ModelT]):
     rotary_percent: float = 1.0
     seq_len_interpolation_factor: Optional[float] = None
     seq_length: int = 1024
-    biobert_spec_option: BiobertSpecOption = BiobertSpecOption.esm2_bert_layer_local_spec
+    biobert_spec_option: BiobertSpecOption = BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec
 
     # TODO: Move this to better places?
     get_attention_mask_from_fusion: bool = False
@@ -311,7 +311,14 @@ class ESM2GenericConfig(BioBertGenericConfig[ESM2ModelT]):
     #  things as part of the workflow for inference and fine-tuning.
     return_embeddings: bool = False
     return_only_hidden_states: bool = False  # return logits
-    core_attention_override: Type[torch.nn.Module] | None = ESM2DotProductAttention
+    core_attention_override: Type[torch.nn.Module] | None = ESM2DotProductAttention if biobert_spec_option == BiobertSpecOption.esm2_bert_layer_local_spec else None
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.biobert_spec_option == BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec and self.apply_query_key_layer_scaling:
+            raise ValueError("Expected apply_query_key_layer_scaling=False on transformer engine but got True")
+        elif self.biobert_spec_option == BiobertSpecOption.esm2_bert_layer_local_spec and not self.apply_query_key_layer_scaling:
+            raise ValueError("Expected apply_query_key_layer_scaling=True on local spec but got False")
 
 
 @dataclass
