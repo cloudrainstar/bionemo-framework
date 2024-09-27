@@ -14,6 +14,7 @@
 # limitations under the License.
 
 
+import logging
 import math
 from dataclasses import dataclass
 from typing import Callable, Literal, Optional, Sequence, Type, TypeVar
@@ -318,6 +319,7 @@ class ESM2GenericConfig(BioBertGenericConfig[ESM2ModelT]):
             self.apply_query_key_layer_scaling = False
             self.core_attention_override = ESM2TEDotProductAttention
         elif self.biobert_spec_option == BiobertSpecOption.esm2_bert_layer_local_spec:
+            logging.warning("BiobertSpecOption.esm2_bert_layer_local_spec is depreciated. Use BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec instead.")
             self.apply_query_key_layer_scaling = True
             self.core_attention_override = ESM2DotProductAttention
         else:

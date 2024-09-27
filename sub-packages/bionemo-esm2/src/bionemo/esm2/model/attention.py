@@ -14,6 +14,7 @@
 # limitations under the License.
 
 
+import logging
 import os
 from typing import Callable, Optional, Sequence, Union
 
@@ -34,7 +35,7 @@ from pkg_resources import packaging
 from torch import Tensor
 
 
-__all__: Sequence[str] = ("ESM2DotProductAttention",)
+__all__: Sequence[str] = ("ESM2DotProductAttention", "ESM2TEDotProductAttention")
 
 from megatron.core.extensions.transformer_engine import _te_version
 
@@ -121,7 +122,7 @@ class ESM2TEDotProductAttention(TEDotProductAttention):
             get_rng_state_tracker=(get_cuda_rng_tracker if get_cuda_rng_tracker().is_initialized() else None),
             tp_group=get_tensor_model_parallel_group(check_initialized=False),
             layer_number=layer_number,
-            softmax_scale=1.0,
+            softmax_scale=1.0,  # TODO subclassing only changes softmax_scale from None to 1.0. Upstream to make this exposed without subclassing
             **extra_kwargs,
         )
 
