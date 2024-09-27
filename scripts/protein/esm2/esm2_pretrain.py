@@ -17,6 +17,7 @@
 import argparse
 from pathlib import Path
 from typing import Optional, Sequence, get_args
+from typing import Dict, Optional, Sequence, Type, get_args, List
 
 from megatron.core.optimizer import OptimizerConfig
 from nemo import lightning as nl
@@ -52,8 +53,6 @@ def main(
     min_seq_length: Optional[int],
     max_seq_length: int,
     result_dir: Path,
-    wandb_project: Optional[str],
-    wandb_offline: bool,
     num_steps: int,
     warmup_steps: int,
     limit_val_batches: int,
@@ -66,7 +65,14 @@ def main(
     experiment_name: str,
     resume_if_exists: bool,
     precision: PrecisionTypes,
-    wandb_entity: str = "clara-discovery",
+    wandb_entity: Optional[str] = None,
+    wandb_project: Optional[str] = None,
+    wandb_offline: bool = False,
+    wandb_tags: Optional[List[str]] = None,
+    wandb_group: Optional[str] = None,
+    wandb_id: Optional[str] = None,
+    wandb_anonymous: Optional[bool] = False,
+    wandb_log_model: bool = False,
     pipeline_model_parallel_size: int = 1,
     tensor_model_parallel_size: int = 1,
     create_tensorboard_logger: bool = False,
@@ -137,6 +143,8 @@ def main(
         ckpt_include_optimizer=True,
     )
 
+    #for wandb integration
+    #Please refer to https://pytorch-lightning.readthedocs.io/en/0.7.6/api/pytorch_lightning.loggers.html"
     wandb_options: Optional[WandbLoggerOptions] = (
         None
         if wandb_project is None
