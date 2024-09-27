@@ -397,7 +397,7 @@ parser.add_argument(
     choices=[e.value for e in BiobertSpecOption],
     required=False,
     default=BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec.value,
-    help="Biobert spec option to use for the model. Default is 'esm2_bert_layer_local_spec'.",
+    help="Biobert spec option to use for the model. Default is 'esm2_bert_layer_with_transformer_engine_spec'.",
 )
 parser.add_argument(
     "--nemo1-init-path",
@@ -443,8 +443,8 @@ parser.add_argument(
 parser.add_argument(
     "--random-mask-strategy",
     type=RandomMaskStrategy,
-    choices=list(RandomMaskStrategy),
-    default=RandomMaskStrategy.ALL_TOKENS,
+    choices=[e.value for e in RandomMaskStrategy],
+    default=RandomMaskStrategy.ALL_TOKENS.value,
     help=f"""In ESM2 pretraining, 15%% of all tokens are masked and among which 10%% are replaced with a random token. This class controls the set of random tokens to choose from. Options are: '{"', '".join([e.value for e in RandomMaskStrategy])}'. Note that 'all_token' will introduce non-canonical amino acid tokens as effective mask tokens, and the resultant loss will appear lower than that from 'amino_acids_only'. Note that 'all_token' is the method used in hugging face as well as portions of fairseq.""",
 )
 parser.add_argument(
