@@ -186,8 +186,8 @@ def main(
         autocast_dtype=get_autocast_dtype(precision),  # setting this speeds things up a lot
         biobert_spec_option=biobert_spec_option,
         nemo1_ckpt_path=nemo1_init_path,
-        variable_seq_lengths=pipeline_model_parallel_size * tensor_model_parallel_size
-        > 1 and min_seq_length != seq_length,  # essential for pipeline/tensor parallel
+        variable_seq_lengths=pipeline_model_parallel_size * tensor_model_parallel_size > 1
+        and min_seq_length != seq_length,  # essential for pipeline/tensor parallel
     )
 
     model = BioBertLightningModule(
