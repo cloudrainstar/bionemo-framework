@@ -281,7 +281,6 @@ class ESM2GenericConfig(BioBertGenericConfig[ESM2ModelT]):
     use_esm_attention: bool = False
     attention_softmax_in_fp32: bool = True
     normalize_attention_scores: bool = False
-    apply_query_key_layer_scaling: bool = False
 
     # From megatron.core.models.gpt.bert_model.GPTModel
     fp16_lm_cross_entropy: bool = False  # Move the cross entropy unreduced loss calculation for lm head to fp16
@@ -312,27 +311,17 @@ class ESM2GenericConfig(BioBertGenericConfig[ESM2ModelT]):
     return_embeddings: bool = False
     return_only_hidden_states: bool = False  # return logits
 
-    match biobert_spec_option:
-        case BiobertSpecOption.esm2_bert_layer_local_spec:
-            core_attention_override: Type[torch.nn.Module] | None = ESM2DotProductAttention
-        case BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec:
-            core_attention_override: Type[torch.nn.Module] | None = ESM2TEDotProductAttention
-        case _:
-            core_attention_override: Type[torch.nn.Module] | None = None
-
     def __post_init__(self):
         """Check compatibility between biobert_spec_option and apply_query_key_layer_scaling post initialization."""
         super().__post_init__()
-        if (
-            self.biobert_spec_option == BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec
-            and self.apply_query_key_layer_scaling
-        ):
-            raise ValueError("Expected apply_query_key_layer_scaling=False on transformer engine but got True")
-        elif (
-            self.biobert_spec_option == BiobertSpecOption.esm2_bert_layer_local_spec
-            and not self.apply_query_key_layer_scaling
-        ):
-            raise ValueError("Expected apply_query_key_layer_scaling=True on local spec but got False")
+        if self.biobert_spec_option == BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec:
+            self.apply_query_key_layer_scaling = False
+            self.core_attention_override = ESM2TEDotProductAttention
+        elif self.biobert_spec_option == BiobertSpecOption.esm2_bert_layer_local_spec:
+            self.apply_query_key_layer_scaling = True
+            self.core_attention_override = ESM2DotProductAttention
+        else:
+            raise ValueError(f"Unknown biobert_spec_option: {self.biobert_spec_option}")
 
 
 @dataclass
