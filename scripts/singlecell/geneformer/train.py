@@ -23,7 +23,7 @@
 import argparse
 import math
 from pathlib import Path
-from typing import Dict, Optional, Sequence, Type, get_args, List, Any
+from typing import Dict, List, Optional, Sequence, Type, get_args
 
 from megatron.core.optimizer import OptimizerConfig
 from nemo import lightning as nl
@@ -146,9 +146,9 @@ def main(
         find_unused_parameters=True,
         ckpt_include_optimizer=True,
     )
-    
-    #for wandb integration
-    #Please refer to https://pytorch-lightning.readthedocs.io/en/0.7.6/api/pytorch_lightning.loggers.html"
+
+    # for wandb integration
+    # Please refer to https://pytorch-lightning.readthedocs.io/en/0.7.6/api/pytorch_lightning.loggers.html"
     wandb_options: Optional[WandbLoggerOptions] = (
         None
         if wandb_project is None
@@ -335,45 +335,22 @@ parser.add_argument(
 parser.add_argument(
     "--experiment-name", type=str, required=False, default="geneformer", help="Name of the experiment."
 )
+parser.add_argument("--wandb-entity", type=str, default=None, help="The team posting this run")
+parser.add_argument("--wandb-project", type=str, default=None, help="Wandb project name ")
+parser.add_argument("--wandb-tags", nargs="+", type=str, default=None, help="Tags associated with this run")
 parser.add_argument(
-    "--wandb-entity",
-    type=str,
-    default=None,
-    help="The team posting this run")
+    "--wandb-group", type=str, default=None, help="A unique string shared by all runs in a given group"
+)
 parser.add_argument(
-    "--wandb-project",
-    type=str,
-    default=None,
-    help="Wandb project name ")
+    "--wandb-id", type=str, default=None, help="Sets the version, mainly used to resume a previous run"
+)
 parser.add_argument(
-    "--wandb-tags",
-    nargs="+",
-    type=str,
-    default=None,
-    help="Tags associated with this run")
+    "--wandb-anonymous", type=str, action="store_true", help="Enable or explicitly disable anonymous logging"
+)
 parser.add_argument(
-    "--wandb-group",
-    type=str,
-    default=None,
-    help="A unique string shared by all runs in a given group")
-parser.add_argument(
-    "--wandb-id",
-    type=str,
-    default=None,
-    help="Sets the version, mainly used to resume a previous run")
-parser.add_argument(
-    "--wandb-anonymous",
-    type=str,
-    action="store_true",
-    help="Enable or explicitly disable anonymous logging")
-parser.add_argument(
-    "--wandb-log-model",
-    action="store_true",
-    help="Save checkpoints in wandb dir to upload on W&B servers")
-parser.add_argument(
-    "--wandb-offline",
-    action="store_true",
-    help="Use wandb in offline mode")
+    "--wandb-log-model", action="store_true", help="Save checkpoints in wandb dir to upload on W&B servers"
+)
+parser.add_argument("--wandb-offline", action="store_true", help="Use wandb in offline mode")
 parser.add_argument(
     "--cosine-rampup-frac",
     type=float,
