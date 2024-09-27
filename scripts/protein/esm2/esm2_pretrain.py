@@ -50,7 +50,7 @@ def main(
     num_nodes: int,
     devices: int,
     min_seq_length: Optional[int],
-    seq_length: int,
+    max_seq_length: int,
     result_dir: Path,
     wandb_project: Optional[str],
     wandb_offline: bool,
@@ -169,14 +169,14 @@ def main(
         global_batch_size=global_batch_size,
         micro_batch_size=micro_batch_size,
         min_seq_length=min_seq_length,
-        max_seq_length=seq_length,
+        max_seq_length=max_seq_length,
         num_workers=num_dataset_workers,
         random_mask_strategy=random_mask_strategy,
     )
 
     # Configure the model
     esm2_config = ESM2Config(
-        seq_length=seq_length,
+        seq_length=max_seq_length,
         num_layers=num_layers,
         hidden_size=hidden_size,
         num_attention_heads=num_attention_heads,
@@ -187,7 +187,7 @@ def main(
         biobert_spec_option=biobert_spec_option,
         nemo1_ckpt_path=nemo1_init_path,
         variable_seq_lengths=pipeline_model_parallel_size * tensor_model_parallel_size > 1
-        and min_seq_length != seq_length,  # essential for pipeline/tensor parallel
+        and min_seq_length != max_seq_length,  # essential for pipeline/tensor parallel
     )
 
     model = BioBertLightningModule(
@@ -347,14 +347,14 @@ parser.add_argument(
     "--min-seq-length",
     type=int,
     required=False,
-    help="Minimum sequence length.",
+    help="Minimum sequence length. Sampled will be padded if less than this value.",
 )
 parser.add_argument(
-    "--seq-length",
+    "--max-seq-length",
     type=int,
     required=False,
     default=1024,
-    help="Sequence length.",
+    help="Maximum sequence length. Samples will be truncated if exceeds this value.",
 )
 parser.add_argument(
     "--limit-val-batches",
@@ -486,7 +486,7 @@ if __name__ == "__main__":
         num_nodes=args.num_nodes,
         devices=args.num_gpus,
         min_seq_length=args.min_seq_length,
-        seq_length=args.seq_length,
+        max_seq_length=args.max_seq_length,
         result_dir=args.result_dir,
         wandb_project=args.wandb_project,
         wandb_offline=args.wandb_offline,
