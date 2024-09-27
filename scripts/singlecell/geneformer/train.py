@@ -76,7 +76,6 @@ def main(
     wandb_group: Optional[str] = None,
     wandb_id: Optional[str] = None,
     wandb_anonymous: Optional[bool] = False,
-    wandb_version: Optional[str] = None,
     wandb_log_model: bool = False,
     create_tensorboard_logger: bool = False,
     nemo1_init_path: Path | None = None,
@@ -147,7 +146,9 @@ def main(
         find_unused_parameters=True,
         ckpt_include_optimizer=True,
     )
-
+    
+    #for wandb integration
+    #Please refer to https://pytorch-lightning.readthedocs.io/en/0.7.6/api/pytorch_lightning.loggers.html"
     wandb_options: Optional[WandbLoggerOptions] = (
         None
         if wandb_project is None
@@ -334,9 +335,6 @@ parser.add_argument(
 parser.add_argument(
     "--experiment-name", type=str, required=False, default="geneformer", help="Name of the experiment."
 )
-#for wandb integration
-#Please refer to https://pytorch-lightning.readthedocs.io/en/0.7.6/api/pytorch_lightning.loggers.html"
-
 parser.add_argument(
     "--wandb-entity",
     type=str,
