@@ -40,7 +40,6 @@ class WandbLoggerOptions(TypedDict):
     offline: bool #Run offline (data can be streamed later to wandb servers).
     id: str #Sets the version, mainly used to resume a previous run.
     anonymous: bool #Enables or explicitly disables anonymous logging.
-    version: str #Sets the version, mainly used to resume a previous run.
     log_model: bool #Save checkpoints in wandb dir to upload on W&B servers.
 
 def setup_nemo_lightning_logger(

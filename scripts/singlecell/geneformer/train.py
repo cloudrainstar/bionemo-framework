@@ -108,15 +108,14 @@ def main(
         experiment_name (str): experiment name, this is the name used for the wandb run, and the sub-directory of the
             result_dir that stores the logs and checkpoints.
         resume_if_exists (bool): attempt to resume if the checkpoint exists [FIXME @skothenhill this doesn't work yet]
-        wandb_entity: str #The team posting this run (default: your username or your default team)
-        wandb_project: str #The name of the project to which this run will belong.
-        wandb_tags: List[str] #Tags associated with this run.
-        wandb_group: str #A unique string shared by all runs in a given group
-        wandb_offline: bool #Run offline (data can be streamed later to wandb servers).
-        wandb_id: str #Sets the version, mainly used to resume a previous run.
-        wandb_anonymous: bool #Enables or explicitly disables anonymous logging.
-        wandb_version: str #Sets the version, mainly used to resume a previous run.
-        wandb_log_model: bool #Save checkpoints in wandb dir to upload on W&B servers.
+        wandb_entity (str): The team posting this run (default: your username or your default team)
+        wandb_project (str): The name of the project to which this run will belong.
+        wandb_tags (List[str]): Tags associated with this run.
+        wandb_group (str): A unique string shared by all runs in a given group
+        wandb_offline (bool): Run offline (data can be streamed later to wandb servers).
+        wandb_id (str): Sets the version, mainly used to resume a previous run.
+        wandb_anonymous (bool): Enables or explicitly disables anonymous logging.
+        wandb_log_model (bool): Save checkpoints in wandb dir to upload on W&B servers.
         create_tensorboard_logger (bool): create the tensorboard logger
         restore_from_checkpoint_path (path): If set, restores the model from the directory passed in. Expects the
             checkpoint to be created by using the ModelCheckpoint class and always_save_context=True.
@@ -160,7 +159,6 @@ def main(
             group=wandb_group,
             id=wandb_id,
             anonymous=wandb_anonymous,
-            version=wandb_version,
             log_model=wandb_log_model,
         )
     )
@@ -370,11 +368,6 @@ parser.add_argument(
     type=str,
     action="store_true",
     help="Enable or explicitly disable anonymous logging")
-parser.add_argument(
-    "--wandb-version",
-    type=str,
-    default=None,
-    help="Sets the version, mainly used to resume a previous run")
 parser.add_argument(
     "--wandb-log-model",
     action="store_true",
