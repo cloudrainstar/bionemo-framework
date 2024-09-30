@@ -1,25 +1,33 @@
 # Access and Startup
 
-The BioNeMo Framework is free to use and easily accessible. Users can pull the BioNeMo Framework Docker container to develop and execute code. Below, we outline the steps to access the latest version.
+The BioNeMo Framework is free to use and easily accessible. The preferred method of accessing the software is through the BioNeMo Docker container, which provides a seamless and hassle-free way to develop and execute code. By using the Docker container, you can bypass the complexity of handling dependencies, ensuring that you have a consistent and reproducible environment for your projects.
 
-An open-source version of the BioNeMo Framework is coming soon and will be available on GitHub.
+In this section of the documentation, we will guide you through the process of pulling the BioNeMo Docker container and setting up a local development environment. By following these steps, you will be able to quickly get started with the BioNeMo Framework and begin exploring its features and capabilities.
 
 # Access the BioNeMo Framework
 
+To access the BioNeMo Framework container, you will need a free NVIDIA GPU Cloud (NGC) account and an API key linked to that account.
+
 ## NGC Account and API Key Configuration
 
-NVIDIA GPU Cloud (NGC) is a portal of enterprise services, software, and support for AI and HPC workloads. The NGC Catalog is a collection of GPU-accelerated software, models and containers that speed up end-to-end AI workflows. The BioNeMo Framework container is available on NGC.
+NGC is a portal of enterprise services, software, and support for artificial intelligence and high-performance computing (HPC) workloads. The BioNeMo Docker container is hosted on the NGC Container Registry. To pull and run a container from this registry, you will need to create a free NGC account and an API Key using the following steps:
 
 1. Create a free account on [NGC](https://ngc.nvidia.com/signin) and log in.
 2. At the top right, click on the **User > Setup > Generate API Key**, then click **+ Generate API Key** and **Confirm**. Copy and store your API Key in a secure location.
 
-You can now view the BioNeMo Framework container [here](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/clara/containers/bionemo-framework) or by searching the NGC Catalog for “BioNeMo Framework”. Feel free to explore the resources available to you in the Catalog.
+You can now view the BioNeMo Framework container [here](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/clara/containers/bionemo-framework) or by searching the NGC Catalog for “BioNeMo Framework”. Feel free to explore the resources available to you in the catalog.
 
 # Startup Instructions
 
-Now that you can access the BioNeMo Framework container, it is time to get up and running. BioNeMo is compatible across a variety of computing environments, keeping in mind users with local workstations and data centers, users of major Cloud Service Providers (CSPs) such as AWS, Azure, GCP, and OCI, and users of NVIDIA’s DGX Cloud infrastructure.
+BioNeMo is compatible with a wide variety of computing environments, including both local workstations, data centers, and Cloud Service Providers (CSPs) such as Amazon Web Service, Microsoft Azure, Google Cloud Platform, and Oracle Cloud Infrastructure, and NVIDIA’s own DGX Cloud infrastructure.
 
 ## Running the Container on a Local Machine
+
+This section will provide instructions for running the BioNeMo Framework container on a local workstation. This process will involve the following steps:
+
+1. Logging into the NGC Container Registry (nvcr.io)
+2. Pulling the container from the registry
+3. Running a Jupyter Lab instance inside the container for local development
 
 ### Pull Docker Container from NGC
 
@@ -29,103 +37,84 @@ Open a command prompt on your machine and enter the following:
 
 ```bash
 docker login nvcr.io
-
-    Username: $oauthtoken
-    Password: <YOUR_API_KEY>
 ```
 
-You can now pull the container:
+This command will prompt you to enter your API key. Fill in the details as shown below. Note that you should enter the string `$oauthtoken` as your username. Replace the password (`<YOUR_API_KEY>`) with the API key that you generated in the [NGC Account and API Key Configuration](#NGC-Account-and-API-Key-Configuration) section above
 
 ```bash
-docker pull <IMAGE_PATH>
+Username: $oauthtoken
+Password: <YOUR_API_KEY>
 ```
 
-### Run Docker Container
+You can now pull the BioNeMo Framework container using the following command:
 
-First, create a local workspace directory (to be mounted to the home directory of the Docker container to persist data). You can then launch the container. We recommend running the container in a JupyterLab environment, as per the below command:
+```bash
+docker pull {{ docker_url }}:{{ docker_tag }}
+```
+
+### Run the BioNeMo Framework Container
+
+Now that you have pulled the BioNeMo Framework container, you can run it as you would a normal Docker container. For instance, to get basic shell access you can run the following command:
+
+```bash
+docker run \
+  --rm \
+  -it \
+  --gpus all \
+  {{ docker_url }}:{{ docker_tag }} \
+  /bin/bash
+```
+
+#### Running Jupyter Lab Inside the Container
+
+First, create a local workspace directory (to be mounted to the home directory of the Docker container to persist data). You can then launch the container. We recommend running the container in a Jupyter Lab environment using the command below:
 
 ```bash
 docker run --rm -d --gpus all -p 8888:8888 \
-  -v <YOUR_WORKSPACE>:/workspace/bionemo/<YOUR_WORKSPACE> <IMAGE_PATH> \
-  "jupyter lab --allow-root --ip=* --port=8888 --no-browser \
-  --NotebookApp.token='' --NotebookApp.allow_origin='*' \
-  --ContentsManager.allow_hidden=True --notebook-dir=/workspace/bionemo"
+  -v <YOUR_WORKSPACE>:/workspace/bionemo/<YOUR_WORKSPACE> \
+  {{ docker_url }}:{{ docker_tag }} \
+  "jupyter lab \
+  	--allow-root \
+	--ip=* \
+	--port=8888 \
+	--no-browser \
+  	--NotebookApp.token='' \
+  	--NotebookApp.allow_origin='*' \
+  	--ContentsManager.allow_hidden=True \
+  	--notebook-dir=/workspace/bionemo"
 ```
 
-Explanation:
+Let's break down this `docker run` command:
 
-* **Docker**: The first line runs a Docker container in detached mode (`-d`), uses all available GPUs for the container (``--gpus all``), and maps it to port 8888.
-* **Volume Mapping**: The second line (`-v`) mounts the host directory into the home directory of the container.
-* **JupyterLab Command**: The third, fourth, and fifth lines contain a customizable command to launch JupyterLab inside the container. The command shown here allows root access (``--allow-root``), allows binding to all IP addresses on the specified port (``--ip=* --port=8888``), disables browser launch (``--no-browser``) and token authentication requirements (``--NotebookApp.token``), shows hidden files by setting (``.allow_hidden=True``), and sets the starting working directory to ``/workspace/bionemo``.
+**Basic components**
 
-## Running the Container in the Cloud through Major CSPs
+* `docker run`: This is the Docker command to run a container from an image.
+* `--rm`: This flag removes the container when it exits.
+* `-d`: This flag runs the container in detached mode (i.e., in the background).
 
-### Launch Instance Through NVIDIA VMI
+**Resource allocation**
 
-The BioNeMo Framework container is supported on cloud-based GPU instances through the **NVIDIA GPU-Optimized Virtual Machine Image (VMI)**, available for [AWS](https://aws.amazon.com/marketplace/pp/prodview-7ikjtg3um26wq#pdp-pricing), [GCP](https://console.cloud.google.com/marketplace/product/nvidia-ngc-public/nvidia-gpu-optimized-vmi), [Azure](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/nvidia.ngc_azure_17_11?tab=overview), and [OCI](https://cloudmarketplace.oracle.com/marketplace/en_US/listing/165104541). NVIDIA VMIs are built on Ubuntu and provide a standardized operating system environment across clouds for running NVIDIA GPU-accelerated software. They are pre-configured with software dependencies such as NVIDIA GPU drivers, Docker, and the NVIDIA Container Toolkit. More details about NVIDIA VMIs can be found in the [NGC Catalog](https://catalog.ngc.nvidia.com/orgs/nvidia/collections/nvidia_vmi).
+* `--gpus all`: This flag allows the container to use all available GPUs on the host machine.
 
-The general steps below should be adapted according to the CSP:
-1. Launch a GPU instance running the NVIDIA GPU-Optimized VMI (e.g. AWS EC2).
-2. Connect to the running instance, and then pull and run the BioNeMo Framework container exactly as outlined in the [Running the Container on a Local Machine](#running-the-container-on-a-local-machine) section above.
+**Port mapping**
 
-### Integration with Cloud Services
+* `-p 8888:8888`: This flag maps port 8888 on the host machine to port 8888 inside the container. This allows access to the Jupyter Lab interface from outside the container.
 
-BioNeMo is compatible with various cloud services. Check out blogs about BioNeMo on [SageMaker](https://aws.amazon.com/blogs/industries/find-the-next-blockbuster-with-nvidia-bionemo-framework-on-amazon-sagemaker/) (example code [repository](https://github.com/aws-samples/amazon-sagemaker-with-nvidia-bionemo)), [ParallelCluster](https://aws.amazon.com/blogs/hpc/protein-language-model-training-with-nvidia-bionemo-framework-on-aws-parallelcluster/) (example code [repository](https://github.com/aws-samples/awsome-distributed-training/tree/main/3.test_cases/14.bionemo)), and [EKS](https://aws.amazon.com/blogs/hpc/accelerate-drug-discovery-with-nvidia-bionemo-framework-on-amazon-eks/) (example code [repository](https://github.com/awslabs/data-on-eks/tree/main/ai-ml/bionemo)).
+**Volume mounting**
 
-## Running the Container on DGX Cloud
+* `-v <YOUR_WORKSPACE>:/workspace/bionemo/<YOUR_WORKSPACE>`: This flag mounts a volume from the host machine to the container. Specifically, it mounts the `<YOUR_WORKSPACE>` directory on the host machine to `/workspace/bionemo/<YOUR_WORKSPACE>` inside the container. This allows the container to access files from the host machine.
 
-For DGX Cloud users, NVIDIA Base Command Platform (BCP) includes a central user interface with managed compute resources. It can be used to manage datasets, workspaces, jobs, and users within an organization and team. This creates a convenient hub for monitoring job execution, viewing metrics and logs, and monitoring resource utilization. NVIDIA DGX Cloud is powered by Base Command Platform. More information can be found on the [BCP website](https://docs.nvidia.com/base-command-platform/index.html).
+**Image and command**
 
-### NGC CLI Configuration
+* `{{ docker_url }}:{{ docker_tag }}`: This is the path to the Docker image to use.
+* `"jupyter lab ..."`: This is the command to run inside the container, which is a Jupyter Lab server. The options are:
+	+ `--allow-root`: Allow the Jupyter Lab server to run as the root user.
+	+ `--ip=*`: Listen on all available network interfaces (i.e., allow access from outside the container).
+	+ `--port=8888`: Listen on port 8888.
+	+ `--no-browser`: Don't open a browser window automatically.
+	+ `--NotebookApp.token=''`: Set an empty token for the Jupyter Lab server (i.e., no authentication is required).
+	+ `--NotebookApp.allow_origin='*'`: Allow requests from anywhere (i.e., any origin).
+	+ `--ContentsManager.allow_hidden=True`: Allow the contents manager to access hidden files and directories.
+	+ `--notebook-dir=/workspace/bionemo`: Set the notebook directory to `/workspace/bionemo` inside the container.
 
-NVIDIA NGC Command Line Interface (CLI) is a command-line tool for managing Docker containers in NGC. You can download it on your local machine as per the instructions [here](https://org.ngc.nvidia.com/setup/installers/cli).
-
-Once installed, run `ngc config set` to establish NGC credentials:
-
-* **API key**: Enter your API Key
-* **CLI output**: Accept the default (ascii format) by pressing `Enter`
-* **org**: Choose from the list which org you have access to
-* **team**: Choose the team you are assigned to
-* **ace**: Choose an ACE, otherwise press `Enter` to continue
-
-Note that the **org** and **team** are only relevant when pulling private containers/datasets from NGC created by you or your team. For BioNeMo Framework, use the default value.
-
-You can learn more about NGC CLI installation [here](https://docs.nvidia.com/base-command-platform/user-guide/latest/index.html#installing-ngc-cli). Note that the NGC documentation also discusses how to mount your own [datasets](https://docs.nvidia.com/base-command-platform/user-guide/latest/index.html#managing-datasets) and [workspaces](https://docs.nvidia.com/base-command-platform/user-guide/latest/index.html#managing-workspaces).
-
-### Running the BioNeMo Framework Container
-
-On your local machine, run the following command to launch your job, ensuring to replace the relevant fields with your settings:
-
-```bash
-ngc batch run \
-	--name <YOUR_JOB_NAME> \
-	--team <YOUR_TEAM> \
-	--ace <YOUR_ACE> \
-	--instance dgxa100.80g.1.norm \
-	--image <IMAGE_PATH> \
-	--port 8888 \
-	--workspace <YOUR_WORKSPACE>:/workspace/bionemo/<YOUR_WORKSPACE>:RW \
-	--datasetid <YOUR_DATASET> \
-	--result /result \
-	--total-runtime 1D \
-	--order 1 \
-	--label <YOUR_LABEL> \
-	--commandline "jupyter lab --allow-root --ip=* --port=8888 --allow-root --no-browser --NotebookApp.token='' --NotebookApp.allow_origin='*' --ContentsManager.allow_hidden=True --notebook-dir=/workspace/bionemo & sleep infinity"
-```
-
-Explanation:
-
-* `--name`: Name of your job
-* `--team`: Team that you are assigned in NGC org
-* `--ace`: ACE that you are assigned
-* `--instance`: GPU instance type for the job (e.g. `dgxa100.80g.1.norm` for single-GPU A100 instance)
-* `--image`: BioNeMo Framework container image
-* `--port`: Port number to access JupyterLab
-* `--workspace`: Optional (Mount NGC workspace to container with read/write access to persist data)
-* `--datasetid`: Optional (Mount dataset to container)
-* `--result`: Directory to store job results
-* `--order`: Order of the job
-* `--label`: Job label, allowing quick filtering on NGC dashboard
-* `--commandline`: Command to run inside the container, in this case, starting JupyterLab and keeping it running with `sleep infinity`
-
-To launch your Jupyter notebook in the browser, click on your job in the NGC Web UI and then click the URL under the Service Mapped Ports. You may also set up a Remote Tunnel to access a running job to execute and edit your code using VS Code locally or via the browser, as discussed [here](https://docs.nvidia.com/base-command-platform/user-guide/latest/index.html#setting-up-and-accessing-visual-studio-code-via-remote-tunnel).
+In summary, this command runs a detached Docker container from a specified image, mapping port 8888, mounting a volume for persistent storage, and running a Jupyter Lab server with a specified configuration.
