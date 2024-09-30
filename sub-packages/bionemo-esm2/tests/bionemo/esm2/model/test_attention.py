@@ -26,7 +26,7 @@ from bionemo.testing import megatron_parallel_state_utils
 
 
 @pytest.fixture(scope="module")
-def config() -> ESM2Config:
+def config():
     with megatron_parallel_state_utils.distributed_model_parallel_state():
         yield ESM2Config(
             seq_length=20,
@@ -37,20 +37,14 @@ def config() -> ESM2Config:
         )
 
 
-def get_attention_layer(use_te: bool, config: ESM2Config) -> torch.nn.Module:
-    attention_cls = ESM2TEDotProductAttention if use_te else ESM2DotProductAttention
-    return attention_cls(
+@pytest.fixture(scope="module")
+def local_attention_layer(config: ESM2Config) -> ESM2DotProductAttention:
+    return ESM2DotProductAttention(
         config=config,
         layer_number=0,
         attn_mask_type=AttnMaskType.padding,
-        attention_type="self" if use_te else "normal",
+        attention_type="normal",
     ).eval()
-
-
-@pytest.fixture(scope="module")
-def local_attention_layer(config: ESM2Config) -> ESM2DotProductAttention:
-    return get_attention_layer(use_te=False, config=config)
-
 
 @pytest.fixture(scope="module")
 def attention_layer(config: ESM2Config) -> ESM2TEDotProductAttention:
@@ -91,9 +85,7 @@ def test_forward(attention_layer, config):
 
 @pytest.mark.skip(reason="Not implemented yet for transformer engine spec")
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16, torch.half])
-def test_attention_with_mask(attention_later, dtype):
-    attention_layer = get_attention_layer(use_te=use_te, config=config)
-
+def test_attention_with_mask(attention_layer, dtype):
     sequence_length_val = 3
     sequence_length_query = 1
     batch_size = 2

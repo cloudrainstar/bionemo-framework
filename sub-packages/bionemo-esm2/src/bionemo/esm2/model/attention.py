@@ -53,6 +53,7 @@ class ESM2TEDotProductAttention(TEDotProductAttention):
         attention_type: str,
         attention_dropout: float | None = None,
     ):
+        """Initialize ESM2TEDotProductAttention."""
         self.config = config
         self.te_forward_mask_type = False
         self.qkv_format: str = "sbhd"
