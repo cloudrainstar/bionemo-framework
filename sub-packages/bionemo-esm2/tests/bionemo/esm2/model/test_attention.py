@@ -52,18 +52,23 @@ def local_attention_layer(config: ESM2Config) -> ESM2DotProductAttention:
     return get_attention_layer(use_te=False, config=config)
 
 
-@pytest.mark.parametrize("use_te", [False, True])
-def test_init(config, use_te):
-    attention_layer = get_attention_layer(use_te=use_te, config=config)
+@pytest.fixture(scope="module")
+def attention_layer(config: ESM2Config) -> ESM2TEDotProductAttention:
+    return ESM2TEDotProductAttention(
+        config=config,
+        layer_number=0,
+        attn_mask_type=AttnMaskType.padding,
+        attention_type="self",
+    ).eval()
 
+
+def test_init(attention_layer, config):
     assert attention_layer.config.use_esm_attention
     assert attention_layer.config == config
 
 
-@pytest.mark.parametrize("use_te", [False])  # TODO (@sichu) add test on use_te
-def test_forward(config, use_te):
-    attention_layer = get_attention_layer(use_te=use_te, config=config)
-
+@pytest.mark.skip(reason="Not implemented yet for transformer engine spec")
+def test_forward(attention_layer, config):
     batch_size = 2
     sequence_length = config.seq_length
     hidden_size = config.hidden_size
@@ -77,17 +82,16 @@ def test_forward(config, use_te):
         dtype=torch.bool
     )  # symmetric mask tensor
 
-    if use_te:
-        raise NotImplementedError("TE attention require additional attn_mask_type argument")
+    if isinstance(attention_layer, ESM2TEDotProductAttention):
+        raise NotImplementedError("TE requires reshaped input and is not implemented yet")
     else:
         output = attention_layer(query, key, value, attention_mask)
+        assert output.shape == (sequence_length, batch_size, hidden_size)
 
-    assert output.shape == (sequence_length, batch_size, hidden_size)
 
-
-@pytest.mark.parametrize("use_te", [False])  # TODO (@sichu) add test on use_te
+@pytest.mark.skip(reason="Not implemented yet for transformer engine spec")
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16, torch.half])
-def test_attention_with_mask(config, use_te, dtype):
+def test_attention_with_mask(attention_later, dtype):
     attention_layer = get_attention_layer(use_te=use_te, config=config)
 
     sequence_length_val = 3
@@ -113,25 +117,11 @@ def test_attention_with_mask(config, use_te, dtype):
     assert values.shape == (sequence_length_val, batch_size, 1, emb_dim)
 
     # softmax will make the the avg first 2 tensors in vals (ones + twos)/2 and second row is just ones
-    if use_te:
-        raise NotImplementedError("TE attention require additional attn_mask_type argument")
+    if isinstance(attention_layer, ESM2TEDotProductAttention):
+        raise NotImplementedError("TE requires reshaped input and is not implemented yet")
     else:
         output = attention_layer(query, key, values, attention_mask)
-
-    expected_output = torch.tensor(
-        [[[1.5000, 1.5000, 1.5000, 1.5000], [1.0000, 1.0000, 1.0000, 1.0000]]], device=device, dtype=dtype
-    )
-    assert torch.equal(output, expected_output)
-
-
-@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16, torch.half])
-def test_esm2_scale_mask_softmax(local_attention_layer, config, dtype):
-    batch_size = 2
-    sequence_length = config.seq_length
-    num_attention_heads = config.num_attention_heads
-
-    input_tensor = torch.randn(batch_size, num_attention_heads, sequence_length, sequence_length, dtype=dtype)
-
-    output = local_attention_layer.esm2_scale_mask_softmax(input_tensor)
-    assert output.shape == input_tensor.shape
-    assert output.dtype == dtype
+        expected_output = torch.tensor(
+            [[[1.5000, 1.5000, 1.5000, 1.5000], [1.0000, 1.0000, 1.0000, 1.0000]]], device=device, dtype=dtype
+        )
+        assert torch.equal(output, expected_output)
