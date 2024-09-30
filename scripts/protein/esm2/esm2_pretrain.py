@@ -175,6 +175,7 @@ def main(
     )
 
     # Configure the model
+    need_megatron_variable_seq_lengths_reductions = pipeline_model_parallel_size * tensor_model_parallel_size > 1 and min_seq_length != max_seq_length,  # essential for pipeline/tensor parallel
     esm2_config = ESM2Config(
         seq_length=max_seq_length,
         num_layers=num_layers,
@@ -186,8 +187,7 @@ def main(
         autocast_dtype=get_autocast_dtype(precision),  # setting this speeds things up a lot
         biobert_spec_option=biobert_spec_option,
         nemo1_ckpt_path=nemo1_init_path,
-        variable_seq_lengths=pipeline_model_parallel_size * tensor_model_parallel_size > 1
-        and min_seq_length != max_seq_length,  # essential for pipeline/tensor parallel
+        variable_seq_lengths=need_megatron_variable_seq_lengths_reductions,
     )
 
     model = BioBertLightningModule(
