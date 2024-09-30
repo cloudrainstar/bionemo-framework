@@ -1,8 +1,8 @@
 # What is BioNeMo?
 
-BioNeMo is a software ecosystem produced by NVIDIA for the development and deployment of deep learning models in life sciences. It provides a set of tools to help researchers build, train, and deploy AI models for various biological applications. The main components of BioNeMo are:
+BioNeMo is a software ecosystem produced by NVIDIA for the development and deployment of life sciences-oriented artificial intelligence models. BioNeMo provides a set of tools to help researchers build, train, and deploy AI models for various biological applications. The main components of BioNeMo are:
 
-- **BioNeMo Framework**: a free-to-use collection of programming tools and packages offering access to optimized, pre-trained biomolecular models and workflows, along with versatile functionalities for building and customizing models, including training and fine-tuning. Capabilities span various workloads and therapeutic modalities, such as molecular generation and representation learning, protein structure prediction and representation learning, protein-ligand and protein-protein docking, and DNA/RNA/single-cell embedding.
+- **BioNeMo Framework**: a free-to-use collection of programming tools and packages offering access to optimized, pre-trained biomolecular models and workflows. The framework enables building and customizing models, including training and fine-tuning. Capabilities span various workloads and therapeutic modalities, such as molecular generation, protein structure prediction, protein-ligand, and representation learning.
 
 - **BioNeMo NIMs**: easy-to-use, enterprise-ready _inference_ microservices with built-in API endpoints. NIMs are engineered for scalable, self- or cloud-hosted deployment of optimized, production-grade biomolecular foundation models. Check out the growing list of BioNeMo NIMs [here](https://build.nvidia.com/explore/biology).
 
