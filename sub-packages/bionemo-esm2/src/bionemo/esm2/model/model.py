@@ -279,7 +279,7 @@ class ESM2GenericConfig(BioBertGenericConfig[ESM2ModelT]):
     use_attention_mask: bool = True
 
     # core attention
-    use_esm_attention: bool = False
+    use_esm_attention: bool = False  # Skip ESM2 custom attention for TE acceleration. Still passes golden value test.
     attention_softmax_in_fp32: bool = True
     normalize_attention_scores: bool = False
 
