@@ -60,6 +60,8 @@ class ESM2LoRA(LoRA):
 
         Returns:
             nn.Module: The modified model with the specified modules frozen.
+        See Also:
+            nemo.collections.llm.fn.mixin.FNMixin
         """
         if name in ["encoder", "embedding"]:
             FNMixin.freeze(m)
