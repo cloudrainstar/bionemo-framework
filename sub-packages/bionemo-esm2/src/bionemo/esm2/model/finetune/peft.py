@@ -35,7 +35,7 @@ from torch import nn
 
 
 class ESM2LoRA(LoRA):
-    """LoRA for the BioNeMo2 ESM Model"""
+    """LoRA for the BioNeMo2 ESM Model."""
 
     def __call__(self, model: nn.Module) -> nn.Module:
         """This method is called when the object is called as a function.
