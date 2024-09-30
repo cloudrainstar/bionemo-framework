@@ -46,6 +46,7 @@ def local_attention_layer(config: ESM2Config) -> ESM2DotProductAttention:
         attention_type="normal",
     ).eval()
 
+
 @pytest.fixture(scope="module")
 def attention_layer(config: ESM2Config) -> ESM2TEDotProductAttention:
     return ESM2TEDotProductAttention(
@@ -61,7 +62,7 @@ def test_init(attention_layer, config):
     assert attention_layer.config == config
 
 
-@pytest.mark.skip(reason="Not implemented yet for transformer engine spec")
+@pytest.mark.skip(reason="Not implemented yet for transformer engine")
 def test_forward(attention_layer, config):
     batch_size = 2
     sequence_length = config.seq_length
@@ -83,7 +84,7 @@ def test_forward(attention_layer, config):
         assert output.shape == (sequence_length, batch_size, hidden_size)
 
 
-@pytest.mark.skip(reason="Not implemented yet for transformer engine spec")
+@pytest.mark.skip(reason="Not implemented yet for transformer engine")
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16, torch.half])
 def test_attention_with_mask(attention_layer, dtype):
     sequence_length_val = 3
