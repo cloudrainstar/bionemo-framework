@@ -44,7 +44,6 @@ from bionemo.esm2.model.finetune.finetune_token_classifier import (
     InMemoryPerTokenValueDataset,
 )
 from bionemo.esm2.model.finetune.peft import ESM2LoRA
-from bionemo.llm.lightning import LossLoggingCallback
 from bionemo.llm.model.biobert.lightning import BioBertLightningModule
 from bionemo.testing import megatron_parallel_state_utils
 from bionemo.testing.callbacks import MetricTracker
@@ -130,7 +129,7 @@ def _train_model(
         enable_nemo_ckpt_io=True,
     )
     metric_tracker = MetricTracker(metrics_to_track_val=["loss"], metrics_to_track_train=["loss"])
-    callbacks = [LossLoggingCallback(), metric_tracker]
+    callbacks = [metric_tracker]
     if peft is not None:
         callbacks.append(ModelTransform())
     trainer = nl.Trainer(
