@@ -1,6 +1,6 @@
 # Hardware and Software Prerequisites
 
-Before you begin using the BioNeMo framework, please ensure the following prerequisites are met.
+Before you begin using the BioNeMo framework, please ensure the hardware and software prerequisites outlined below are met.
 
 ## Hardware
 
