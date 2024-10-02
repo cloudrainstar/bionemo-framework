@@ -97,6 +97,7 @@ RUN --mount=type=bind,source=./.git,target=./.git \
   --mount=type=bind,source=./requirements-test.txt,target=/requirements-test.txt \
   --mount=type=bind,source=./requirements-cve.txt,target=/requirements-cve.txt \
   <<EOT
+set -eo pipefail
 uv pip install --no-build-isolation \
   ./3rdparty/* \
   ./sub-packages/bionemo-* \
@@ -115,6 +116,7 @@ FROM ${BASE_IMAGE} AS dev
 RUN --mount=type=cache,id=apt-cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,id=apt-lib,target=/var/lib/apt,sharing=locked \
   <<EOT
+set -eo pipefail
 apt-get update -qy
 apt-get install -qyy \
   sudo
@@ -133,6 +135,7 @@ RUN groupadd --gid $USER_GID $USERNAME \
 # Here we delete the dist-packages directory from the pytorch base image, and copy over the dist-packages directory from
 # the build image. This ensures we have all the necessary dependencies installed (megatron, nemo, etc.).
 RUN <<EOT
+  set -eo pipefail
   rm -rf /usr/local/lib/python3.10/dist-packages
   mkdir -p /usr/local/lib/python3.10/dist-packages
   chmod 777 /usr/local/lib/python3.10/dist-packages
@@ -152,11 +155,13 @@ ENV UV_LINK_MODE=copy \
 
 RUN --mount=type=bind,source=./requirements-dev.txt,target=/workspace/bionemo2/requirements-dev.txt \
   --mount=type=cache,id=uv-cache,target=/root/.cache,sharing=locked <<EOT
+  set -eo pipefail
   uv pip install -r /workspace/bionemo2/requirements-dev.txt
   rm -rf /tmp/*
 EOT
 
 RUN <<EOT
+  set -eo pipefail
   rm -rf /usr/local/lib/python3.10/dist-packages/bionemo*
   pip uninstall -y nemo_toolkit megatron_core
 EOT
