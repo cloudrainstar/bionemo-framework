@@ -90,6 +90,12 @@ def assert_dataset_elements_not_equal(
 ):
     """Test the case where two indices return different elements on datasets that employ randomness, like masking.
 
+    NOTE: if you have a dataset without any kinds of randomness, just use the `assert_dataset_elements_not_equal` test
+    and skip this one. This test is for the case when you want to test that a dataset that applies a random transform
+    to your elements as a function of index actually does so with two different indices that map to the same underlying
+    object. This test also runs `assert_dataset_elements_not_equal` behind the scenes so if you do this you do not need
+    to also do the other.
+
     With epoch upsampling approaches, some underlying index, say index=0, will be called multiple times by some wrapping
     dataset object. For example if you have a dataset of length 1, and you wrap it in an up-sampler that maps it to
     length 2 by mapping index 0 to 0 and 1 to 0, then in that wrapper we apply randomness to the result and we expect
