@@ -1,29 +1,43 @@
 # Access and Startup
 
-The BioNeMo Framework is free to use and easily accessible. The preferred method of accessing the software is through the BioNeMo Docker container, which provides a seamless and hassle-free way to develop and execute code. By using the Docker container, you can bypass the complexity of handling dependencies, ensuring that you have a consistent and reproducible environment for your projects.
+The BioNeMo Framework is free to use and easily accessible. The preferred method of accessing the software is through
+the BioNeMo Docker container, which provides a seamless and hassle-free way to develop and execute code. By using the
+Docker container, you can bypass the complexity of handling dependencies, ensuring that you have a consistent and
+reproducible environment for your projects.
 
-In this section of the documentation, we will guide you through the process of pulling the BioNeMo Docker container and setting up a local development environment. By following these steps, you will be able to quickly get started with the BioNeMo Framework and begin exploring its features and capabilities.
+In this section of the documentation, we will guide you through the process of pulling the BioNeMo Docker container and
+setting up a local development environment. By following these steps, you will be able to quickly get started with the
+BioNeMo Framework and begin exploring its features and capabilities.
 
 # Access the BioNeMo Framework
 
-To access the BioNeMo Framework container, you will need a free NVIDIA GPU Cloud (NGC) account and an API key linked to that account.
+To access the BioNeMo Framework container, you will need a free NVIDIA GPU Cloud (NGC) account and an API key linked to
+that account.
 
 ## NGC Account and API Key Configuration
 
-NGC is a portal of enterprise services, software, and support for artificial intelligence and high-performance computing (HPC) workloads. The BioNeMo Docker container is hosted on the NGC Container Registry. To pull and run a container from this registry, you will need to create a free NGC account and an API Key using the following steps:
+NGC is a portal of enterprise services, software, and support for artificial intelligence and high-performance computing
+(HPC) workloads. The BioNeMo Docker container is hosted on the NGC Container Registry. To pull and run a container from
+this registry, you will need to create a free NGC account and an API Key using the following steps:
 
 1. Create a free account on [NGC](https://ngc.nvidia.com/signin) and log in.
-2. At the top right, click on the **User > Setup > Generate API Key**, then click **+ Generate API Key** and **Confirm**. Copy and store your API Key in a secure location.
+2. At the top right, click on the **User > Setup > Generate API Key**, then click **+ Generate API Key** and
+**Confirm**. Copy and store your API Key in a secure location.
 
-You can now view the BioNeMo Framework container [here](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/clara/containers/bionemo-framework) or by searching the NGC Catalog for “BioNeMo Framework”. Feel free to explore the resources available to you in the catalog.
+You can now view the BioNeMo Framework container
+[here](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/clara/containers/bionemo-framework) or by searching the NGC
+Catalog for “BioNeMo Framework”. Feel free to explore the resources available to you in the catalog.
 
 # Startup Instructions
 
-BioNeMo is compatible with a wide variety of computing environments, including both local workstations, data centers, and Cloud Service Providers (CSPs) such as Amazon Web Service, Microsoft Azure, Google Cloud Platform, and Oracle Cloud Infrastructure, and NVIDIA’s own DGX Cloud infrastructure.
+BioNeMo is compatible with a wide variety of computing environments, including both local workstations, data centers,
+and Cloud Service Providers (CSPs) such as Amazon Web Service, Microsoft Azure, Google Cloud Platform, and Oracle Cloud
+Infrastructure, and NVIDIA’s own DGX Cloud infrastructure.
 
 ## Running the Container on a Local Machine
 
-This section will provide instructions for running the BioNeMo Framework container on a local workstation. This process will involve the following steps:
+This section will provide instructions for running the BioNeMo Framework container on a local workstation. This process
+will involve the following steps:
 
 1. Logging into the NGC Container Registry (nvcr.io)
 2. Pulling the container from the registry
@@ -31,7 +45,8 @@ This section will provide instructions for running the BioNeMo Framework contain
 
 ### Pull Docker Container from NGC
 
-Within the NGC Catalog, navigate to **BioNeMo Framework > Tags > Get Container**, and copy the image path for the latest tag.
+Within the NGC Catalog, navigate to **BioNeMo Framework > Tags > Get Container**, and copy the image path for the latest
+tag.
 
 Open a command prompt on your machine and enter the following:
 
@@ -39,7 +54,9 @@ Open a command prompt on your machine and enter the following:
 docker login nvcr.io
 ```
 
-This command will prompt you to enter your API key. Fill in the details as shown below. Note that you should enter the string `$oauthtoken` as your username. Replace the password (`<YOUR_API_KEY>`) with the API key that you generated in the [NGC Account and API Key Configuration](#NGC-Account-and-API-Key-Configuration) section above
+This command will prompt you to enter your API key. Fill in the details as shown below. Note that you should enter the
+string `$oauthtoken` as your username. Replace the password (`<YOUR_API_KEY>`) with the API key that you generated in
+the [NGC Account and API Key Configuration](#NGC-Account-and-API-Key-Configuration) section above
 
 ```bash
 Username: $oauthtoken
@@ -54,7 +71,8 @@ docker pull {{ docker_url }}:{{ docker_tag }}
 
 ### Run the BioNeMo Framework Container
 
-Now that you have pulled the BioNeMo Framework container, you can run it as you would a normal Docker container. For instance, to get basic shell access you can run the following command:
+Now that you have pulled the BioNeMo Framework container, you can run it as you would a normal Docker container. For
+instance, to get basic shell access you can run the following command:
 
 ```bash
 docker run \
@@ -67,7 +85,9 @@ docker run \
 
 #### Running Jupyter Lab Inside the Container
 
-First, create a local workspace directory (to be mounted to the home directory of the Docker container to persist data). You can then launch the container. We recommend running the container in a Jupyter Lab environment using the command below:
+First, create a local workspace directory (to be mounted to the home directory of the Docker container to persist data).
+You can then launch the container. We recommend running the container in a Jupyter Lab environment using the command
+below:
 
 ```bash
 docker run --rm -d --gpus all -p 8888:8888 \
@@ -98,11 +118,15 @@ Let's break down this `docker run` command:
 
 **Port mapping**
 
-* `-p 8888:8888`: This flag maps port 8888 on the host machine to port 8888 inside the container. This allows access to the Jupyter Lab interface from outside the container.
+* `-p 8888:8888`: This flag maps port 8888 on the host machine to port 8888 inside the container. This allows access to
+the Jupyter Lab interface from outside the container.
 
 **Volume mounting**
 
-* `-v <YOUR_WORKSPACE>:/workspace/bionemo/<YOUR_WORKSPACE>`: This flag mounts a volume from the host machine to the container. Specifically, it mounts the `<YOUR_WORKSPACE>` directory on the host machine to `/workspace/bionemo/<YOUR_WORKSPACE>` inside the container. This allows the container to access files from the host machine.
+* `-v <YOUR_WORKSPACE>:/workspace/bionemo/<YOUR_WORKSPACE>`: This flag mounts a volume from the host machine to the
+container. Specifically, it mounts the `<YOUR_WORKSPACE>` directory on the host machine to
+`/workspace/bionemo/<YOUR_WORKSPACE>` inside the container. This allows the container to access files from the host
+machine.
 
 **Image and command**
 
@@ -117,4 +141,5 @@ Let's break down this `docker run` command:
 	+ `--ContentsManager.allow_hidden=True`: Allow the contents manager to access hidden files and directories.
 	+ `--notebook-dir=/workspace/bionemo`: Set the notebook directory to `/workspace/bionemo` inside the container.
 
-In summary, this command runs a detached Docker container from a specified image, mapping port 8888, mounting a volume for persistent storage, and running a Jupyter Lab server with a specified configuration.
+In summary, this command runs a detached Docker container from a specified image, mapping port 8888, mounting a volume
+for persistent storage, and running a Jupyter Lab server with a specified configuration.
