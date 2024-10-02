@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, TypeVar
+from typing import Callable
 from unittest.mock import patch
 
 import numpy as np
@@ -21,8 +21,10 @@ import pytest
 import torch
 import torch.utils.data
 
+from bionemo.core.data.multi_epoch_dataset import EpochIndex
 
-IndexT = TypeVar("IndexT")
+
+Index = int | EpochIndex
 
 TensorLike = torch.Tensor | np.ndarray
 TensorCollectionOrTensor = TensorLike | dict[str, TensorLike]
@@ -49,7 +51,7 @@ class DatasetDistributedNondeterministic(AssertionError):
 
 def assert_dataset_compatible_with_megatron(
     dataset: torch.utils.data.Dataset[TensorCollectionOrTensor],
-    index: IndexT = 0,
+    index: Index = 0,
     assert_elements_equal: Callable[
         [TensorCollectionOrTensor, TensorCollectionOrTensor], None
     ] = assert_dict_tensors_approx_equal,
@@ -80,8 +82,8 @@ def assert_dataset_compatible_with_megatron(
 
 def assert_dataset_elements_not_equal(
     dataset: torch.utils.data.Dataset[TensorCollectionOrTensor],
-    index_a: IndexT = 0,
-    index_b: IndexT = 1,
+    index_a: Index = 0,
+    index_b: Index = 1,
     assert_elements_equal: Callable[
         [TensorCollectionOrTensor, TensorCollectionOrTensor], None
     ] = assert_dict_tensors_approx_equal,
