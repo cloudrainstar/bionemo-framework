@@ -25,8 +25,8 @@ this registry, you will need to create a free NGC account and an API Key using t
 **Confirm**. Copy and store your API Key in a secure location.
 
 You can now view the BioNeMo Framework container
-[here](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/clara/containers/bionemo-framework) or by searching the NGC
-Catalog for “BioNeMo Framework”. Feel free to explore the resources available to you in the catalog.
+at this direct link in the [NGC Catalog](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/clara/containers/bionemo-framework) or by searching the NGC
+Catalog for “BioNeMo Framework”. Feel free to explore the other resources available to you in the catalog.
 
 # Startup Instructions
 
