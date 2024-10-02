@@ -145,13 +145,18 @@ aws s3 cp \
 ```
 #### Running
 
-The following command runs a very small example of geneformer:
+The following command runs a very small example of geneformer. Note NVIDIA employees should use `pbss` rather than `ngc`
+for the data source.
+
 ```bash
-TEST_DATA_DIR=$(bionemo_test_data_path single_cell/testdata-20240506 --source pbss); \
+MY_DATA_SOURCE="ngc"; \
+TEST_DATA_DIR=$(bionemo_test_data_path single_cell/testdata-20240506 --source $MY_DATA_SOURCE); \
+GENEFORMER_10M_CKPT=$(bionemo_test_data_path geneformer/10M_240530:2.0 --source $MY_DATA_SOURCE); \
 python  \
     scripts/singlecell/geneformer/train.py     \
     --data-dir ${TEST_DATA_DIR}/cellxgene_2023-12-15_small/processed_data    \
     --result-dir ./results     \
+    --restore-from-checkpoint-path ${GENEFORMER_10M_CKPT} \
     --experiment-name test_experiment     \
     --num-gpus 1  \
     --num-nodes 1 \
@@ -174,7 +179,8 @@ copy the `scripts/singlecell/geneformer/train.py` and modify the DataModule clas
 Simple fine-tuning example (NOTE: please change `--restore-from-checkpoint-path` to be the one that was output last
 by the previous train run)
 ```bash
-TEST_DATA_DIR=$(bionemo_test_data_path single_cell/testdata-20240506 --source pbss); \
+MY_DATA_SOURCE="ngc"; \
+TEST_DATA_DIR=$(bionemo_test_data_path single_cell/testdata-20240506 --source $MY_DATA_SOURCE); \
 python  \
     scripts/singlecell/geneformer/train.py     \
     --data-dir ${TEST_DATA_DIR}/cellxgene_2023-12-15_small/processed_data    \
@@ -189,7 +195,7 @@ python  \
     --limit-val-batches 2 \
     --micro-batch-size 2 \
     --training-model-config-class FineTuneSeqLenBioBertConfig \
-    --restore-from-checkpoint-path results/test_experiment/dev/checkpoints/test_experiment--val_loss=10.2042-epoch=0
+    --restore-from-checkpoint-path results/test_experiment/dev/checkpoints/test_experiment--val_loss=4.3506-epoch=1-last
 ```
 
 
