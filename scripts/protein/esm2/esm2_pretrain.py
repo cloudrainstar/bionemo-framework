@@ -321,9 +321,7 @@ parser.add_argument(
 parser.add_argument(
     "--wandb-id", type=str, default=None, help="Sets the version, mainly used to resume a previous run"
 )
-parser.add_argument(
-    "--wandb-anonymous", action="store_true", help="Enable or explicitly disable anonymous logging"
-)
+parser.add_argument("--wandb-anonymous", action="store_true", help="Enable or explicitly disable anonymous logging")
 parser.add_argument(
     "--wandb-log-model", action="store_true", help="Save checkpoints in wandb dir to upload on W&B servers"
 )
