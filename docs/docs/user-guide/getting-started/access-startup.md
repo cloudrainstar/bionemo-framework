@@ -31,8 +31,8 @@ Catalog for “BioNeMo Framework”. Feel free to explore the resources availabl
 # Startup Instructions
 
 BioNeMo is compatible with a wide variety of computing environments, including both local workstations, data centers,
-and Cloud Service Providers (CSPs) such as Amazon Web Service, Microsoft Azure, Google Cloud Platform, and Oracle Cloud
-Infrastructure, and NVIDIA’s own DGX Cloud infrastructure.
+and Cloud Service Providers (CSPs) such as Amazon Web Services, Microsoft Azure, Google Cloud Platform, and Oracle Cloud
+Infrastructure, and NVIDIA’s own DGX Cloud.
 
 ## Running the Container on a Local Machine
 
