@@ -83,7 +83,7 @@ Explanation:
 To launch your Jupyter notebook in the browser, click on your job in the [NGC Web UI](https://bc.ngc.nvidia.com/jobs)
 and then click the URL under the Service Mapped Ports. You may also set up a Remote Tunnel to access a running job to
 execute and edit your code using VS Code locally or via the browser, as discussed
-[here](https://docs.nvidia.com/base-command-platform/user-guide/latest/index.html#setting-up-and-accessing-visual-studio-code-via-remote-tunnel).
+this page in the [BCP documentation](https://docs.nvidia.com/base-command-platform/user-guide/latest/index.html#setting-up-and-accessing-visual-studio-code-via-remote-tunnel).
 
 ## Running on Any Major CSP with the NVIDIA GPU-Optimized VMI
 
