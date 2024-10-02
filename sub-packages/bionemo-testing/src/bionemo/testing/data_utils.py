@@ -90,11 +90,15 @@ def assert_dataset_elements_not_equal(
 
     With epoch upsampling approaches, some underlying index, say index=0, will be called multiple times by some wrapping
     dataset object. For example if you have a dataset of length 1, and you wrap it in an up-sampler that maps it to
-    length 2 by mapping index 0 to 0 and 1 to 0, then when we apply randomness in that wrapping dataset and we expect
-    different masks to be used for each call. Again this test only applies to a dataset that employs randomness. Another
-    approach some of our datasets take is to use a special index that captures both the underlying index, and the epoch
-    index. This tuple of indices is used internally to seed the mask. If that kind of dataset is used, then index_a
-    could be (0,0) and index_b could be (0,1) for example. We expect those to return different random features.
+    length 2 by mapping index 0 to 0 and 1 to 0, then in that wrapper we apply randomness to the result and we expect
+    different masks to be used for each call, even though the underlying object is the same. Again this test only
+    applies to a dataset that employs randomness. Another approach some of our datasets take is to use a special index
+    that captures both the underlying index, and the epoch index. This tuple of indices is used internally to seed the
+    mask. If that kind of dataset is used, then index_a could be (epoch=0, idx=0) and index_b could be (epoch=1, idx=0),
+    for example. We expect those to return different random features.
+
+    The idea for using this test effectively is to identify cases where you have two indices that return the same
+    underlying object, but where you expect different randomization to be applied to each by the dataset.
 
     Args:
         dataset: dataset object with randomness (eg masking) to test.
