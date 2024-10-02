@@ -13,21 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pathlib
-from typing import Any, Dict, Optional, Sequence, TypedDict
+from typing import Any, Dict, Optional, Sequence
 
 from nemo.lightning.nemo_logger import NeMoLogger
 from nemo.lightning.pytorch import callbacks as nemo_callbacks
 from nemo.utils import logging
+from pydantic import BaseModel
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 
 
 __all__: Sequence[str] = (
-    "WandbLoggerOptions",
+    "WandbConfig",
     "setup_nemo_lightning_logger",
 )
 
 
-class WandbLoggerOptions(TypedDict):
+class WandbConfig(BaseModel):
     """Note: `name` controls the exp name is handled by the NeMoLogger so it is ommitted here.
     `directory` is also omitted since it is set by the NeMoLogger.
     """  # noqa: D205
@@ -35,16 +36,14 @@ class WandbLoggerOptions(TypedDict):
     offline: bool  # offline mode
     project: str  # project name
     entity: str  # group name or user name
-    # name: str # experiment name, this is handled by NeMoLogger
-    # the directory is also set by NeMoLogger
-    log_model: bool  # log model
+    log_model: bool = False  # log model
 
 
 def setup_nemo_lightning_logger(
     name: str = "default-name",
     root_dir: str | pathlib.Path = "./results",
     initialize_tensorboard_logger: bool = False,
-    wandb_kwargs: Optional[WandbLoggerOptions] = None,
+    wandb_config: Optional[WandbConfig] = None,
     ckpt_callback: Optional[nemo_callbacks.ModelCheckpoint] = None,
     **kwargs: Dict[str, Any],
 ) -> NeMoLogger:
@@ -64,8 +63,8 @@ def setup_nemo_lightning_logger(
     """
     # The directory that the logger will save to
     save_dir = pathlib.Path(root_dir) / name
-    if wandb_kwargs is not None:
-        wandb_logger = WandbLogger(save_dir=save_dir, name=name, **wandb_kwargs)
+    if wandb_config is not None:
+        wandb_logger = WandbLogger(save_dir=save_dir, name=name, **wandb_config.model_dump())
     else:
         wandb_logger = None
         logging.warning("WandB is currently turned off.")
