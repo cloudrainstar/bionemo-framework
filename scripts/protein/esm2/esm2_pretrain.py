@@ -521,7 +521,6 @@ if __name__ == "__main__":
         wandb_group=args.wandb_group,
         wandb_id=args.wandb_id,
         wandb_anonymous=args.wandb_anonymous,
-        wandb_version=args.wandb_version,
         wandb_log_model=args.wandb_log_model,
         wandb_offline=args.wandb_offline,
         num_steps=args.num_steps,
