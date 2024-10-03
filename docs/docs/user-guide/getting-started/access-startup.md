@@ -83,63 +83,9 @@ docker run \
   /bin/bash
 ```
 
-#### Running Jupyter Lab Inside the Container
+Because BioNeMo is distributed as a Docker container, standard arguments can be passed to the `docker run` command to
+alter the behavior of the container and its interactions with the host system. For more information on these arguments,
+refer to the [Docker documentation](https://docs.docker.com/reference/cli/docker/container/run/).
 
-First, create a local workspace directory (to be mounted to the home directory of the Docker container to persist data).
-You can then launch the container. We recommend running the container in a Jupyter Lab environment using the command
-below:
-
-```bash
-docker run --rm -d --gpus all -p 8888:8888 \
-  -v <YOUR_WORKSPACE>:/workspace/bionemo/<YOUR_WORKSPACE> \
-  {{ docker_url }}:{{ docker_tag }} \
-  "jupyter lab \
-  	--allow-root \
-	--ip=* \
-	--port=8888 \
-	--no-browser \
-  	--NotebookApp.token='' \
-  	--NotebookApp.allow_origin='*' \
-  	--ContentsManager.allow_hidden=True \
-  	--notebook-dir=/workspace/bionemo"
-```
-
-Let's break down this `docker run` command:
-
-**Basic components**
-
-* `docker run`: This is the Docker command to run a container from an image.
-* `--rm`: This flag removes the container when it exits.
-* `-d`: This flag runs the container in detached mode (i.e., in the background).
-
-**Resource allocation**
-
-* `--gpus all`: This flag allows the container to use all available GPUs on the host machine.
-
-**Port mapping**
-
-* `-p 8888:8888`: This flag maps port 8888 on the host machine to port 8888 inside the container. This allows access to
-the Jupyter Lab interface from outside the container.
-
-**Volume mounting**
-
-* `-v <YOUR_WORKSPACE>:/workspace/bionemo/<YOUR_WORKSPACE>`: This flag mounts a volume from the host machine to the
-container. Specifically, it mounts the `<YOUR_WORKSPACE>` directory on the host machine to
-`/workspace/bionemo/<YOUR_WORKSPACE>` inside the container. This allows the container to access files from the host
-machine.
-
-**Image and command**
-
-* `{{ docker_url }}:{{ docker_tag }}`: This is the path to the Docker image to use.
-* `"jupyter lab ..."`: This is the command to run inside the container, which is a Jupyter Lab server. The options are:
-	+ `--allow-root`: Allow the Jupyter Lab server to run as the root user.
-	+ `--ip=*`: Listen on all available network interfaces (i.e., allow access from outside the container).
-	+ `--port=8888`: Listen on port 8888.
-	+ `--no-browser`: Don't open a browser window automatically.
-	+ `--NotebookApp.token=''`: Set an empty token for the Jupyter Lab server (i.e., no authentication is required).
-	+ `--NotebookApp.allow_origin='*'`: Allow requests from anywhere (i.e., any origin).
-	+ `--ContentsManager.allow_hidden=True`: Allow the contents manager to access hidden files and directories.
-	+ `--notebook-dir=/workspace/bionemo`: Set the notebook directory to `/workspace/bionemo` inside the container.
-
-In summary, this command runs a detached Docker container from a specified image, mapping port 8888, mounting a volume
-for persistent storage, and running a Jupyter Lab server with a specified configuration.
+In the next section, [Initialization Guide](./initialization-guide.md), we will present some useful `docker run` command
+variants for common workflows.
