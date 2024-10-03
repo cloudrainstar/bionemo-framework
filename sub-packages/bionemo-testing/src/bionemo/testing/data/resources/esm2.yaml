@@ -27,14 +27,14 @@
 
 - tag: full_data_esm2_pretrain:2.0
   ngc: null
-  pbss: "s3://general-purpose/esm2/pretrain/2024_03.tar.gz"
-  sha256: none
+  pbss: "s3://general-purpose/esm2/pretrain/2024_03.tar.gz"  # TODO upload this file
+  sha256: null
   owner: Peter St John <pstjohn@nvidia.com>
   description: Full data for ESM2 pretraining.
 
 - tag: testdata_esm2_pretrain:2.0
   ngc: null
   pbss: "s3://general-purpose/esm2/pretrain/2024_03_sanity.tar.gz"
-  sha256: 006911f92bbc0ded7ea302bbdbfab4c694b409e699c32fd49de1c527a99dba3e
+  sha256: 006911f92bbc0ded7ea302bbdbfab4c694b409e699c32fd49de1c527a99dba3e  # pragma: allowlist secret
   owner: Peter St John <pstjohn@nvidia.com>
   description: Test data for ESM2 pretraining.
