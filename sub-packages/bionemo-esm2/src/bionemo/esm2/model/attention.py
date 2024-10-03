@@ -36,7 +36,7 @@ from torch import Tensor
 
 __all__: Sequence[str] = ("ESM2DotProductAttention", "ESM2TEDotProductAttention")
 
-from megatron.core.extensions.transformer_engine import _te_version
+from megatron.core.extensions.transformer_engine import get_te_version
 
 
 class ESM2TEDotProductAttention(TEDotProductAttention):
@@ -52,6 +52,7 @@ class ESM2TEDotProductAttention(TEDotProductAttention):
         attn_mask_type: AttnMaskType,
         attention_type: str,
         attention_dropout: float | None = None,
+        cp_comm_type: str = "p2p",
     ):
         """Initialize ESM2TEDotProductAttention."""
         self.config = config
@@ -67,25 +68,25 @@ class ESM2TEDotProductAttention(TEDotProductAttention):
             )
 
         extra_kwargs = {}
-        if _te_version >= packaging.version.Version("0.11.0"):
+        if get_te_version() >= packaging.version.Version("0.11.0"):
             extra_kwargs["num_gqa_groups"] = self.config.num_query_groups
         elif self.config.num_query_groups != self.config.num_attention_heads:
             raise ValueError(
-                f"Transformer Engine v{_te_version} does not support Grouped Query Attention, "
+                f"Transformer Engine v{get_te_version()} does not support Grouped Query Attention, "
                 f"use a newer version of Transformer Engine. "
                 f"(num_query_groups ({self.config.num_query_groups}) != "
                 f"num_attention_heads ({self.config.num_attention_heads}))"
             )
 
-        if _te_version >= packaging.version.Version("0.10.0"):
+        if get_te_version() >= packaging.version.Version("0.10.0"):
             extra_kwargs["attention_type"] = attention_type
             # older version don't need attention_type
 
-        if _te_version > packaging.version.Version("0.12.0"):
+        if get_te_version() > packaging.version.Version("0.12.0"):
             self.te_forward_mask_type = True
 
         # Only Transformer-Engine version >= 1.0.0 supports context parallelism
-        if _te_version >= packaging.version.Version("1.0.0"):
+        if get_te_version() >= packaging.version.Version("1.0.0"):
             if getattr(TEDotProductAttention, "cp_stream") is None:
                 TEDotProductAttention.cp_stream = torch.cuda.Stream()
             extra_kwargs["cp_group"] = get_context_parallel_group(check_initialized=False)
@@ -106,8 +107,8 @@ class ESM2TEDotProductAttention(TEDotProductAttention):
 
         if config.window_size is not None:
             # Check version
-            assert _te_version >= packaging.version.Version("1.2.0"), (
-                f"Transformer-Engine version ({str(_te_version)}) must be >= 1.2.0 to support"
+            assert get_te_version() >= packaging.version.Version("1.2.0"), (
+                f"Transformer-Engine version ({str(get_te_version())}) must be >= 1.2.0 to support"
                 "sliding window attention."
             )
             extra_kwargs["window_size"] = config.window_size
