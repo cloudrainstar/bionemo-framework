@@ -1,6 +1,5 @@
 # NVIDIA BioNeMo (Early Access)
 
-test 
 ## Introduction
 
 NVIDIA BioNeMo is a framework for training and deploying large biomolecular language models at supercomputing scale for the discovery and development of therapeutics. The large language model (LLM) framework currently has models for small molecules (SMILES) and protein sequences. More information about the models and their training is available in the [model guides](https://docs.nvidia.com/bionemo-framework/latest/models/esm2-nv.html).
