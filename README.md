@@ -145,13 +145,18 @@ aws s3 cp \
 ```
 #### Running
 
+First off, we have a utility function for downloading test data and model checkpoints called `download_bionemo_data`
+that our following examples currently use. This will download the object if it is not already on your local system, and
+then return the path either way. For example if you run this twice in a row, you should expect the second time you run
+it to return the path almost instantly.
+
 The following command runs a very small example of geneformer. Note NVIDIA employees should use `pbss` rather than `ngc`
 for the data source.
 
 ```bash
 MY_DATA_SOURCE="ngc"; \
-TEST_DATA_DIR=$(bionemo_test_data_path single_cell/testdata-20240506 --source $MY_DATA_SOURCE); \
-GENEFORMER_10M_CKPT=$(bionemo_test_data_path geneformer/10M_240530:2.0 --source $MY_DATA_SOURCE); \
+TEST_DATA_DIR=$(download_bionemo_data single_cell/testdata-20240506 --source $MY_DATA_SOURCE); \
+GENEFORMER_10M_CKPT=$(download_bionemo_data geneformer/10M_240530:2.0 --source $MY_DATA_SOURCE); \
 python  \
     scripts/singlecell/geneformer/train.py     \
     --data-dir ${TEST_DATA_DIR}/cellxgene_2023-12-15_small/processed_data    \
@@ -180,7 +185,7 @@ Simple fine-tuning example (NOTE: please change `--restore-from-checkpoint-path`
 by the previous train run)
 ```bash
 MY_DATA_SOURCE="ngc"; \
-TEST_DATA_DIR=$(bionemo_test_data_path single_cell/testdata-20240506 --source $MY_DATA_SOURCE); \
+TEST_DATA_DIR=$(download_bionemo_data single_cell/testdata-20240506 --source $MY_DATA_SOURCE); \
 python  \
     scripts/singlecell/geneformer/train.py     \
     --data-dir ${TEST_DATA_DIR}/cellxgene_2023-12-15_small/processed_data    \
