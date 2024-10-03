@@ -98,7 +98,7 @@ running NVIDIA GPU-accelerated software. These images are pre-configured with so
 drivers, Docker, and the NVIDIA Container Toolkit. More details about NVIDIA VMIs can be found in the
 [NGC Catalog](https://catalog.ngc.nvidia.com/orgs/nvidia/collections/nvidia_vmi).
 
-The general steps for launching the BioNeMo Framework container in :
+The general steps for launching the BioNeMo Framework container using a CSP are:
 
 1. Launch a GPU instance running the NVIDIA GPU-Optimized VMI on your preferred CSP. Follow the instructions for
     launching a GPU-equipped instance provided by your CSP.
