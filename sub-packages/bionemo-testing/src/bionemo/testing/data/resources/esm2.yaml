@@ -27,6 +27,7 @@
 
 - tag: full_data_esm2_pretrain:2.0
   ngc: null
+  ngc_registry: resource
   pbss: "s3://general-purpose/esm2/pretrain/2024_03.tar.gz"
   sha256: 404d0ad8de58fa8aae96f8d9f54263a088bc7e4f7d668215afbe04c28416151b  # pragma: allowlist secret
   owner: Peter St John <pstjohn@nvidia.com>
@@ -34,6 +35,7 @@
 
 - tag: testdata_esm2_pretrain:2.0
   ngc: null
+  ngc_registry: resource
   pbss: "s3://general-purpose/esm2/pretrain/2024_03_sanity.tar.gz"
   sha256: 006911f92bbc0ded7ea302bbdbfab4c694b409e699c32fd49de1c527a99dba3e  # pragma: allowlist secret
   owner: Peter St John <pstjohn@nvidia.com>
