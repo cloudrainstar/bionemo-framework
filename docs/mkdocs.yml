@@ -86,7 +86,7 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/NVIDIA/bionemo-fw-ea
-  docker_url: nvcr.io/nvidia/clara/bionemo-framework
+  docker_url: nvcr.io/nvidian/cvai_bnmo_trng/bionemo
   docker_tag: main--nightly
 
 copyright: |
