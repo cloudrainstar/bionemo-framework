@@ -56,7 +56,7 @@ docker login nvcr.io
 
 This command will prompt you to enter your API key. Fill in the details as shown below. Note that you should enter the
 string `$oauthtoken` as your username. Replace the password (`<YOUR_API_KEY>`) with the API key that you generated in
-the [NGC Account and API Key Configuration](#NGC-Account-and-API-Key-Configuration) section above
+the [NGC Account and API Key Configuration](#NGC-Account-and-API-Key-Configuration) section above:
 
 ```bash
 Username: $oauthtoken
@@ -75,10 +75,7 @@ Now that you have pulled the BioNeMo Framework container, you can run it as you 
 instance, to get basic shell access you can run the following command:
 
 ```bash
-docker run \
-  --rm \
-  -it \
-  --gpus all \
+docker run --rm -it --gpus all \
   {{ docker_url }}:{{ docker_tag }} \
   /bin/bash
 ```
