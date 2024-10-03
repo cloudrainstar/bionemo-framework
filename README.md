@@ -133,6 +133,46 @@ TWINE_PASSWORD="<pypi pass>" TWINE_USERNAME="<pypi user>" uvx twine upload /sub-
 
 
 ## Models
+### ESM-2
+#### Running
+
+#### Get full data for esm2
+```bash
+mkdir -p /workspace/bionemo2/data/esm2/pretrain
+aws s3 cp \
+  s3://general-purpose/esm2/pretrain/2024_03.tar.gz \
+  /workspace/bionemo2/data/esm2/pretrain/2024_03.tar.gz \
+  --endpoint-url https://pbss.s8k.io
+```
+
+#### Running
+First off, we have a utility function for downloading full/test data and model checkpoints called `download_bionemo_data` that our following examples currently use. This will download the object if it is not already on your local system,  and then return the path either way. For example if you run this twice in a row, you should expect the second time you run it to return the path almost instantly.
+
+Note NVIDIA employees should use `pbss` rather than `ngc` for the data source.
+
+```bash
+MY_DATA_SOURCE="pbss"; \
+TEST_DATA_DIR=$(download_bionemo_data esm2/testdata_esm2_pretrain:2.0 --source $MY_DATA_SOURCE); \
+# ESM2_650M_CKPT=$(download_bionemo_data esm2/650m:2.0 --source $MY_DATA_SOURCE); \
+python  \
+    scripts/protein/esm2/esm2_pretrain.py     \
+    --train-cluster-path ${TEST_DATA_DIR}/2024_03_sanity/train_clusters_sanity.parquet     \
+    --train-database-path ${TEST_DATA_DIR}/2024_03_sanity/train_sanity.db     \
+    --valid-cluster-path ${TEST_DATA_DIR}/2024_03_sanity/valid_clusters.parquet     \
+    --valid-database-path ${TEST_DATA_DIR}/2024_03_sanity/validation.db     \
+    --result-dir ./results     \
+    --experiment-name test_experiment     \
+    --num-gpus 1  \
+    --num-nodes 1 \
+    --val-check-interval 10 \
+    --num-dataset-workers 1 \
+    --num-steps 10 \
+    --max-seq-length 128 \
+    --limit-val-batches 2 \
+    --micro-batch-size 2
+    # --restore-from-checkpoint-path ${ESM2_650M_CKPT} \
+```
+
 ### Geneformer
 #### Get test data for geneformer
 ```bash
@@ -145,16 +185,10 @@ aws s3 cp \
 ```
 #### Running
 
-First off, we have a utility function for downloading test data and model checkpoints called `download_bionemo_data`
-that our following examples currently use. This will download the object if it is not already on your local system, and
-then return the path either way. For example if you run this twice in a row, you should expect the second time you run
-it to return the path almost instantly.
-
-The following command runs a very small example of geneformer. Note NVIDIA employees should use `pbss` rather than `ngc`
-for the data source.
+Similar to ESM-2, you can download the dataset and checkpoint through our utility function.
 
 ```bash
-MY_DATA_SOURCE="ngc"; \
+MY_DATA_SOURCE="pbss"; \
 TEST_DATA_DIR=$(download_bionemo_data single_cell/testdata-20240506 --source $MY_DATA_SOURCE); \
 GENEFORMER_10M_CKPT=$(download_bionemo_data geneformer/10M_240530:2.0 --source $MY_DATA_SOURCE); \
 python  \
