@@ -43,7 +43,7 @@ This model is not owned or developed by NVIDIA. This model has been developed an
 * [Linux] <br>
 
 ## Model Version(s):
-esm2nv650m:2.0, esm2nv3b:2.0  <br>
+esm2/650m:2.0, esm2/3b:2.0  <br>
 
 # Training & Evaluation:
 
