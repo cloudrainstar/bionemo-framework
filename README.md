@@ -1,5 +1,5 @@
 # BioNeMo2 Repo
-To get started, please build the docker container using
+o get started, please build the docker container using
 ```bash
 ./launch.sh build
 ```
