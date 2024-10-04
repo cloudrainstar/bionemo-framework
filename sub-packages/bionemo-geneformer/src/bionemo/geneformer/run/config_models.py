@@ -35,7 +35,7 @@ import math
 import pathlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Generic, List, Literal, Optional, Type, TypeVar, Union
+from typing import Any, Callable, Dict, Generic, List, Literal, Optional, Type, TypeVar
 
 import nemo_run as run
 import pytorch_lightning as pl
@@ -49,7 +49,7 @@ from nemo.lightning.pytorch import callbacks as nl_callbacks
 from nemo.lightning.pytorch.optim import MegatronOptimizerModule
 from nemo.lightning.pytorch.optim.lr_scheduler import CosineAnnealingScheduler
 from nemo.utils import logging
-from pydantic import BaseModel, Field, ValidationError, field_serializer, field_validator, model_validator
+from pydantic import BaseModel, ValidationError, field_serializer, field_validator, model_validator
 from pytorch_lightning.callbacks import LearningRateMonitor, RichModelSummary
 from tokenizers import Tokenizer
 
@@ -81,20 +81,54 @@ REVERSE_CUSTOM_ACTIVATION_FNS: Dict[Callable[[torch.Tensor, Any], torch.Tensor],
 ModelConfigT = TypeVar("ModelConfigT", bound=BioBertGenericConfig)
 DataModuleT = TypeVar("DataModuleT", bound=pl.LightningDataModule)
 
+"""
+This is actually easier to think about with DataModule beacuse there is no exposed/nonexposed relationship
+
+# DataConfig
+make DataConfig[DataModuleT] -> DataModuleT
+
+in bionemo.llm.data.datamodule
+
+
+
+
+BioNeMoDataModule
+    @abstractmethod
+    def from_data_config(cls, global_batch_size: int) -> type(cls):
+        ( This is generic, how do I make this thing from the config? should call out to the constructor and do the right stuff. )
+        ...
+
+all compatable datamodules implement this method, this kinda sucks though because if you bring your own datamodule,
+this isnt defined. Is this okay? I guess they just have to extend (combinator) +  implement this method and its p straightforward.
+
+plus global_batch_size and micro_batch_size are distributed concepts, so it cant be generic over all ptl DataModules.
+
+
+
+
+# ModelConfig
+make ExposedModelConfig[ModelConfigT] -> ModelConfigT[ModelT] -> ModelT
+    the problem here is nested generics in a way that is probably more harmful than helpful.
+
+    probably still want to drop the ExposedConfig and just 'deal' with the fact that there are some naughty defaults in TransformerConfig
+"""
+
 
 class DataConfig(BaseModel, Generic[DataModuleT]):
     """Base class for all data configurations.
 
     This class is used to define the interface for all data configurations. It is used to define the data module that
     will be used in the training loop.
-
-    !! note Children **MUST** include the field `data_config_type` to discriminate between available
-    data modules in the MasterConfig. Additionally, add the concrete type to the Union type annotation in MasterConfig.
     """
 
+    # Are these indeed universal?
     micro_batch_size: int = 8
     results_dir: str = "./results"
+    seq_length: int = 128
 
+    # As an ABC this is okay but it makes the instantiation kinda tricky since were both generic over the DataModule
+    #     but it also implies a 1-1 relationship between the data module and the data config
+    # I think we actually want, BioNeMoDataModule.from_data_config(global_batch_size) -> BioNeMoDataModule
     @abstractmethod
     def construct_data_module(self, global_batch_size: int) -> DataModuleT:
         """Construct the data module from the configuration. Cannot be defined generically."""
@@ -117,7 +151,6 @@ class GeneformerPretrainingDataConfig(DataConfig[SingleCellDataModule]):
     result_dir: str = "./results"
     micro_batch_size: int = 8
 
-    data_config_type: Literal["geneformer_pretraining_data_config"] = "geneformer_pretraining_data_config"
     data_dir: str
     seq_length: int = 2048
     num_dataset_workers: int = 0
@@ -283,10 +316,6 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
     Children should try to expose the minimal set of fields necessary for the user to configure the model while keeping
     the more esoteric configuration private to the underlying ModelConfigT.
 
-
-    !! note Children **MUST** include the field to discriminate between available
-    bionemo_model_config_type: Literal["finetuning_seqlen_biobert"] = "finetuning_seqlen_biobert" # Immutable, declares how to discriminate between model types for pydantic
-    data modules in the MasterConfig. Additionally, add the concrete type to the Union type annotation in MasterConfig.
     """
 
     # Pydantic stuff to allow arbitrary types + validators + serializers
@@ -295,8 +324,11 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
 
     """ Use this class to hide fields that are not serializable by Pydantic that we do not want to expose. """
 
-    @abstractmethod
-    def model_class(self) -> Type[ModelConfigT]: ...
+    def model_class(self) -> Type[ModelConfigT]:
+        # How did this all work yesterday even?
+        # so we cant do it this way because we are kinda losing the magic of generics.
+        #  ideally _the generics_ have all the methods we want implemented on them already.
+        return GeneformerConfig
 
     def exposed_to_internal_bionemo_model_config(self) -> ModelConfigT:
         """Converts the exposed dataclass to the underlying Transformer config.
@@ -353,10 +385,6 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
     nemo1_ckpt_path: Optional[str] = None
     biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_local_spec
 
-    @field_serializer("params_dtype", "pipeline_dtype", "autocast_dtype")
-    def serialize_dtypes(self, v: torch.dtype) -> PrecisionTypes:
-        return dtypes.dtype_to_precision[v]
-
     @field_validator("activation_func", mode="before")
     @classmethod
     def validate_activation_func(cls, activation_func: str) -> Callable:
@@ -386,11 +414,6 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
         else:
             return func
 
-    @field_validator("params_dtype", "pipeline_dtype", "autocast_dtype", mode="before")
-    @classmethod
-    def precision_validator(cls, v: PrecisionTypes) -> torch.dtype:
-        return dtypes.get_autocast_dtype(v)
-
     @field_serializer("activation_func")
     def serialize_activation_func(self, v: Callable[[torch.Tensor, Any], torch.Tensor]) -> str:
         func_name = v.__name__
@@ -402,16 +425,14 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
         else:
             raise ValueError(f"Unsupported activation function: {v}")
 
+    @field_validator("params_dtype", "pipeline_dtype", "autocast_dtype", mode="before")
+    @classmethod
+    def precision_validator(cls, v: PrecisionTypes) -> torch.dtype:
+        return dtypes.get_autocast_dtype(v)
 
-class ExposedGeneformerConfig(ExposedModelConfig[GeneformerConfig]):
-    """There are no additional arguments for Geneformer, so we simply plugin the associated types and move on."""
-
-    bionemo_model_config_type: Literal["geneformer"] = (
-        "geneformer"  # Immutable, declares how to discriminate between model types for pydantic
-    )
-
-    def model_class(self) -> Type[GeneformerConfig]:
-        return GeneformerConfig
+    @field_serializer("params_dtype", "pipeline_dtype", "autocast_dtype")
+    def serialize_dtypes(self, v: torch.dtype) -> PrecisionTypes:
+        return dtypes.dtype_to_precision[v]
 
 
 class ExposedFineTuneSeqLenBioBertConfig(ExposedModelConfig[FineTuneSeqLenBioBertConfig]):
@@ -423,11 +444,6 @@ class ExposedFineTuneSeqLenBioBertConfig(ExposedModelConfig[FineTuneSeqLenBioBer
         initial_ckpt_skip_keys_with_these_prefixes - skip any layer that contains this key during restoration. Useful
             for ignoring extra additional layers used for finetuning. Layers with these keys are then randomly initialized.
     """
-
-    # Used by discriminators
-    bionemo_model_config_type: Literal["finetuning_seqlen_biobert"] = (
-        "finetuning_seqlen_biobert"  # Immutable, declares how to discriminate between model types for pydantic
-    )
 
     # Custom parameters for FineTuning
     initial_ckpt_path: Optional[str] = None
@@ -465,8 +481,8 @@ def geneformer10M_pretraining_recipe(
     nemo1_init_path: Optional[str] = None,
     initial_ckpt_path: Optional[str] = None,
     biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_local_spec,
-) -> ExposedGeneformerConfig:
-    geneformer_config = ExposedGeneformerConfig(
+) -> ExposedModelConfig[GeneformerConfig]:
+    geneformer_config = ExposedModelConfig(
         num_layers=6,
         hidden_size=256,
         ffn_hidden_size=512,
@@ -552,7 +568,6 @@ class ExperimentConfig(BaseModel):
     result_dir: str
     experiment_name: str
     restore_from_checkpoint_path: Optional[str]
-    resume_if_exists: bool
     wandb_config: Optional[WandbConfig] = None
     save_last_checkpoint: bool = True
     metric_to_monitor_for_checkpoints: str = "reduced_train_loss"
@@ -566,7 +581,6 @@ def experiment_config_recipe() -> ExperimentConfig:
         result_dir="./results",
         experiment_name="default_experiment",
         restore_from_checkpoint_path=None,
-        resume_if_exists=True,
         save_last_checkpoint=True,
         metric_to_monitor_for_checkpoints="reduced_train_loss",
         save_top_k=2,
@@ -651,7 +665,57 @@ def pretrain(
     )
 
 
-class MasterConfig(BaseModel):
+class MastererConfig(BaseModel, ABC):
+    data_config: DataConfig
+    parallel_config: ParallelConfig
+    training_config: TrainingConfig
+    bionemo_model_config: ExposedModelConfig[ModelConfigT]
+    optim_config: OptimizerSchedulerConfig
+    experiment_config: ExperimentConfig
+    wandb_config: Optional[WandbConfig] = None
+
+
+"""
+use the GenericModel abstraction in Pydantic for _runtime_ type resolution.
+
+use discriminated unions for parse-time type resolution (do we still have this?)
+    useful within sub-packages
+
+Random thing: check with george on how to configure PEFt
+
+bionemo/geneformer/model/geneformer.py
+if __name__ == "__main__":
+    masterer_config = MastererConfig[GeneformerConfig](**params)
+    from bionemo.llm.entrypoint import train
+    train(master_config)
+
+bionemo/geneformer/model/geneformer2.py
+if __name__ == "__main__":
+    masterer_config = MastererConfig[GeneformerConfig2](**params)
+    from bionemo.llm.entrypoint import train
+    pretrain(master_config)
+
+dino/dumbstuff/model/custom_dinos.py
+if __name__ == "__main__":
+    # TODO register in pyproject.toml <-- optional
+    masterer_config = MastererConfig[CustomDino](**params)
+    from bionemo.llm.entrypoint import train
+    pretrain(master_config)
+
+    for _ in whatever:
+        masterer_config.dtype = 'fp16'
+"""
+
+
+# Here in lies the meat of what is happening.
+
+# DataConfig -> some config that can make a data module (see ABC definition.)
+DataConfigT = TypeVar("DataConfigT", bound=DataConfig)
+# ExposedModelConfig -> some config that can make a non-exposed model config (see ABC definition.)
+ExModelConfigT = TypeVar("ExModelConfigT", bound=ExposedModelConfig)
+
+
+class MainConfig(BaseModel, Generic[ExModelConfigT, DataConfigT]):
     """Mulling ways to make this generic over data modules:
 
     1) ABC in our DataModule that supports DataConfig -> DataModule
@@ -662,19 +726,16 @@ class MasterConfig(BaseModel):
 
     """
 
-    data_config: Union[GeneformerPretrainingDataConfig] = Field(..., discriminator="data_config_type")
+    data_config: DataConfigT
     parallel_config: ParallelConfig
     training_config: TrainingConfig
-    # TODO expand this for all other relevant models here.
-    bionemo_model_config: Union[ExposedGeneformerConfig, ExposedFineTuneSeqLenBioBertConfig] = Field(
-        ..., discriminator="bionemo_model_config_type"
-    )
+    bionemo_model_config: ExModelConfigT
     optim_config: OptimizerSchedulerConfig
     experiment_config: ExperimentConfig
     wandb_config: Optional[WandbConfig] = None
 
     @model_validator(mode="after")
-    def validate_master_config(self) -> "MasterConfig":
+    def validate_master_config(self) -> "MainConfig":
         self.bionemo_model_config.seq_length = self.data_config.seq_length
         # What other global validators should we set here?
         return self
@@ -686,7 +747,7 @@ def recipes_to_config_json(model_cfg_type="geneformer"):
     data_config: GeneformerPretrainingDataConfig = geneformer_small_data_recipe()
     parallel_config = simple_parallel_recipe()
     training_config = default_trainer_config_recipe()
-    if model_cfg_type == "geneformer":
+    if model_cfg_type == "geneformer" and False:
         bionemo_model_config = geneformer10M_pretraining_recipe()
     else:
         bionemo_model_config = geneformer_finetuning_regression_head_recipe()
@@ -696,7 +757,7 @@ def recipes_to_config_json(model_cfg_type="geneformer"):
     wandb_config = WandbConfig(project="bionemo2-demo", entity="nvidia", offline=True)
 
     # Create the master config
-    master_config = MasterConfig(
+    master_config = MainConfig[ExposedFineTuneSeqLenBioBertConfig, GeneformerPretrainingDataConfig](
         data_config=data_config,
         parallel_config=parallel_config,
         training_config=training_config,
@@ -728,14 +789,30 @@ if __name__ == "__main__":
         parser.add_argument("--config", type=str, required=True, help="Path to the JSON configuration file")
         return parser.parse_args()
 
-    def load_config(config_path: str) -> MasterConfig:
+    def load_config(config_path: str) -> MainConfig:
         with open(config_path, "r") as f:
             config_dict = json.load(f)
-        return MasterConfig(**config_dict)
+            # here we choose _which_ generics to parse.
+            # What does this look like in practice if we have a bunch of variants?
+            # how does the user choose which variant to parse? entrypoint?
+            #   they could pass in a path via CLI, that would technically work.
+        return MainConfig[ExposedFineTuneSeqLenBioBertConfig, GeneformerPretrainingDataConfig](**config_dict)
 
     args = parse_args()
     config = load_config(args.config)
-
+    # New
+    pretrain(
+        bionemo_exposed_model_config=config.bionemo_model_config,
+        data_config=config.data_config,
+        parallel_config=config.parallel_config,
+        training_config=config.training_config,
+        optim_config=config.optim_config,
+        experiment_config=config.experiment_config,
+        wandb_config=config.wandb_config,
+        resume_if_exists=False,
+    )
+    exit()
+    # Old
     pretrain(
         bionemo_exposed_model_config=config.bionemo_model_config,
         data_config=config.data_config,
