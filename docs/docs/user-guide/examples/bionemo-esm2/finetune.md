@@ -9,7 +9,7 @@ The ESM2 model is a transformer-based protein language model that has achieved s
 
 In this tutorial, we will demonstrate how to create a fine-tune module, train a regression task head, and use the fine-tuned model for inference.
 
-All commands should be executed inside the BioNeMo docker container, which has all ESM2 dependencies pre-installed. This tutorial assumes that a copy of the BioNeMo framework repo exists on workstation or server and has been mounted inside the container at `/workspace/bionemo2`. (**Note**: This `WORKDIR` may be `/workspaces/bionemo-fw-ea` if you are using the VSCode Dev Container.) For more information on how to build or pull the BioNeMo2 container, refer to the [BioNeMo2 README](../../../../../README.md)! 
+All commands should be executed inside the BioNeMo docker container, which has all ESM2 dependencies pre-installed. This tutorial assumes that a copy of the BioNeMo framework repo exists on workstation or server and has been mounted inside the container at `/workspace/bionemo2`. (**Note**: This `WORKDIR` may be `/workspaces/bionemo-fw-ea` if you are using the VSCode Dev Container.) For more information on how to build or pull the BioNeMo2 container, refer to the [BioNeMo2 README](../../../../../README.md)!
 
 To successfully accomplish this we need to define some key classes:
 
@@ -192,7 +192,7 @@ python /workspace/bionemo2/sub-packages/bionemo-esm2/src/bionemo/esm2/model/fine
 ```
 
 # Fine-Tuned ESM2 Model Inference
-Once we have a checkpoint we can create a config object by pointing the path in `initial_ckpt_path` and use that for inference. Since we need to load all the parameters from this checkpoint (and don't skip the head) we reset the `nitial_ckpt_skip_keys_with_these_prefixe` in this config. Now we can use the ````bionemo.esm2.model.fnetune.train.infer``` to run inference on prediction dataset.
+Once we have a checkpoint we can create a config object by pointing the path in `initial_ckpt_path` and use that for inference. Since we need to load all the parameters from this checkpoint (and don't skip the head) we reset the `nitial_ckpt_skip_keys_with_these_prefixes` in this config. Now we can use the ```bionemo.esm2.model.fnetune.train.infer``` to run inference on prediction dataset.
 
 ```python
 config = ESM2FineTuneSeqConfig(
@@ -202,6 +202,12 @@ config = ESM2FineTuneSeqConfig(
 
 results = infer_model(config, data_module)
 ```
+
+To download a pre-trained ESM2 to run this inference script, run the command:
+```
+download_bionemo_data esm2/650m:2.0 --source ngc
+```
+and pass the path (e.g. `.../.cache/bionemo/975d29ee980fcb08c97401bbdfdcf8ce-esm2_650M_nemo2.tar.gz.untar`) as an argument into `initial_ckpt_path` above!
 
 # Parameter-Efficient Fine-Tuning (PEFT) of ESM2
 
