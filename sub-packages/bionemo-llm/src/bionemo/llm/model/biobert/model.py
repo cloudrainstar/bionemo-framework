@@ -139,9 +139,8 @@ class MegatronBioBertModel(LanguageModule):
         super(MegatronBioBertModel, self).__init__(config=config)
         self.post_process = post_process
         self.add_binary_head = add_binary_head
-        self.include_hiddens = include_hiddens
         if return_embeddings:
-            assert self.post_process and self.add_binary_head
+            assert self.post_process, "only return embeddings on the last pipeline stage"
         # `b` = batch, `s` = sequence.
         # The old flash attention mechanism apparently wants you to use a b x 1 x s x s attention mask while
         #  the new one wants a b x 1 x 1 x s attention mask. This is a hack to allow us to switch between the two.
@@ -351,7 +350,7 @@ class MegatronBioBertModel(LanguageModule):
             # Collect masked embeddings.
             output = torch.zeros(
                 size=(embeddings.shape[0], embeddings.shape[2]),
-                dtype=torch.float32,
+                dtype=embeddings.dtype,
                 device=torch.cuda.current_device(),
             )
             for i, (embedding, mask) in enumerate(zip(embeddings, masks)):
@@ -407,7 +406,7 @@ class BioBertGenericConfig(
     num_attention_heads: int = 8
     num_layers: int = 6
     init_method_std: float = 0.02
-    biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_local_spec
+    biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_with_transformer_engine_spec
 
     # TODO: Move this to better places?
     get_attention_mask_from_fusion: bool = False
@@ -426,9 +425,13 @@ class BioBertGenericConfig(
     # Used if initializing from a checkpoint, set this to any fields you want to override rather than re-set.
     #  by default all fields will be overridden.
     override_parent_fields: List[str] = field(default_factory=lambda: _OVERRIDE_BIOBERT_CONFIG_DEFAULTS)
+    return_embeddings: bool = False
     return_only_hidden_states: bool = False
     include_hiddens: bool = False  # Include hidden layers in the output of the model
     core_attention_override: Type[torch.nn.Module] | None = None
+
+    # loss reduction class
+    loss_reduction_class: Type[MegatronLossReduction] = BERTMLMLossWithReduction
 
     def configure_model(self, tokenizer) -> MegatronBioBertModelT:  # noqa: D102
         vp_size = self.virtual_pipeline_model_parallel_size
@@ -440,11 +443,9 @@ class BioBertGenericConfig(
 
         # The local specs all require the standard full attention mask. For transformer engine only the NVTE_FLASH_ATTN=0
         #  option requires this full attention mask.
-        use_full_attention_mask: bool = os.getenv("NVTE_FLASH_ATTN") == "0" or self.biobert_spec_option in {
-            BiobertSpecOption.bert_layer_local_spec,
-            BiobertSpecOption.bert_layer_local_spec_with_qk_ln,
-            BiobertSpecOption.esm2_bert_layer_local_spec,
-        }
+        use_full_attention_mask: bool = (
+            os.getenv("NVTE_FLASH_ATTN") == "0" or "transformer_engine" not in self.biobert_spec_option
+        )
 
         do_next_sentence = False
         if self.model_cls is None:
@@ -472,7 +473,7 @@ class BioBertGenericConfig(
             position_embedding_type=self.position_embedding_type,
             rotary_percent=self.rotary_percent,
             seq_len_interpolation_factor=self.seq_len_interpolation_factor,
-            return_embeddings=False,
+            return_embeddings=self.return_embeddings,
             pre_process=parallel_state.is_pipeline_first_stage(),
             post_process=parallel_state.is_pipeline_last_stage(),  # set to False for inference
             add_binary_head=do_next_sentence,
@@ -487,10 +488,7 @@ class BioBertGenericConfig(
         # a checkpoint for fine-tuning (eg ignore misisng lm_head, if not there in model, etc).
         if self.nemo1_ckpt_path is not None:
             assert self.initial_ckpt_path is None, "Mutually exclusive checkpoint path used twice"
-            te_mapping = self.biobert_spec_option in {
-                BiobertSpecOption.bert_layer_with_transformer_engine_spec,
-                BiobertSpecOption.bert_layer_with_transformer_engine_and_qk_ln_spec,
-            }
+            te_mapping = "transformer_engine" in self.biobert_spec_option.value
             with tarfile.open(self.nemo1_ckpt_path, "r") as old_ckpt:
                 ckpt_file = old_ckpt.extractfile("./model_weights.ckpt")
                 old_weights = torch.load(ckpt_file)
@@ -518,4 +516,4 @@ class BioBertGenericConfig(
 
     def get_loss_reduction_class(self) -> Type[MegatronLossReduction]:  # noqa: D102
         # You could optionally return a different loss reduction class here based on the config settings.
-        return BERTMLMLossWithReduction
+        return self.loss_reduction_class

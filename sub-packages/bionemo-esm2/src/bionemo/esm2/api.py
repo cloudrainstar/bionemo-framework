@@ -16,10 +16,11 @@
 
 from typing import Sequence
 
-from bionemo.esm2.model.model import ESM2Config, ESM2Model
+from bionemo.esm2.model.model import ESM2Config, ESM2GenericConfig, ESM2Model
 
 
 __all__: Sequence[str] = (
     "ESM2Config",
+    "ESM2GenericConfig",
     "ESM2Model",
 )

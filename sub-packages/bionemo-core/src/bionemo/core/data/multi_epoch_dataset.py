@@ -29,10 +29,13 @@ U_co = TypeVar("U_co", covariant=True)
 
 
 class EpochIndex(NamedTuple):
-    """A tuple that contains both the current epoch and index within the given epoch."""
+    """A tuple that contains both the current epoch and index for multi-epoch training."""
 
     epoch: int
+    """An integer representing the current epoch."""
+
     idx: int
+    """An integer representing the index within the current epoch."""
 
 
 class SizedDataset(Protocol[T_co]):
@@ -86,7 +89,7 @@ class MultiEpochDatasetResampler(Dataset[T_co]):
     shuffle: bool = True
     """Whether to shuffle the samples in the dataset each epoch."""
 
-    seed: int = np.random.SeedSequence().entropy  # type: ignore
+    seed: int = 42  # type: ignore
     """A random seed for reproducibility."""
 
     def __post_init__(self):

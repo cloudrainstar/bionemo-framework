@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pathlib
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from nemo.lightning.nemo_logger import NeMoLogger
 from nemo.lightning.pytorch import callbacks as nemo_callbacks
@@ -33,10 +33,16 @@ class WandbConfig(BaseModel):
     `directory` is also omitted since it is set by the NeMoLogger.
     """  # noqa: D205
 
-    offline: bool  # offline mode
-    project: str  # project name
-    entity: str  # group name or user name
-    log_model: bool = False  # log model
+    entity: str  # The team posting this run (default: your username or your default team)
+    project: str  # The name of the project to which this run will belong.
+    # name: #Display name for the run. "This is handled by NeMoLogger"
+    # save_dir: #Path where data is saved. "This is handled by NeMoLogger"
+    tags: List[str]  # Tags associated with this run.
+    group: str  # A unique string shared by all runs in a given group
+    offline: bool  # Run offline (data can be streamed later to wandb servers).
+    id: str  # Sets the version, mainly used to resume a previous run.
+    anonymous: bool  # Enables or explicitly disables anonymous logging.
+    log_model: bool  # Save checkpoints in wandb dir to upload on W&B servers.
 
 
 def setup_nemo_lightning_logger(
@@ -49,7 +55,7 @@ def setup_nemo_lightning_logger(
 ) -> NeMoLogger:
     """Setup the logger for the experiment.
 
-    Args:
+    Arguments:
         name: The name of the experiment. Results go into `root_dir`/`name`
         root_dir: The root directory to create the `name` directory in for saving run results.
         initialize_tensorboard_logger: Whether to initialize the tensorboard logger.

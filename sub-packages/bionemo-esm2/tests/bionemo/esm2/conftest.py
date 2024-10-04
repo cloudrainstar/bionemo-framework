@@ -78,3 +78,54 @@ def dummy_parquet_train_val_inputs(tmp_path):
     )
     valid_clusters.to_parquet(valid_cluster_path)
     return train_cluster_path, valid_cluster_path
+
+
+@pytest.fixture
+def dummy_data_per_token_classification_ft():
+    """Fixture providing dummy data for per-token classification fine-tuning.
+
+    Returns:
+        list: A list of dummy data for per-token classification fine-tuning.
+    """
+    data = [
+        (
+            "TLILGWSDKLGSLLNQLAIANESLGGGTIAVMAERDKEDMELDIGKMEFDFKGTSVI",
+            "EEEECCCCCHHHHHHHHHHHHHHHCCCEEEEEECCCHHHHHHHHHCCCCCCCCCEEE",
+        ),
+        ("LYSGDHSTQGARFLRDLAENTGRAEYELLSLF", "CCCCCHHHHHHHHHHHHHHCCCCCHHHHHHCC"),
+        ("GRFNVWLGGNESKIRQVLKAVKEIGVSPTLFAVYEKN", "HHHHHCCCCCHHHHHHHHHHHHHHCCCHHHHHHHHHH"),
+        (
+            "DELTALGGLLHDIGKPVQRAGLYSGDHSTQGARFLRDLAENTGRAEYELLSLF",
+            "HHHHHHHHHHCCCHHHHHCCCCCCCCHHHHHHHHHHHHHHCCCCCHHHHHHCC",
+        ),
+        (
+            "KLGSLLNQLAIANESLGGGTIAVMAERDKEDMELDIGKMEFDFKGTSVI",
+            "CHHHHHHHHHHHHHHHCCCEEEEEECCCHHHHHHHHHCCCCCCCCCEEE",
+        ),
+        (
+            "LFGAIGNAISAIHGQSAVEELVDAFVGGARISSAFPYSGDTYYLPKP",
+            "HHHHHHHHHHHHHCHHHHHHHHHHHHCCCEECCCEEEECCEEEEECC",
+        ),
+        (
+            "LGGLLHDIGKPVQRAGLYSGDHSTQGARFLRDLAENTGRAEYELLSLF",
+            "HHHHHCCCHHHHHCCCCCCCCHHHHHHHHHHHHHHCCCCCHHHHHHCC",
+        ),
+        ("LYSGDHSTQGARFLRDLAENTGRAEYELLSLF", "CCCCCHHHHHHHHHHHHHHCCCCCHHHHHHCC"),
+        ("ISAIHGQSAVEELVDAFVGGARISSAFPYSGDTYYLPKP", "HHHHHCHHHHHHHHHHHHCCCEECCCEEEECCEEEEECC"),
+        (
+            "SGSKASSDSQDANQCCTSCEDNAPATSYCVECSEPLCETCVEAHQRVKYTKDHTVRSTGPAKT",
+            "CCCCCCCCCCCCCCCCCCCCCCCCCCEEECCCCEEECHHHHHHHHHCCCCCCCCEEECCCCCC",
+        ),
+    ]
+    return data
+
+
+@pytest.fixture
+def dummy_data_single_value_regression_ft(dummy_data_per_token_classification_ft):
+    """Fixture providing dummy data for per-token classification fine-tuning.
+
+    Returns:
+        list: A list of dummy data for per-token classification fine-tuning.
+    """
+    data = [(seq, len(seq) / 100.0) for seq, _ in dummy_data_per_token_classification_ft]
+    return data

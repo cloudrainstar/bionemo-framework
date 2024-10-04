@@ -31,7 +31,7 @@ from bionemo.llm.data import masking
 from bionemo.llm.data.types import BertSample
 
 
-class RandomMaskStrategy(Enum):
+class RandomMaskStrategy(str, Enum):
     """Enum for different random masking strategies.
 
     In ESM2 pretraining, 15% of all tokens are masked and among which 10% are replaced with a random token. This class controls the set of random tokens to choose from.
@@ -189,7 +189,7 @@ class ESMMaskedResidueDataset(Dataset):
         tokenized_sequence = self._tokenize(sequence)
         cropped_sequence = _random_crop(tokenized_sequence, self.max_seq_length, rng)
 
-        torch_seed = rng.integers(low=np.iinfo(np.int64).min, high=np.iinfo(np.int64).max)
+        torch_seed = int(rng.integers(low=np.iinfo(np.int64).min, high=np.iinfo(np.int64).max))
         masked_sequence, labels, loss_mask = masking.apply_bert_pretraining_mask(
             tokenized_sequence=cropped_sequence,  # type: ignore
             random_seed=torch_seed,
@@ -275,7 +275,7 @@ def create_train_dataset(
         tokenizer=tokenizer,
     )
 
-    return MultiEpochDatasetResampler(masked_cluster_dataset, num_samples=total_samples, shuffle=True)
+    return MultiEpochDatasetResampler(masked_cluster_dataset, num_samples=total_samples, shuffle=True, seed=seed)
 
 
 def create_valid_clusters(cluster_file: str | os.PathLike) -> pd.Series:
@@ -325,10 +325,6 @@ def create_valid_dataset(  # noqa: D417
         mask_token_prob: Proportion of masked tokens that get assigned the <MASK> id. Defaults to 0.8.
         mask_random_prob: Proportion of tokens that get assigned a random natural amino acid. Defaults to 0.1.
         random_masking_strategy: Whether to replace random masked tokens with all tokens or amino acids only. Defaults to RandomMaskStrategy.ALL_TOKENS.
-        tokenizer: The input ESM tokenizer. Defaults to the standard ESM tokenizer.
-
-    Returns:
-        A dataset for ESM pretraining.
 
     Raises:
         ValueError: If the cluster file does not exist, the database file does not exist, or the cluster file does not
@@ -356,7 +352,7 @@ def create_valid_dataset(  # noqa: D417
         tokenizer=tokenizer,
     )
 
-    return MultiEpochDatasetResampler(masked_dataset, num_samples=total_samples, shuffle=True)
+    return MultiEpochDatasetResampler(masked_dataset, num_samples=total_samples, shuffle=True, seed=seed)
 
 
 _T = TypeVar("_T", str, torch.Tensor)
