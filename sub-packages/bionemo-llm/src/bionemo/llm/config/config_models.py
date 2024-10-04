@@ -138,7 +138,7 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
     share_embeddings_and_output_weights: bool = True
     enable_autocast: bool = False
     nemo1_ckpt_path: Optional[str] = None
-    biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_local_spec
+    biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_with_transformer_engine_spec
 
     @field_validator("activation_func", mode="before")
     @classmethod

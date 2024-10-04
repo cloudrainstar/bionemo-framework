@@ -31,7 +31,7 @@
 
 import math
 import pathlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Type
 
 from megatron.core.optimizer import OptimizerConfig
@@ -115,7 +115,7 @@ class GeneformerPretrainingDataConfig(DataConfig[SingleCellDataModule]):
             raise ValueError("Preprocessing failed to create tokenizer and/or median dictionary.")
 
     def construct_data_module(self, global_batch_size: int) -> SingleCellDataModule:
-        geneformer_data_artifacts: GeneformerDataArtifacts = geneformer_preprocess(self)
+        geneformer_data_artifacts: GeneformerDataArtifacts = self.geneformer_preprocess()
         data = SingleCellDataModule(
             seq_length=self.seq_length,
             tokenizer=geneformer_data_artifacts.tokenizer,
@@ -131,55 +131,6 @@ class GeneformerPretrainingDataConfig(DataConfig[SingleCellDataModule]):
             num_workers=self.num_dataset_workers,
         )
         return data
-
-
-def geneformer_small_data_recipe(
-    data_dir="/workspaces/bionemo-fw-ea/data/cellxgene_2023-12-15_small/processed_data",
-) -> GeneformerPretrainingDataConfig:
-    """Recipe that produces the base geneformer small data configuration."""
-    return GeneformerPretrainingDataConfig(data_dir=data_dir)
-
-
-def full_geneformer_data_recipe(
-    data_dir="/workspaces/bionemo-fw-ea/data/cellxgene_2023-12-15/processed_data",
-) -> GeneformerPretrainingDataConfig:
-    return GeneformerPretrainingDataConfig(data_dir=data_dir)
-
-
-def geneformer_preprocess(data_config: GeneformerPretrainingDataConfig) -> GeneformerDataArtifacts:
-    """Geneformer datamodule expects certain artifacts to be present in the data directory.
-
-    This method uses a legacy 'preprocessor' from BioNeMo 1 to acquire the associated artifacts.
-    """
-    preprocessor = GeneformerPreprocess(
-        download_directory=pathlib.Path(data_config.train_data_path),
-        medians_file_path=pathlib.Path(data_config.train_data_path + "/medians.json"),
-        tokenizer_vocab_path=pathlib.Path(data_config.train_data_path + "/geneformer.vocab"),
-    )
-    result = preprocessor.preprocess()
-    if "tokenizer" in result and "median_dict" in result:
-        logging.info("*************** Preprocessing Finished ************")
-        return GeneformerDataArtifacts(tokenizer=result["tokenizer"], median_dict=result["median_dict"])
-    else:
-        logging.error("Preprocessing failed.")
-        raise ValueError("Preprocessing failed to create tokenizer and/or median dictionary.")
-
-
-def simple_parallel_recipe(
-    tensor_model_parallel_size: int = 1, pipeline_model_parallel_size: int = 1, num_devices: int = 1
-) -> ParallelConfig:
-    assert (
-        num_devices >= tensor_model_parallel_size * pipeline_model_parallel_size
-    ), "devices must be divisible by tensor_model_parallel_size * pipeline_model_parallel_size"
-    return ParallelConfig(
-        tensor_model_parallel_size=tensor_model_parallel_size,
-        pipeline_model_parallel_size=pipeline_model_parallel_size,
-        num_devices=num_devices,
-    )
-
-
-def default_trainer_config_recipe() -> TrainingConfig:
-    return TrainingConfig(max_steps=55000, limit_val_batches=2, val_check_interval=100)
 
 
 def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConfig) -> nl.Trainer:
@@ -210,7 +161,7 @@ def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConf
 class ExposedGeneformerPretrainConfig(ExposedModelConfig[GeneformerConfig]):
     # Custom parameters for FineTuning
     initial_ckpt_path: Optional[str] = None
-    initial_ckpt_skip_keys_with_these_prefixes: Optional[List[str]] = None
+    initial_ckpt_skip_keys_with_these_prefixes: List[str] = field(default_factory=list)
 
     def model_class(self) -> Type[GeneformerConfig]:
         return GeneformerConfig
@@ -227,11 +178,7 @@ class ExposedFineTuneSeqLenBioBertConfig(ExposedModelConfig[FineTuneSeqLenBioBer
 
     # Custom parameters for FineTuning
     initial_ckpt_path: Optional[str] = None
-    initial_ckpt_skip_keys_with_these_prefixes: Optional[List[str]] = None
-
-    def __post_init__(self):
-        if not self.initial_ckpt_skip_keys_with_these_prefixes:
-            self.initial_ckpt_skip_keys_with_these_prefixes = ["regression_head"]
+    initial_ckpt_skip_keys_with_these_prefixes: List[str] = field(default_factory=lambda: ["regression_head"])
 
     def model_class(self) -> Type[FineTuneSeqLenBioBertConfig]:
         return FineTuneSeqLenBioBertConfig
@@ -283,51 +230,3 @@ def nemo_logger_factory(experiment_config: ExperimentConfig, wandb_config: Optio
         ckpt_callback=checkpoint_callback,
     )
     return nemo_logger
-
-
-def train(
-    bionemo_exposed_model_config: ExposedModelConfig,
-    data_config: DataConfig[DataModuleT],
-    parallel_config: ParallelConfig,
-    training_config: TrainingConfig,
-    optim_config: OptimizerSchedulerConfig,
-    experiment_config: ExperimentConfig,
-    wandb_config: Optional[WandbConfig],
-    resume_if_exists: bool = True,
-):
-    bionemo_model_config = bionemo_exposed_model_config.exposed_to_internal_bionemo_model_config()
-    pathlib.Path(data_config.result_dir).mkdir(parents=True, exist_ok=True)
-
-    if experiment_config.save_every_n_steps != training_config.val_check_interval:
-        logging.warning("Mutating training_config.save_every_n_steps to be equal to val_check_interval.")
-        experiment_config.save_every_n_steps = training_config.val_check_interval
-
-    global_batch_size = infer_global_batch_size(
-        micro_batch_size=data_config.micro_batch_size,
-        num_nodes=parallel_config.num_nodes,
-        devices=parallel_config.num_devices,
-        accumulate_grad_batches=parallel_config.accumulate_grad_batches,
-        tensor_model_parallel_size=parallel_config.tensor_model_parallel_size,
-        pipeline_model_parallel_size=parallel_config.pipeline_model_parallel_size,
-    )
-
-    data: DataModuleT = data_config.construct_data_module(global_batch_size)
-
-    # TODO BioBertDataModule or BioBertTokenizer abstractions. We know all DataModuleT in this case have data.tokenizer,
-    # although this constraint is not documented.
-    model: BioBertLightningModule = biobert_lightning_module(
-        bionemo_model_config, tokenizer=data.tokenizer, optim_config=optim_config, num_steps=training_config.max_steps
-    )
-    trainer: nl.Trainer = setup_trainer(parallel_config, training_config)
-    nemo_logger: nl.NeMoLogger = nemo_logger_factory(experiment_config, wandb_config=wandb_config)
-
-    llm.train(
-        model=model,
-        data=data,
-        trainer=trainer,
-        log=nemo_logger,
-        resume=resume.AutoResume(
-            resume_if_exists=resume_if_exists,
-            resume_ignore_no_checkpoint=True,
-        ),
-    )
