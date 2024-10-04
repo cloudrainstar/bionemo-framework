@@ -1,4 +1,3 @@
-
 - tag: 10M_240530:1.0
   ngc: nvidia/clara/geneformer_10m:1.6
   ngc_registry: model
