@@ -71,9 +71,13 @@ def assert_dataset_compatible_with_megatron(
         assert_elements_equal(dataset[index], dataset[index])
     except AssertionError as e_0:
         raise DatasetLocallyNondeterministic(e_0)
-    with patch("torch.manual_seed") as mock_manual_seed:
+    with (
+        patch("torch.manual_seed") as mock_manual_seed,
+        patch("torch.cuda.manual_seed") as mock_cuda_manual_seed,
+        patch("torch.cuda.manual_seed_all") as mock_cuda_manual_seed_all,
+    ):
         _ = dataset[index]
-    if mock_manual_seed.call_count > 0:
+    if mock_manual_seed.call_count > 0 or mock_cuda_manual_seed.call_count > 0 or mock_cuda_manual_seed_all.call_count:
         raise DatasetDistributedNondeterministic(
             "You cannot safely use torch.manual_seed in a cluster with model parallelism. Use torch.Generator directly."
             " See https://github.com/NVIDIA/Megatron-LM/blob/dddecd19/megatron/core/tensor_parallel/random.py#L198-L199"
@@ -90,11 +94,11 @@ def assert_dataset_elements_not_equal(
 ):
     """Test the case where two indices return different elements on datasets that employ randomness, like masking.
 
-    NOTE: if you have a dataset without any kinds of randomness, just use the `assert_dataset_elements_not_equal` test
-    and skip this one. This test is for the case when you want to test that a dataset that applies a random transform
-    to your elements as a function of index actually does so with two different indices that map to the same underlying
-    object. This test also runs `assert_dataset_elements_not_equal` behind the scenes so if you do this you do not need
-    to also do the other.
+    NOTE: if you have a dataset without any kinds of randomness, just use the `assert_dataset_compatible_with_megatron`
+    test and skip this one. This test is for the case when you want to test that a dataset that applies a random
+    transform to your elements as a function of index actually does so with two different indices that map to the same
+    underlying object. This test also runs `assert_dataset_compatible_with_megatron` behind the scenes so if you
+    do this you do not need to also do the other.
 
     With epoch upsampling approaches, some underlying index, say index=0, will be called multiple times by some wrapping
     dataset object. For example if you have a dataset of length 1, and you wrap it in an up-sampler that maps it to

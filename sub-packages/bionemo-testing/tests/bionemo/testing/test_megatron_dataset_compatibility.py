@@ -19,7 +19,7 @@ import pytest
 import torch
 import torch.utils.data
 
-from bionemo.testing.utils import (
+from bionemo.testing.megatron_dataset_compatibility import (
     DatasetDistributedNondeterministic,
     DatasetLocallyNondeterministic,
     assert_dataset_compatible_with_megatron,

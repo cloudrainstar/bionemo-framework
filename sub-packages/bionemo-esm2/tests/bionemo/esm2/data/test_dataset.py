@@ -25,7 +25,7 @@ from bionemo.esm2.data.dataset import (
     create_train_dataset,
     create_valid_dataset,
 )
-from bionemo.testing.data_utils import assert_dataset_elements_not_equal
+from bionemo.testing.megatron_dataset_compatibility import assert_dataset_elements_not_equal
 
 
 def test_protein_sqlite_dataset(dummy_protein_dataset):
