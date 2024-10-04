@@ -42,8 +42,8 @@ This model is not owned or developed by NVIDIA. This model has been developed an
 **[Preferred/Supported] Operating System(s):** <br>
 * [Linux] <br>
 
-<!-- ## Model Version(s):
-esm2nv_3B_converted.nemo, esm2nv_650M_converted.nemo, version 1.0  <br> -->
+## Model Version(s):
+esm2nv650m:2.0, esm2nv3b:2.0  <br>
 
 # Training & Evaluation:
 
@@ -56,7 +56,6 @@ esm2nv_3B_converted.nemo, esm2nv_650M_converted.nemo, version 1.0  <br> -->
 * [Human] <br>
 
 **Properties:** UniRef50 (release 04/2021) was used for training [2]. The representative sequence for each UniRef50 cluster was selected, resulting in 49,874,565 protein sequences. The sequences were randomly split with 249,372 sequences in validation and 49,625,193 in training. All training sequences that matched a validation sequence with 50% sequence identity were removed from the train set, resulting in 49,425,807 train sequences. A sampling dataset of UniRef90 sequences was created based on any UniRef90 representatives and cluster members that had complete sequences available from UniRef90 or UniRef100, and filtered to UniRef90 sequences for clusters that corresponded to the UniRef50 train set. The UniRef90 dataset was combined with the filtered UniRef50 training dataset to create the sampling fasta file. A mapping file was created to enable rapid replacement of UniRef50 sequences with a sequence sampled uniformly from the corresponding records in the sampling fasta file during each training update. The UniRef50 training fasta was sorted in the order of occurrence of records in column 1 of the mapping file. The UniRef90+UniRef50 sampling fasta file was sorted in the order of occurrence of records in column 2 of the mapping file. Protein sequences longer than 1024 amino acids were cropped to 1022 from sequence start [3]. <br>
-Unlike ESM-2 pre-training data, the curated pre-training dataset provided with ESM2 release contains hits for de novo proteins, since sequences in UniRef100, UniRef90, and UniRef50 with high sequence similarity to a non-public 81 de novo proteins [1] are not filtered. <br>
 
 ## Inference:
 **Engine:** BioNeMo, NeMo <br>
