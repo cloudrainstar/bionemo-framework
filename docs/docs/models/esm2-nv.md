@@ -1,9 +1,9 @@
-# ESM2
+# ESM-2
 # Model Overview
 
 ## Description:
 
-ESM2 is a protein language model that provides numerical embeddings for each amino acid in a protein sequence. It is developed using the BioNeMo Framework. The embeddings from its encoder can be used as features for predictive models. The ESM2 3B model has 36 layers, 40 attention heads, a hidden space dimension of 2560, and contains 3B parameters. The 650M model has 33 layers, 20 attention heads, a hidden space dimension of 1280, and contains 650M parameters. These models are ready for commercial use. <br>
+ESM-2 is a protein language model that provides numerical embeddings for each amino acid in a protein sequence. It is developed using the BioNeMo Framework. The embeddings from its encoder can be used as features for predictive models. The ESM-2 3B model has 36 layers, 40 attention heads, a hidden space dimension of 2560, and contains 3B parameters. The 650M model has 33 layers, 20 attention heads, a hidden space dimension of 1280, and contains 650M parameters. These models are ready for commercial use. <br>
 
 ## Third-Party Community Consideration
 This model is not owned or developed by NVIDIA. This model has been developed and built to a third-party’s requirements for this application and use case [1]; see link to [Non-NVIDIA Model Card for ESM-2 3B model](https://huggingface.co/facebook/esm2_t36_3B_UR50D) and [non-NVIDIA Model Card for ESM-2 650M model](https://huggingface.co/facebook/esm2_t36_650M_UR50D)
@@ -64,10 +64,6 @@ esm2nv650m:2.0, esm2nv3b:2.0  <br>
 * [Hopper] <br>
 * [Volta]  <br>
 
-### Competitive Benchmarks
-
-TODO: @pstjohn @sichu2023
-
 ## License
 
-ESM2 is as provided under the {{model_license_slug}}.
+ESM-2 is as provided under the Apache 2.0 license.
