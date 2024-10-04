@@ -1,5 +1,5 @@
 site_name: BioNeMo Framework
-site_url: https://docs.nvidia.com/bionemo-framework/
+site_url: https://fuzzy-train-6k9k9e3.pages.github.io/
 repo_url: https://github.com/NVIDIA/bionemo-fw-ea
 repo_name: NVIDIA/bionemo-fw-ea
 
@@ -46,6 +46,7 @@ extra_css:
   - assets/css/color-schemes.css
   - assets/css/fonts.css
   - assets/css/custom-material.css
+  - assets/css/jupyter-themes.css
 
 plugins:
   - search
@@ -57,7 +58,9 @@ plugins:
         python:
           paths:
             - ../sub-packages/*/src
-  - mkdocs-jupyter
+  - mkdocs-jupyter:
+      theme: auto
+      highlight_extra_classes: "jupyter-notebook"
   - include_dir_to_nav:
       file_pattern: '.*\.(md|ipynb)$'
   - literate-nav:
