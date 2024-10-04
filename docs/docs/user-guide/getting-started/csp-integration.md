@@ -77,7 +77,7 @@ Explanation:
 * `--result`: Directory to store job results
 * `--order`: Order of the job
 * `--label`: Job label, allowing quick filtering on NGC dashboard
-* `--commandline`: Command to run inside the container, in this case, starting JupyterLab and keeping it running with
+* `--commandline`: Command to run inside the container starting JupyterLab and keeping it running with
     `sleep infinity`
 
 To launch your Jupyter notebook in the browser, click on your job in the [NGC Web UI](https://bc.ngc.nvidia.com/jobs)
