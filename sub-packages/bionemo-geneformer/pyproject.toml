@@ -11,6 +11,10 @@ authors = [{ name = "BioNeMo Team", email = "bionemofeedback@nvidia.com" }]
 dynamic = ["version"]
 dependencies = ['bionemo-core', 'bionemo-llm']
 
+[project.scripts]
+bionemo-geneformer-train= "bionemo.geneformer.run.main:main"
+bionemo-geneformer-recipe= "bionemo.geneformer.run.recipes:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["bionemo.*"]

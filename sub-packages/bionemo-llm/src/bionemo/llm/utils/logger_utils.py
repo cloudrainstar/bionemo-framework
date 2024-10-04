@@ -31,6 +31,15 @@ __all__: Sequence[str] = (
 class WandbConfig(BaseModel):
     """Note: `name` controls the exp name is handled by the NeMoLogger so it is ommitted here.
     `directory` is also omitted since it is set by the NeMoLogger.
+
+    Args:
+        entity: The team posting this run (default: your username or your default team)
+        project: The name of the project to which this run will belong.
+        tags: Tags associated with this run.
+        group: A unique string shared by all runs in a given group
+        offline: Run offline (data can be streamed later to wandb servers).
+        id: Sets the version, mainly used to resume a previous run.
+        anonymous: Enables or explicitly disables anonymous logging.
     """  # noqa: D205
 
     entity: str  # The team posting this run (default: your username or your default team)
