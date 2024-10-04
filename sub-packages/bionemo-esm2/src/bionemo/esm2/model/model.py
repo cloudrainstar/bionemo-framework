@@ -14,9 +14,10 @@
 # limitations under the License.
 
 
+import logging
 import math
 from dataclasses import dataclass
-from typing import Callable, Literal, Optional, Sequence, Type
+from typing import Callable, Literal, Optional, Sequence, Type, TypeVar
 
 import torch
 import torch.distributed
@@ -33,7 +34,7 @@ from torch import Tensor
 from torch.optim import Optimizer
 
 from bionemo.esm2.data.tokenizer import BioNeMoESMTokenizer
-from bionemo.esm2.model.attention import ESM2DotProductAttention
+from bionemo.esm2.model.attention import ESM2DotProductAttention, ESM2TEDotProductAttention
 from bionemo.esm2.model.embedding import ESM2Embedding
 from bionemo.llm.model.biobert.model import BioBertGenericConfig, MegatronBioBertModel
 from bionemo.llm.model.biobert.transformer_specs import BiobertSpecOption
@@ -42,6 +43,7 @@ from bionemo.llm.utils import iomixin_utils as iom
 
 __all__: Sequence[str] = (
     "ESM2Config",
+    "ESM2GenericConfig",
     "ESM2Model",
 )
 
@@ -65,9 +67,9 @@ class ESM2Model(MegatronBioBertModel):
         position_embedding_type: Literal["learned_absolute", "rope"] = "learned_absolute",
         rotary_percent: float = 1.0,
         seq_len_interpolation_factor: Optional[float] = None,
-        add_binary_head=True,
-        return_embeddings=False,
-        use_full_attention_mask=False,
+        add_binary_head: bool = True,
+        return_embeddings: bool = False,
+        use_full_attention_mask: bool = False,
         include_hiddens: bool = False,
     ) -> None:
         """Initialize the ESM2 model.
@@ -98,7 +100,7 @@ class ESM2Model(MegatronBioBertModel):
         self.post_process = post_process
         self.add_binary_head = add_binary_head
         if return_embeddings:
-            assert self.post_process and self.add_binary_head
+            assert self.post_process, "only return embeddings on the last pipeline stage"
         # `b` = batch, `s` = sequence.
         # The old flash attention mechanism apparently wants you to use a b x 1 x s x s attention mask while
         #  the new one wants a b x 1 x 1 x s attention mask. This is a hack to allow us to switch between the two.
@@ -123,6 +125,8 @@ class ESM2Model(MegatronBioBertModel):
         # Embeddings.
         if self.pre_process:
             # ESM2 Customization: ESM2Embedding instead of LanguageModelEmbedding
+            # TODO: call super, overwrite the self.embedding, and setup_embeddings_and_output_layer in constructor.
+            # Note: need to avoid calling setup twice: skip with super (super(skip_setup=True))
             self.embedding = ESM2Embedding(
                 config=self.config,
                 vocab_size=self.vocab_size,
@@ -215,8 +219,11 @@ def esm_gelu_func(x: Tensor) -> Tensor:
     return x * 0.5 * (1.0 + torch.erf(x / math.sqrt(2.0)))
 
 
+ESM2ModelT = TypeVar("ESM2ModelT", bound=ESM2Model)
+
+
 @dataclass
-class ESM2Config(BioBertGenericConfig[ESM2Model], iom.IOMixinWithGettersSetters):
+class ESM2GenericConfig(BioBertGenericConfig[ESM2ModelT]):
     """Configuration class for ESM2 model.
 
     Attributes:
@@ -252,6 +259,7 @@ class ESM2Config(BioBertGenericConfig[ESM2Model], iom.IOMixinWithGettersSetters)
         get_attention_mask_from_fusion: Whether to get attention mask from fusion.
         nemo1_ckpt_path: Path to NEMO1 checkpoint.
         return_only_hidden_states: Whether to return only hidden states.
+        loss_reduction_class: Loss reduction class for the model. Default to BERTMLMLossWithReduction.
     """
 
     # When overriding fields in a dataclass _always_ declare types: https://github.com/python/cpython/issues/123269
@@ -272,10 +280,9 @@ class ESM2Config(BioBertGenericConfig[ESM2Model], iom.IOMixinWithGettersSetters)
     use_attention_mask: bool = True
 
     # core attention
-    use_esm_attention: bool = True
+    use_esm_attention: bool = False  # Skip ESM2 custom attention for TE acceleration. Still passes golden value test.
     attention_softmax_in_fp32: bool = True
     normalize_attention_scores: bool = False
-    apply_query_key_layer_scaling: bool = True
 
     # From megatron.core.models.gpt.bert_model.GPTModel
     fp16_lm_cross_entropy: bool = False  # Move the cross entropy unreduced loss calculation for lm head to fp16
@@ -289,7 +296,7 @@ class ESM2Config(BioBertGenericConfig[ESM2Model], iom.IOMixinWithGettersSetters)
     rotary_percent: float = 1.0
     seq_len_interpolation_factor: Optional[float] = None
     seq_length: int = 1024
-    biobert_spec_option: BiobertSpecOption = BiobertSpecOption.esm2_bert_layer_local_spec
+    biobert_spec_option: BiobertSpecOption = BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec
 
     # TODO: Move this to better places?
     get_attention_mask_from_fusion: bool = False
@@ -303,5 +310,34 @@ class ESM2Config(BioBertGenericConfig[ESM2Model], iom.IOMixinWithGettersSetters)
     initial_ckpt_path: str | None = None
     # TODO (@jstjohn) come up with a cleaner way in the biobert module to return user requested
     #  things as part of the workflow for inference and fine-tuning.
+    return_embeddings: bool = False
     return_only_hidden_states: bool = False  # return logits
-    core_attention_override: Type[torch.nn.Module] | None = ESM2DotProductAttention
+
+    def __post_init__(self):
+        """Check compatibility between biobert_spec_option and apply_query_key_layer_scaling post initialization."""
+        super().__post_init__()
+        if self.biobert_spec_option == BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec:
+            self.apply_query_key_layer_scaling = False
+            self.core_attention_override = ESM2TEDotProductAttention
+        elif self.biobert_spec_option == BiobertSpecOption.esm2_bert_layer_local_spec:
+            logging.warning(
+                "BiobertSpecOption.esm2_bert_layer_local_spec is depreciated. Use BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec instead."
+            )
+            self.apply_query_key_layer_scaling = True
+            self.core_attention_override = ESM2DotProductAttention
+        else:
+            raise ValueError(f"Unknown biobert_spec_option: {self.biobert_spec_option}")
+
+
+@dataclass
+class ESM2Config(ESM2GenericConfig[ESM2Model], iom.IOMixinWithGettersSetters):
+    """Configuration class for ESM2 model.
+
+    model_cls: Type[ESM2Model] = ESM2Model
+    num_layers: int = 33  # 650M
+    hidden_size: int = 1280  # 650M
+    """
+
+    model_cls: Type[ESM2Model] = ESM2Model
+    num_layers: int = 33  # 650M
+    hidden_size: int = 1280  # 650M
