@@ -1,25 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-Apache2
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 import argparse
-from typing import Optional
+from typing import List, Optional
+
+from nemo.utils import logging
+
 from bionemo.core.utils.dtypes import PrecisionTypes
-from bionemo.geneformer.api import GeneformerConfig
-from bionemo.geneformer.run.config_models import ExposedFineTuneSeqLenBioBertConfig, GeneformerPretrainingDataConfig
-from bionemo.llm.config.config_models import ExperimentConfig, ExposedModelConfig, MainConfig, OptimizerSchedulerConfig, TrainingConfig, ParallelConfig
+from bionemo.geneformer.run.config_models import ExposedFineTuneSeqLenBioBertConfig, ExposedGeneformerPretrainConfig, GeneformerPretrainingDataConfig
+from bionemo.llm.config.config_models import (
+    ExperimentConfig,
+    MainConfig,
+    OptimizerSchedulerConfig,
+    ParallelConfig,
+    TrainingConfig,
+)
 from bionemo.llm.model.biobert.transformer_specs import BiobertSpecOption
 from bionemo.llm.utils.logger_utils import WandbConfig
-from typing import List
-from nemo.utils import logging 
-import os
 
-def geneformer_small_data_recipe(
-    data_dir
-) -> GeneformerPretrainingDataConfig:
+
+def geneformer_small_data_recipe(data_dir) -> GeneformerPretrainingDataConfig:
     """Recipe that produces the base geneformer small data configuration."""
     return GeneformerPretrainingDataConfig(data_dir=data_dir)
 
 
-def full_geneformer_data_recipe(
-    data_dir
-) -> GeneformerPretrainingDataConfig:
+def full_geneformer_data_recipe(data_dir) -> GeneformerPretrainingDataConfig:
     return GeneformerPretrainingDataConfig(data_dir=data_dir)
 
 
@@ -34,6 +52,7 @@ def simple_parallel_recipe(
         pipeline_model_parallel_size=pipeline_model_parallel_size,
         num_devices=num_devices,
     )
+
 
 def geneformer_finetuning_regression_head_recipe(
     precision: PrecisionTypes = "bf16-mixed",
@@ -58,13 +77,13 @@ def default_trainer_config_recipe() -> TrainingConfig:
 
 
 def geneformer10M_pretraining_recipe(
-    seq_length: int = 128,
+    seq_length: int = 2048,
     precision: PrecisionTypes = "bf16-mixed",
     nemo1_init_path: Optional[str] = None,
     initial_ckpt_path: Optional[str] = None,
     biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_local_spec,
-) -> ExposedFineTuneSeqLenBioBertConfig:
-    geneformer_config = ExposedFineTuneSeqLenBioBertConfig(
+) -> ExposedGeneformerPretrainConfig:
+    geneformer_config = ExposedGeneformerPretrainConfig(
         num_layers=6,
         hidden_size=256,
         ffn_hidden_size=512,
@@ -103,6 +122,7 @@ def geneformer10M_pretraining_recipe(
 def default_adam_optimizer_with_cosine_annealing_recipe() -> OptimizerSchedulerConfig:
     return OptimizerSchedulerConfig()
 
+
 def experiment_config_recipe() -> ExperimentConfig:
     return ExperimentConfig(
         save_every_n_steps=100,
@@ -117,14 +137,20 @@ def experiment_config_recipe() -> ExperimentConfig:
 
 
 def main():
-
     def parse_args():
         parser = argparse.ArgumentParser(description="Create Geneformer configuration JSON.")
-        parser.add_argument("--dest", type=str, default='./geneformer-recipe.json', required=True, help="Path to the JSON configuration file.")
-        parser.add_argument("--data-dir", type=str, required=True, help="Path to the directory containing pretraining data.")
+        parser.add_argument(
+            "--dest",
+            type=str,
+            default="./geneformer-recipe.json",
+            required=True,
+            help="Path to the JSON configuration file.",
+        )
+        parser.add_argument(
+            "--data-dir", type=str, required=True, help="Path to the directory containing pretraining data."
+        )
         args = parser.parse_args()
         return args
-
 
     """Simple example for creating a JSON from recipes."""
 
@@ -132,13 +158,23 @@ def main():
     data_config: GeneformerPretrainingDataConfig = geneformer_small_data_recipe(data_dir=args.data_dir)
     parallel_config = simple_parallel_recipe()
     training_config = default_trainer_config_recipe()
-    bionemo_model_config = geneformer_finetuning_regression_head_recipe()
+    # bionemo_model_config = geneformer_finetuning_regression_head_recipe()
+    bionemo_model_config = geneformer10M_pretraining_recipe()
     optim_config = default_adam_optimizer_with_cosine_annealing_recipe()
     experiment_config = experiment_config_recipe()
-    wandb_config = WandbConfig(project="bionemo2-demo", entity="nvidia", offline=True, tags=[], group="dev", id="dev", log_model=False, anonymous=True)
+    wandb_config = WandbConfig(
+        project="bionemo2-demo",
+        entity="nvidia",
+        offline=True,
+        tags=[],
+        group="dev",
+        id="dev",
+        log_model=False,
+        anonymous=True,
+    )
 
     # Create the master config
-    master_config = MainConfig[ExposedFineTuneSeqLenBioBertConfig, GeneformerPretrainingDataConfig](
+    master_config = MainConfig[ExposedGeneformerPretrainConfig, GeneformerPretrainingDataConfig](
         data_config=data_config,
         parallel_config=parallel_config,
         training_config=training_config,
@@ -157,4 +193,4 @@ def main():
         "w",
     ) as f:
         f.write(json_str)
-    logging.info(f'Saved configuration to {args.dest=}')
+    logging.info(f"Saved configuration to {args.dest=}")

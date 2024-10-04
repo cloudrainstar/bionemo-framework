@@ -52,7 +52,7 @@ def nemo_logger_factory(experiment_config: ExperimentConfig, wandb_config: Optio
     return nemo_logger
 
 
-def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConfig) -> nl.Trainer:
+def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConfig, callbacks = None) -> nl.Trainer:
     strategy = nl.MegatronStrategy(
         tensor_model_parallel_size=parallel_config.tensor_model_parallel_size,
         pipeline_model_parallel_size=parallel_config.pipeline_model_parallel_size,
@@ -60,6 +60,11 @@ def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConf
         find_unused_parameters=True,
         ckpt_include_optimizer=True,
     )
+    if callbacks is None:
+        callbacks = [
+            RichModelSummary(max_depth=4),
+            LearningRateMonitor(),
+        ]
 
     trainer = nl.Trainer(
         devices=parallel_config.num_devices,
@@ -69,10 +74,7 @@ def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConf
         limit_val_batches=training_config.limit_val_batches,
         val_check_interval=training_config.val_check_interval,
         num_nodes=parallel_config.num_nodes,
-        callbacks=[
-            RichModelSummary(max_depth=4),
-            LearningRateMonitor(),
-        ],
+        callbacks=callbacks,
         plugins=nl.MegatronMixedPrecision(precision=training_config.precision),
     )
     return trainer
