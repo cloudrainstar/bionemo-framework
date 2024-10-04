@@ -6,9 +6,9 @@
     outlined in the [Hardware and Software Prerequisites](./pre-reqs.md) page and that you have already pulled and
     verified that you can run the BioNeMo container as outlined in the [Access and Startup](./access-startup.md) page.
 
-At this point, you have successfully launched and entered the Docker container. This section will guide you through
-common `docker run` options to start the container, the layout of the container, and downloading pre-trained model
-weights.
+At this point, you have successfully launched and run the Docker container. This section will guide you through setting
+up your host machine environment, explain helpful `docker run` options, and suggest Docker commands for various common
+workflows.
 
 ## Setting Up Your Host Machine Environment
 
@@ -51,7 +51,7 @@ Refer to the list below for an explanation of each of these variables:
     visualization.
 
 For each of these variables, you can define them using `=`. For example, you can set the NGC API key using
-`NGC_CLI_API_KEY=<you API key here>`. You can then define these variables in your shell using:
+`NGC_CLI_API_KEY=<your API key here>`. You can then define these variables in your current shell using:
 
 ```bash
 source .env
@@ -74,7 +74,7 @@ Running this command will make these variables available for use in the `docker 
 
 ## Common `docker run` Options
 
-
+Below we explain some common `docker run` options and how to use them as part of your BioNeMo development workflows.
 
 ### Mounting Volumes with the `-v` Option
 
@@ -150,24 +150,58 @@ docker run -u $(id -u):$(id -g) \
 
 ## Starting the BioNeMo Container for Common Workflows
 
-Below we describe some common BioNeMo workflows, including how to setup and run the container in each case.
+Below we describe some common BioNeMo workflows, including how to setup and run the container in each case. Each of the
+following examples will assume that you have a local workspace directory (`<YOUR WORKSPACE>`) that you will attach to
+the container via a volume mount. When running these commands, replace `<YOUR WORKSPACE>` with the path to your desired
+directory.
+
+### Starting a Shell Inside the Container
+
+With a shell inside the BioNeMo Docker container, you can execute commands, edit files, and run applications as if you
+were working directly on the host machine. This self-contained environment allows you to work with your project's
+dependencies and configurations in isolation, ensuring consistent results and reproducibility. You can install packages,
+test and debug applications, and customize the environment to suit your needs.
+
+You can launch a Bash shell inside the BioNeMo container using the command below. Note that any files modified in the
+`<YOUR WORKSPACE>` directory while inside the container will persist on the host machine, but other modifications (such
+as installed software) will not.
+
+```bash
+docker run --rm -it -u $(id -u):$(id -g) --gpus all \
+  -v <YOUR_WORKSPACE>:/workspace/bionemo2/<YOUR_WORKSPACE> \
+  {{ docker_url }}:{{ docker_tag }} \
+  /bin/bash
+```
+
+* `--rm`: Removes the container when it exits.
+* `-it`: Allocates a pseudo-TTY and keeps the container running in the foreground.
+* `-u $(id -u):$(id -g)`: Sets the user and group IDs to match those of the user running on the host machine.
+* `--gpus all`: Allocate all available GPUs on the host machine.
+* `-v <YOUR_WORKSPACE>:/workspace/bionemo2/<YOUR_WORKSPACE>`: Mounts a volume from the host machine to the container.
+* `{{ docker_url }}:{{ docker_tag }}`: The path to the Docker image to use.
+* `/bin/bash`: The command to run inside the container, which starts a Bash shell.
+
+Note that you should replace `<YOUR_WORKSPACE>` with the actual path to your workspace directory on the host machine.
 
 ### Running a Model Training Script Inside the Container
 
-```bash
-docker run --rm -d --gpus all -p 8888:8888 -u $(id -u):$(id -g) \
+Running a model training script inside the BioNeMo Docker container is the preferred workflow for model training. The
+container provides an encapsulated and reproducible training environment. By mounting a volume from the host machine,
+the output directory containing results such as logs and checkpoints can be persisted even after the container is
+removed. A training script can be run as in the example below. Replace `training.py` with the name of your script and
+relevant command line options for your script.
+
+```
+docker run --rm -it -u $(id -u):$(id -g) --gpus all \
   -v <YOUR_WORKSPACE>:/workspace/bionemo3/<YOUR_WORKSPACE> \
   {{ docker_url }}:{{ docker_tag }} \
-  "jupyter lab \
-  	--allow-root \
-	--ip=* \
-	--port=8888 \
-	--no-browser \
-  	--NotebookApp.token='' \
-  	--NotebookApp.allow_origin='*' \
-  	--ContentsManager.allow_hidden=True \
-  	--notebook-dir=/workspace/bionemo2/<YOUR_WORKSPACE>"
+  python training.py --option1 --option2 --output=/workspace/bionemo2/results
 ```
+
+Many of the Docker run options are identical to the shell example above, with the exception of the command being run:
+
+* `python training.py --option1 --option2 --output=/workspace/bionemo2/results`: The command to run inside the
+container, which runs the `training.py` Python script with the specified command-line arguments.
 
 ### Running Jupyter Lab Inside the Container
 
@@ -190,34 +224,8 @@ docker run --rm -d --gpus all -p 8888:8888 -u $(id -u):$(id -g) \
   	--notebook-dir=/workspace/bionemo2/<YOUR_WORKSPACE>"
 ```
 
-Let's break down this `docker run` command:
+Refer to the guide below for an explanation of the recommended Jupyter Lab options:
 
-**Basic Components**
-
-* `docker run`: This is the Docker command to run a container from an image.
-* `--rm`: This flag removes the container when it exits.
-* `-d`: This flag runs the container in detached mode (i.e., in the background).
-* `-u $(id -u):$(id -g)`: This option sets the user and group IDs to match those of the user running on the host machine.
-
-**Resource Allocation**
-
-* `--gpus all`: This option allows the container to use all available GPUs on the host machine.
-
-**Port Mapping**
-
-* `-p 8888:8888`: This option maps port 8888 on the host machine to port 8888 inside the container. This allows access to
-the Jupyter Lab interface from outside the container.
-
-**Volume Mounting**
-
-* `-v <YOUR_WORKSPACE>:/workspace/bionemo2/<YOUR_WORKSPACE>`: This option mounts a volume from the host machine to the
-container. Specifically, it mounts the `<YOUR_WORKSPACE>` directory on the host machine to
-`/workspace/bionemo2/<YOUR_WORKSPACE>` inside the container. This configuration allows the container to access files
-from the host machine.
-
-**Image and Command**
-
-* `{{ docker_url }}:{{ docker_tag }}`: This is the path to the Docker image to use.
 * `"jupyter lab ..."`: This is the command to run inside the container, which starts a Jupyter Lab server. The options are:
 	+ `--allow-root`: Allow the Jupyter Lab server to run as the root user.
 	+ `--ip=*`: Listen on all available network interfaces, which allows access from outside the container.
@@ -228,6 +236,3 @@ from the host machine.
 	+ `--ContentsManager.allow_hidden=True`: Allow the contents manager to access hidden files and directories.
 	+ `--notebook-dir=/workspace/bionemo2/<YOUR_WORKSPACE>`: Set the notebook directory to
         `/workspace/bionemo/<YOUR_WORKSPACE>` inside the container.
-
-In summary, this command runs a detached Docker container from a specified image, mapping port 8888, mounting a volume
-for persistent storage, and running a Jupyter Lab server with a specified configuration.
