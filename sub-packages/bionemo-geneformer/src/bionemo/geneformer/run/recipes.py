@@ -20,7 +20,11 @@ from typing import List, Optional
 from nemo.utils import logging
 
 from bionemo.core.utils.dtypes import PrecisionTypes
-from bionemo.geneformer.run.config_models import ExposedFineTuneSeqLenBioBertConfig, ExposedGeneformerPretrainConfig, GeneformerPretrainingDataConfig
+from bionemo.geneformer.run.config_models import (
+    ExposedFineTuneSeqLenBioBertConfig,
+    ExposedGeneformerPretrainConfig,
+    GeneformerPretrainingDataConfig,
+)
 from bionemo.llm.config.config_models import (
     ExperimentConfig,
     MainConfig,
@@ -149,6 +153,9 @@ def main():
         parser.add_argument(
             "--data-dir", type=str, required=True, help="Path to the directory containing pretraining data."
         )
+        parser.add_argument(
+            "--initial-ckpt-path", type=str, required=False, default=None, help="Path to an existing to a checkpoint directory to restore"
+        )
         args = parser.parse_args()
         return args
 
@@ -159,7 +166,7 @@ def main():
     parallel_config = simple_parallel_recipe()
     training_config = default_trainer_config_recipe()
     # bionemo_model_config = geneformer_finetuning_regression_head_recipe()
-    bionemo_model_config = geneformer10M_pretraining_recipe()
+    bionemo_model_config = geneformer10M_pretraining_recipe(initial_ckpt_path=args.initial_ckpt_path)
     optim_config = default_adam_optimizer_with_cosine_annealing_recipe()
     experiment_config = experiment_config_recipe()
     wandb_config = WandbConfig(
