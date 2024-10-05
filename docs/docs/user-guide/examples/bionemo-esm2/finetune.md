@@ -7,18 +7,17 @@ The ESM2 model is a transformer-based protein language model that has achieved s
 
 # Setup and Assumptions
 
-In this tutorial, we will demonstrate how to create a fine-tune module, train a regression task head, and use the fine-tuned model for inference. To successfully accomplish this we need to define some key classes:
+In this tutorial, we will demonstrate how to create a fine-tune module, train a regression task head, and use the fine-tuned model for inference.
 
-1. Loss reduction method (compute the supervised fine-tuning loss)
-2. Fine-tune model head (downstream task head model)
-3. Fine-tune model (ESM2 + task head)
-4. Fine-tune config (configures Fine-tune model and loss)
-5. Dataset
+All commands should be executed inside the BioNeMo docker container, which has all ESM2 dependencies pre-installed. This tutorial assumes that a copy of the BioNeMo framework repo exists on workstation or server and has been mounted inside the container at `/workspace/bionemo2`. (**Note**: This `WORKDIR` may be `/workspaces/bionemo-fw-ea` if you are using the VSCode Dev Container.) For more information on how to build or pull the BioNeMo2 container, refer to the [BioNeMo2 README](../../../../../README.md)!
 
-This tutorial assumes that a copy of the BioNeMo framework repo exists on workstation or server and has been mounted inside the container at `/workspaces/bionemo-fw-ea`.
+To successfully accomplish this we need to define some key classes:
 
-All commands should be executed inside the BioNeMo docker container.
-
+1. Loss Reduction Method - To compute the supervised fine-tuning loss.
+2. Fine-Tuned Model Head - Downstream task head model.
+3. Fine-Tuned Model - Model that combines ESM2 with the task head model.
+4. Fine-Tuning Config - Configures the fine-tuning model and loss to use in the training and inference framework.
+5. Dataset - Training and inference datasets for ESM2.
 
 ## 1 - Loss Reduction Class
 
@@ -40,7 +39,7 @@ class RegressorLossReduction(BERTMLMLossWithReduction):
         return losses.mean()
 ```
 
-## 2 - Fine-tune Model Head
+## 2 - Fine-Tuned Model Head
 
 An MLP class for sequence-level regression. This class inherits `MegatronModule` and uses the fine-tune config (`TransformerConfig`) to configure the regression head for the fine-tuned ESM2 model.
 
@@ -59,7 +58,7 @@ class MegatronMLPHead(MegatronModule):
         ...
 ```
 
-## 3 - Fine-tune Model
+## 3 - Fine-Tuned Model
 
 A fine-tuned ESM2 model class for token classification tasks. This class inherits from the `ESM2Model` class and adds the custom regression head `MegatronMLPHead` the we created in the previous step. Optionally one can freeze all or parts of the encoder by parsing through the model parameters in the model constructor.
 
@@ -83,7 +82,7 @@ class ESM2FineTuneSeqModel(ESM2Model):
         return regression_output
 ```
 
-## 4 - Fine-tune Config
+## 4 - Fine-Tuning Config
 
 A `dataclass` that configures the fine-tuned ESM2 model. In this example `ESM2FineTuneSeqConfig` inherits from `ESM2GenericConfig` and adds custom arguments to setup the fine-tuned model. The `configure_model()` method of this `dataclass` is called within the `Lightning` module to call the model constructor with the `dataclass` arguments.
 
@@ -136,9 +135,15 @@ class InMemorySingleValueDataset(Dataset):
     ):
 ```
 
-To coordinate the creation of training, validation and testing datasets from your data, we need to use a `datamodule` class. To do this we can directly use or extend the ```ESM2FineTuneDataModule``` class (located at ``` bionemo.esm2.model.finetune.datamodule.ESM2FineTuneDataModule```) which defines helpful abstract methods that use your dataset class.
+To coordinate the creation of training, validation and testing datasets from your data, we need to use a `datamodule` class. To do this we can directly use or extend the ```ESM2FineTuneDataModule``` class (located at ```bionemo.esm2.model.finetune.datamodule.ESM2FineTuneDataModule```) which defines helpful abstract methods that use your dataset class.
 
-# Fine-tuning the regressor
+```python
+dataset = InMemorySingleValueDataset(data)
+data_module = ESM2FineTuneDataModule(predict_dataset=dataset)
+```
+
+# Fine-Tuning the Regressor Task Head for ESM2
+
 Now we can put these five requirements together to fine-tune a regressor task head starting from a pre-trained ESM2 model (`pretrain_ckpt_path`). We can take advantage of a simple training loop in ```bionemo.esm2.model.fnetune.train``` and use the ```train_model()`` function to start the fine-tuning process in the following.
 
 ```python
@@ -167,6 +172,8 @@ experiment_dir = Path(experiment_tempdir.name)
 experiment_name = 'finetune_regressor'
 n_steps_train = 50
 
+# Set ESM2 fine-tuning config with encoder_frozen=True.
+# To load a pre-trained model, set initial_ckpt_path=str(pretrain_ckpt_path).
 pretrain_ckpt_path = '/data/esm2_650M'
 config = ESM2FineTuneSeqConfig(initial_ckpt_path=str(pretrain_ckpt_path))
 
@@ -181,16 +188,13 @@ checkpoint, metrics, trainer = train_model(
 
 This example is fully implemented in ```bionemo.esm2.model.finetune.train``` and can be executed by:
 ```bash
-python /workspaces/bionemo-fw-ea/sub-packages/bionemo-esm2/src/bionemo/esm2/model/finetune/train.py
+python /workspace/bionemo2/sub-packages/bionemo-esm2/src/bionemo/esm2/model/finetune/train.py
 ```
 
-# Inference using the fine-tuned model
-Once we have a checkpoint we can create a config object by pointing the path in `initial_ckpt_path` and use that for inference. Since we need to load all the parameters from this checkpoint (and don't skip the head) we reset the `nitial_ckpt_skip_keys_with_these_prefixe` in this config. Now we can use the ````bionemo.esm2.model.fnetune.train.infer``` to run inference on prediction dataset.
+# Fine-Tuned ESM2 Model Inference
+Once we have a checkpoint we can create a config object by pointing the path in `initial_ckpt_path` and use that for inference. Since we need to load all the parameters from this checkpoint (and don't skip the head) we reset the `nitial_ckpt_skip_keys_with_these_prefixes` in this config. Now we can use the ```bionemo.esm2.model.fnetune.train.infer``` to run inference on prediction dataset.
 
 ```python
-dataset = InMemorySingleValueDataset(data)
-data_module = ESM2FineTuneDataModule(predict_dataset=dataset)
-
 config = ESM2FineTuneSeqConfig(
     initial_ckpt_path = finetuned_checkpoint,
     initial_ckpt_skip_keys_with_these_prefixes: List[str] = field(default_factory=list)
@@ -198,3 +202,77 @@ config = ESM2FineTuneSeqConfig(
 
 results = infer_model(config, data_module)
 ```
+
+To download a pre-trained ESM2 to run this inference script, run the command:
+```
+download_bionemo_data esm2/650m:2.0 --source ngc
+```
+and pass the path (e.g. `.../.cache/bionemo/975d29ee980fcb08c97401bbdfdcf8ce-esm2_650M_nemo2.tar.gz.untar`) as an argument into `initial_ckpt_path` above!
+
+# Parameter-Efficient Fine-Tuning (PEFT) of ESM2
+
+## PEFT Model Training
+
+To fine-tune the pre-trained ESM2 regressor task head using PEFT, NeMo2 has abstracted tooling that converts vanilla model training into PEFT. For more information about LoRA fine-tuning, refer to the Appendix of this section.
+
+To enable LoRA fine-tuning via NeMo, we define a `model_transform` for ESM2:
+```python
+# src/bionemo/esm2/model/finetune/peft.py
+from nemo.collections.llm import fn
+from nemo.collections.llm.fn.mixin import FNMixin
+from nemo.collections.llm.peft.lora import LoRA
+from torch import nn
+
+
+class ESM2LoRA(LoRA):
+    """LoRA for the BioNeMo2 ESM Model."""
+
+    def __call__(self, model: nn.Module) -> nn.Module:
+        fn.walk(model, self.selective_freeze)
+        fn.walk(model, self.transform)
+        return model
+
+    def selective_freeze(self, m: nn.Module, name=None, prefix=None):
+        if name in ["encoder", "embedding"]:
+            FNMixin.freeze(m)
+        return m
+```
+
+and make the following modifications to relevant sections of `train.py`:
+
+```python
+# src/bionemo/esm2/model/finetune/train.py
+from nemo.lightning.pytorch.callbacks.model_transform import ModelTransform
+from nemo.lightning.pytorch.callbacks.peft import PEFT
+from bionemo.esm2.model.finetune.peft import ESM2LoRA
+
+# Set a parameter-efficient fine-tuning strategy (PEFT).
+# Options: None, ESM2LoRA()
+peft = ESM2LoRA()
+
+# Pass the ESM2LoRA model transform into the LightningModule.
+module = BioBertLightningModule(config=config, tokenizer=tokenizer, optimizer=optimizer, model_transform=peft)
+
+# Add a ESM2LoRA() callback to the PyTorch Lightning Trainer.
+if peft is not None:
+    callbacks.append(peft)
+trainer = nl.Trainer(
+    ...
+    callbacks=callbacks
+)
+```
+This allocates trainable LoRA adapter weights to all non-frozen weights in ESM2, and trains the LoRA adapter instead of base ESM2. (Specifically, because we froze our encoder in `ESM2FineTuneSeqConfig`, adapters will not be trained or applied to the encoder, and only the regressor task heads will be adapted and trained.)
+
+## PEFT Model Inference
+
+Currently, BioNeMo2 & NeMo2 do not support model loading and inference with PEFT (e.g. LoRA). (Thus, `inference.py` only works for non-PEFT model checkpoints!) This feature will be released soon!
+
+## Appendix
+
+### Low-Rank Adaptation
+
+**Low-Rank Adaptation (LoRA)** is a parameter-efficient strategy designed to adapt large pretrained language models to downstream tasks while avoiding challenges associated with full fine-tuning. Unlike traditional fine-tuning approaches that adjust all parameters within a pretrained model, LoRA maintains the core weights of the pretrained model as frozen. Instead, it introduces trainable rank decomposition matrices, known as LoRA adapters, into each layer of the Transformer architecture. These adapters are smaller matrices that approximate the original weight matrices, thereby reducing the number of trainable parameters.
+
+In the context of antibody sequences, where data availability may be limited, LoRA offers several advantages. By focusing on adapting these smaller adapter matrices rather than the entire model, LoRA makes fine-tuning more efficient and less susceptible to overfitting. This is particularly beneficial for tasks requiring adaptation to specific protein sequences, where preserving the learned features of the pretrained ESM-2nv model is crucial.
+
+By integrating LoRA into BioNeMo's fine-tuning pipeline for ESM-2nv models, you can leverage the robustness of pretrained models while tailoring them to the unique characteristics of antibody sequences. This extension not only enhances model performance but also ensures adaptability and efficiency in handling specialized protein sequence data.

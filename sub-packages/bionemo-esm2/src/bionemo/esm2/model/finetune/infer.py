@@ -14,33 +14,36 @@
 # limitations under the License.
 
 
-from pathlib import Path
-from typing import Tuple
+from typing import Sequence
 
 import pytorch_lightning as pl
 from nemo import lightning as nl
+from torch import Tensor
 
 from bionemo.esm2.api import ESM2GenericConfig
 from bionemo.esm2.data.tokenizer import BioNeMoESMTokenizer, get_tokenizer
 from bionemo.esm2.model.finetune.datamodule import ESM2FineTuneDataModule
 from bionemo.esm2.model.finetune.finetune_regressor import ESM2FineTuneSeqConfig, InMemorySingleValueDataset
-from bionemo.llm.model.biobert.lightning import BioBertLightningModule
+from bionemo.llm.model.biobert.lightning import biobert_lightning_module
+
+
+__all__: Sequence[str] = ("infer_model",)
 
 
 def infer_model(
     config: ESM2GenericConfig,
     data_module: pl.LightningDataModule,
     tokenizer: BioNeMoESMTokenizer = get_tokenizer(),
-) -> Tuple[Path, pl.Callback, nl.Trainer]:
+) -> list[Tensor]:
     """Infers a BioNeMo ESM2 model using PyTorch Lightning.
 
     Parameters:
-        config (ESM2GenericConfig): The configuration for the ESM2 model.
-        data_module (pl.LightningDataModule): The data module for training and validation.
-        tokenizer (BioNeMoESMTokenizer, optional): The tokenizer to use. Defaults to `get_tokenizer()`.
+        config: The configuration for the ESM2 model.
+        data_module: The data module for training and validation.
+        tokenizer: The tokenizer to use. Defaults to `get_tokenizer()`.
 
     Returns:
-        List[torch.Tensor]: A list of tensors containing the predictions of predict_dataset in datamodule
+        A list of tensors containing the predictions of predict_dataset in datamodule
     """
     strategy = nl.MegatronStrategy(
         tensor_model_parallel_size=1, pipeline_model_parallel_size=1, ddp="megatron", find_unused_parameters=True
@@ -53,7 +56,7 @@ def infer_model(
         num_nodes=1,
         plugins=nl.MegatronMixedPrecision(precision="bf16-mixed"),
     )
-    module = BioBertLightningModule(config=config, tokenizer=tokenizer)
+    module = biobert_lightning_module(config=config, tokenizer=tokenizer)
     results = trainer.predict(module, datamodule=data_module)
 
     return results
@@ -84,6 +87,10 @@ if __name__ == "__main__":
         predict_dataset=dataset, global_batch_size=len(data), micro_batch_size=len(data)
     )
 
+    # To download a pre-trained ESM2 model that works with this inference script, run the following command...
+    # $ download_bionemo_data esm2/650m:2.0 --source ngc
+    # ... and pass the output path (e.g. `.../.cache/bionemo/975d29ee980fcb08c97401bbdfdcf8ce-esm2_650M_nemo2.tar.gz.untar`)
+    # as an argument into `initial_ckpt_path` below!
     config = ESM2FineTuneSeqConfig(
         # initial_ckpt_path = finetuned_checkpoint,  # supply the finetuned checkpoint path
         # initial_ckpt_skip_keys_with_these_prefixes: List[str] = field(default_factory=list)   # reset to avoid skipping the head params
