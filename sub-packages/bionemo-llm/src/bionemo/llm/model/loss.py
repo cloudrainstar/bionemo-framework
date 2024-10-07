@@ -12,8 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""A collection of megatron compatable losses"""  # noqa: D415
 
-from typing import Dict, List, Literal, Sequence, Tuple, TypedDict
+from typing import Dict, List, Sequence, Tuple, TypedDict, Union
 
 import torch
 from megatron.core import parallel_state, tensor_parallel
@@ -23,42 +24,26 @@ from nemo.lightning.megatron_parallel import (
     masked_token_loss,
     masked_token_loss_context_parallel,
 )
-from torch import Tensor
 
 
 __all__: Sequence[str] = (
     "BERTMLMLossWithReduction",
     "PerTokenLossDict",
     "SameSizeLossDict",
-    "DataParallelGroupLossAndIO",
 )
 
 
 # TODO(@sichu) update typing
 class PerTokenLossDict(TypedDict):
-    """Tensor dictionary for loss.
+    """This is the return type for a loss that is computed per token in the batch, supporting microbatches of varying sizes."""
 
-    This is the return type for a loss that is computed per token in the batch, supporting microbatches of varying sizes.
-    """
-
-    loss_sum_and_microbatch_size: Tensor
+    loss_sum_and_microbatch_size: torch.Tensor
 
 
 class SameSizeLossDict(TypedDict):
-    """Tensor dictionary for loss.
+    """This is the return type for a loss that is computed for the entire batch, where all microbatches are the same size."""
 
-    This is the return type for a loss that is computed for the entire batch, where all microbatches are the same size.
-    """
-
-    avg: Tensor
-
-
-class DataParallelGroupLossAndIO(TypedDict):
-    """Average losses across the data parallel group + the original batch and inference output."""
-
-    avg: Tensor
-    batch: dict[str, Tensor]
-    forward_out: dict[str, Tensor]
+    avg: torch.Tensor
 
 
 class _Nemo2CompatibleLossReduceMixin:
@@ -71,40 +56,40 @@ class _Nemo2CompatibleLossReduceMixin:
     Since this overrides an abstract parent class, this needs to be put first in the inheritance list to ensure that the correct method is called.
     """  # noqa: D205
 
-    def old_reduce(self, losses_reduced_per_micro_batch: List[PerTokenLossDict | SameSizeLossDict]) -> Tensor:
+    def old_reduce(
+        self, losses_reduced_per_micro_batch: List[Union[PerTokenLossDict, SameSizeLossDict]]
+    ) -> torch.Tensor:
         if losses_reduced_per_micro_batch:
             if "avg" in losses_reduced_per_micro_batch[0]:
-                loss_tensors_list: list[Tensor] = [
-                    loss_reduced["avg"] for loss_reduced in losses_reduced_per_micro_batch
-                ]
+                loss_tensors_list = [loss_reduced["avg"] for loss_reduced in losses_reduced_per_micro_batch]
                 loss_tensor = torch.concat(loss_tensors_list)
 
                 return loss_tensor.mean()
 
-            loss_sum_tensors_list: List[Tensor] = [
+            loss_sum_tensors_list: List[torch.Tensor] = [
                 loss_sum["loss_sum_and_microbatch_size"]
                 for loss_sum in losses_reduced_per_micro_batch
                 if loss_sum["loss_sum_and_microbatch_size"][1] > 0
             ]
-            dummy_tensor = Tensor([0.0, 0.0]).cuda()
+            dummy_tensor = torch.tensor([0.0, 0.0]).cuda()
             loss_sum = (
                 torch.vstack(loss_sum_tensors_list).sum(dim=0) if len(loss_sum_tensors_list) > 0 else dummy_tensor
             )
             return loss_sum
 
         # If losses_reduced_per_micro_batch is empty, return a dummy tensor.
-        dummy_tensor = Tensor(0.0).cuda()
+        dummy_tensor = torch.tensor(0.0).cuda()
         return dummy_tensor
 
     # NOTE: this method reduces across microbatches and cross-device reduction is handled in forward method
-    def reduce(self, losses_reduced_per_micro_batch: List[PerTokenLossDict | SameSizeLossDict]) -> Tensor:
+    def reduce(self, losses_reduced_per_micro_batch: List[Union[PerTokenLossDict, SameSizeLossDict]]) -> torch.Tensor:
         # NOTE(SKH) This requires two passes over the data instead of one in the `loss_sum_and_microbatch_size` case.
 
         # Expect two elements: losses, num_tokens. We only care about the num_tokens index.
         NUM_TOKENS_IDX = 1
 
         if not losses_reduced_per_micro_batch:  # model returns zero by default in NeMo2.0
-            dummy_tensor = Tensor(0.0).cuda()
+            dummy_tensor = torch.tensor(0.0).cuda()
             return dummy_tensor
 
         # do the gather
@@ -112,11 +97,9 @@ class _Nemo2CompatibleLossReduceMixin:
         assert (
             sum(("avg" in keys, "loss_sum_and_microbatch_size" in keys)) == 1
         ), "Expected only either 'avg' or 'loss_sum_and_microbatch_size' in keys but got both"
-        key: Literal["avg", "loss_sum_and_microbatch_size"] = (
-            "avg" if "avg" in keys else "loss_sum_and_microbatch_size"
-        )
+        key = "avg" if "avg" in keys else "loss_sum_and_microbatch_size"
 
-        loss_tensors_list: list[Tensor] = [loss_reduced[key] for loss_reduced in losses_reduced_per_micro_batch]
+        loss_tensors_list = [loss_reduced[key] for loss_reduced in losses_reduced_per_micro_batch]
         # switch on the keys and allow other keys to pass through
         if key == "avg":
             return torch.concat(loss_tensors_list).mean()
@@ -126,14 +109,12 @@ class _Nemo2CompatibleLossReduceMixin:
             ]
             if len(loss_sum_tensors_list) == 0:
                 # If we get no result, return zero.
-                dummy_tensor = Tensor([0.0, 0.0]).cuda()
+                dummy_tensor = torch.tensor([0.0, 0.0]).cuda()
                 return dummy_tensor
             else:
                 # otherwise do a sum reduction.
                 loss_sum = torch.vstack(loss_sum_tensors_list).sum(dim=0)
                 return loss_sum
-        else:
-            raise ValueError(f"Unexpected: key must either be 'avg' or 'loss_sum_and_microbatch_size', not {key=}")
 
 
 # TODO(@sichu) add unittest
@@ -162,16 +143,16 @@ class BERTMLMLossWithReduction(_Nemo2CompatibleLossReduceMixin, MegatronLossRedu
         self.send_val_output = send_val_output
 
     def forward(
-        self, batch: Dict[str, Tensor], forward_out: Dict[str, Tensor]
-    ) -> Tuple[Tensor, PerTokenLossDict | SameSizeLossDict | DataParallelGroupLossAndIO]:
+        self, batch: Dict[str, torch.Tensor], forward_out: Dict[str, torch.Tensor]
+    ) -> Tuple[torch.Tensor, Union[PerTokenLossDict, SameSizeLossDict]]:
         """Computes loss of `labels` in the batch vs `token_logits` in the forward output currently. In the future this will be extended
             to handle other loss types like sequence loss if it is present in the forward_out and batch.
 
         Args:
-            batch (Dict[str, Tensor]): The batch of data. Each tensor should be of shape [batch_size, *, *],
+            batch (Dict[str, torch.Tensor]): The batch of data. Each tensor should be of shape [batch_size, *, *],
                 and match the corresponding dimension for that particular key in the batch output.
                 For example, the "labels" and "token_logits" key should have a tensor of shape [batch_size, sequence_length].
-            forward_out (Dict[str, Tensor]): The forward output from the model. Each tensor should be of shape [batch_size, *, *]
+            forward_out (Dict[str, torch.Tensor]): The forward output from the model. Each tensor should be of shape [batch_size, *, *]
 
         Taken from:
         https://github.com/NVIDIA/NeMo/blob/main/nemo/collections/nlp/models/language_modeling/megatron_gpt_model.py#L951-L976 .
@@ -220,7 +201,7 @@ class BERTMLMLossWithReduction(_Nemo2CompatibleLossReduceMixin, MegatronLossRedu
             loss_sum_and_microbatch_size_all_gpu = torch.cat(
                 [
                     loss_sum_for_microbatch.clone().detach().view(1),
-                    Tensor([num_valid_tokens_in_microbatch]).cuda().clone().detach(),
+                    torch.tensor([num_valid_tokens_in_microbatch]).cuda().clone().detach(),
                 ]
             )
             torch.distributed.all_reduce(
@@ -244,7 +225,7 @@ class BERTMLMLossWithReduction(_Nemo2CompatibleLossReduceMixin, MegatronLossRedu
             return loss_for_microbatch * cp_size, {"avg": reduced_loss}
 
 
-def unreduced_token_loss_fn(logits: Tensor, labels: Tensor) -> Tensor:
+def unreduced_token_loss_fn(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
     """Computes the unreduced token loss given the logits and labels without regard to the loss mask.
 
     WARNING: This function does not apply a loss mask. Also, it does inplace operation on the inputs.
@@ -259,7 +240,7 @@ def unreduced_token_loss_fn(logits: Tensor, labels: Tensor) -> Tensor:
     return tensor_parallel.vocab_parallel_cross_entropy(logits, labels)
 
 
-def unreduced_sequence_loss_fn(self, logits: Tensor, labels: Tensor) -> Tensor:
+def unreduced_sequence_loss_fn(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
     # TODO (@jstjohn): implement this function to handle the next sequence prediction task
     # TODO (@jstjohn): determine expected shapes of logits/labels in this case and add that to the docstring
     raise NotImplementedError("Sequence loss not implemented yet.")

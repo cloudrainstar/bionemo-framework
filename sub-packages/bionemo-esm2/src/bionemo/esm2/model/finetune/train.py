@@ -16,7 +16,7 @@
 
 import tempfile
 from pathlib import Path
-from typing import Sequence, Tuple
+from typing import Tuple
 
 import pytorch_lightning as pl
 from megatron.core.optimizer.optimizer_config import OptimizerConfig
@@ -28,17 +28,14 @@ from nemo.lightning.pytorch import callbacks as nl_callbacks
 from nemo.lightning.pytorch.callbacks.model_transform import ModelTransform
 from nemo.lightning.pytorch.callbacks.peft import PEFT
 from nemo.lightning.pytorch.optim.megatron import MegatronOptimizerModule
-from pytorch_lightning.callbacks import Callback, RichModelSummary
+from pytorch_lightning.callbacks import RichModelSummary
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from bionemo.esm2.api import ESM2GenericConfig
 from bionemo.esm2.data.tokenizer import BioNeMoESMTokenizer, get_tokenizer
 from bionemo.esm2.model.finetune.datamodule import ESM2FineTuneDataModule
 from bionemo.esm2.model.finetune.finetune_regressor import ESM2FineTuneSeqConfig, InMemorySingleValueDataset
-from bionemo.llm.model.biobert.lightning import biobert_lightning_module
-
-
-__all__: Sequence[str] = ("train_model",)
+from bionemo.llm.model.biobert.lightning import BioBertLightningModule
 
 
 def train_model(
@@ -47,24 +44,24 @@ def train_model(
     config: ESM2GenericConfig,
     data_module: pl.LightningDataModule,
     n_steps_train: int,
-    metric_tracker: Callback | None = None,
+    metric_tracker: pl.Callback | None = None,
     tokenizer: BioNeMoESMTokenizer = get_tokenizer(),
     peft: PEFT | None = None,
-) -> Tuple[Path, Callback | None, nl.Trainer]:
+) -> Tuple[Path, pl.Callback, nl.Trainer]:
     """Trains a BioNeMo ESM2 model using PyTorch Lightning.
 
     Parameters:
-        experiment_name: The name of the experiment.
-        experiment_dir: The directory where the experiment will be saved.
-        config: The configuration for the ESM2 model.
-        data_module: The data module for training and validation.
-        n_steps_train: The number of training steps.
-        metric_tracker: Optional callback to track metrics
-        tokenizer: The tokenizer to use. Defaults to `get_tokenizer()`.
-        peft: The PEFT (Parameter-Efficient Fine-Tuning) module. Defaults to None.
+        experiment_name (str): The name of the experiment.
+        experiment_dir (Path): The directory where the experiment will be saved.
+        config (ESM2GenericConfig): The configuration for the ESM2 model.
+        data_module (pl.LightningDataModule): The data module for training and validation.
+        n_steps_train (int): The number of training steps.
+        metric_tracker (pl.Callback): Optional callback to track metrics
+        tokenizer (BioNeMoESMTokenizer, optional): The tokenizer to use. Defaults to `get_tokenizer()`.
+        peft (PEFT | None, optional): The PEFT (Parameter-Efficient Fine-Tuning) module. Defaults to None.
 
     Returns:
-        A tuple containing the path to the saved checkpoint, a MetricTracker
+        Tuple[Path, MetricTracker, nl.Trainer]: A tuple containing the path to the saved checkpoint, a MetricTracker
         object, and the PyTorch Lightning Trainer object.
     """
     checkpoint_callback = nl_callbacks.ModelCheckpoint(
@@ -93,7 +90,7 @@ def train_model(
             bf16=config.bf16,
         )
     )
-    module = biobert_lightning_module(config=config, tokenizer=tokenizer, optimizer=optimizer, model_transform=peft)
+    module = BioBertLightningModule(config=config, tokenizer=tokenizer, optimizer=optimizer, model_transform=peft)
 
     strategy = nl.MegatronStrategy(
         tensor_model_parallel_size=1,
@@ -103,13 +100,13 @@ def train_model(
         enable_nemo_ckpt_io=True,
     )
 
-    callbacks: list[Callback] = [RichModelSummary(max_depth=4)]
+    callbacks = [RichModelSummary(max_depth=4)]
     if metric_tracker is not None:
         callbacks.append(metric_tracker)
     if peft is not None:
         callbacks.append(
             ModelTransform()
-        )  # Callback needed for PEFT fine-tuning using NeMo2, i.e. biobert_lightning_module(model_transform=peft).
+        )  # Callback needed for PEFT fine-tuning using NeMo2, i.e. BioBertLightningModule(model_transform=peft).
 
     trainer = nl.Trainer(
         accelerator="gpu",
@@ -157,11 +154,11 @@ if __name__ == "__main__":
     dataset = InMemorySingleValueDataset(data)
     data_module = ESM2FineTuneDataModule(train_dataset=dataset, valid_dataset=dataset)
 
-    with tempfile.TemporaryDirectory() as experiment_tempdir_name:
-        experiment_dir = Path(experiment_tempdir_name)
-        experiment_name = "finetune_regressor"
-        n_steps_train = 50
-        seed = 42
+    experiment_tempdir = tempfile.TemporaryDirectory()
+    experiment_dir = Path(experiment_tempdir.name)
+    experiment_name = "finetune_regressor"
+    n_steps_train = 50
+    seed = 42
 
         # To download a pre-trained ESM2 model that works with this inference script, run the following command...
         # $ download_bionemo_data esm2/650m:2.0 --source ngc
@@ -171,10 +168,12 @@ if __name__ == "__main__":
             # initial_ckpt_path=str(pretrain_ckpt_path)
         )
 
-        checkpoint, metrics, trainer = train_model(
-            experiment_name=experiment_name,
-            experiment_dir=experiment_dir,  # new checkpoint will land in a subdir of this
-            config=config,  # same config as before since we are just continuing training
-            data_module=data_module,
-            n_steps_train=n_steps_train,
-        )
+    checkpoint, metrics, trainer = train_model(
+        experiment_name=experiment_name,
+        experiment_dir=experiment_dir,  # new checkpoint will land in a subdir of this
+        config=config,  # same config as before since we are just continuing training
+        data_module=data_module,
+        n_steps_train=n_steps_train,
+    )
+
+    experiment_tempdir.cleanup()

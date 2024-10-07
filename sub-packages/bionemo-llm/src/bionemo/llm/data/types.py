@@ -14,15 +14,9 @@
 # limitations under the License.
 
 
-from typing import Protocol, Sequence, TypedDict
+from typing import Protocol, TypedDict
 
-from torch import Tensor
-
-
-__all__: Sequence[str] = (
-    "BertSample",
-    "Tokenizer",
-)
+import torch
 
 
 class BertSample(TypedDict):
@@ -37,12 +31,12 @@ class BertSample(TypedDict):
         is_random: ??
     """
 
-    text: Tensor
-    types: Tensor
-    attention_mask: Tensor
-    labels: Tensor
-    loss_mask: Tensor
-    is_random: Tensor
+    text: torch.Tensor
+    types: torch.Tensor
+    attention_mask: torch.Tensor
+    labels: torch.Tensor
+    loss_mask: torch.Tensor
+    is_random: torch.Tensor
 
 
 class Tokenizer(Protocol):
