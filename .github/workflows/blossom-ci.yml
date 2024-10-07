@@ -54,6 +54,7 @@ jobs:
           github.actor == 'jwilber' ||
           github.actor == 'DejunL'||
           github.actor == 'mengliu-nvidia' ||
+          github.actor == 'gagank1' ||
           github.actor == 'tshimko-nv')
     steps:
       - name: Check if comment is issued by authorized person
