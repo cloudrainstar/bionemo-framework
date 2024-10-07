@@ -1,30 +1,7 @@
 # BioNeMo2 Repo
-To get started, please build the docker container using
-```bash
-./launch.sh build
-```
 
-Launch a container from the build image by executing
-```bash
-./launch.sh dev
-```
-
-All `bionemo2` code is partitioned into independently installable namespace packages. These live under the `sub-packages/` directory.
-
-
-## Downloading artifacts
-Set the AWS access info in your `.env` in the host container prior to running docker:
-
-```bash
-AWS_ACCESS_KEY_ID="team-bionemo"
-AWS_SECRET_ACCESS_KEY=$(grep aws_secret_access_key ~/.aws/config | cut -d' ' -f 3)
-AWS_REGION="us-east-1"
-AWS_ENDPOINT_URL="https://pbss.s8k.io"
-```
-then, running tests should download the test data to a cache location when first invoked.
-
-For more information on adding new test artifacts, see the documentation in [bionemo.testing.data.load](sub-packages/bionemo-testing/src/bionemo/testing/data/README.md)
-
+All `bionemo2` code is partitioned into independently installable namespace packages.
+These live under the `sub-packages/` directory.
 
 ## Initializing 3rd-party dependencies as git submodules
 
@@ -44,18 +21,56 @@ To download the pinned versions of these submodules within an existing git repos
 git submodule update --init --recursive
 ```
 
-Different branches of the repo can have different pinned versions of these third-party submodules. To update submodules
-after switching branches (or pulling recent changes), run
-
-```bash
-git submodule update
-```
+Different branches of the repo can have different pinned versions of these third-party submodules. Make sure you
+update submodules after switching branches or pulling recent changes!
 
 To configure git to automatically update submodules when switching branches, run
-
 ```bash
 git config submodule.recurse true
 ```
+**NOTE**: this setting will not download **new** or remove **old** submodules with the branch's changes.
+You will have to run the full `git submodule update --init --recursive` command in these situations.
+
+## First Time Setup
+After cloning the repository, you need to run the setup script **first**:
+```bash
+./internal/scripts/setup_env_file.sh
+```
+This will return an exit code of 1 on a first time run.
+
+## Release Image Building
+To build the release image, run the following script:
+```bash
+DOCKER_BUILDKIT=1 ./ci/scripts/build_docker_image.sh \
+  -regular-docker-builder \
+  -image-name "nvcr.io/nvidian/cvai_bnmo_trng/bionemo:bionemo2-$(git rev-parse HEAD)"
+```
+
+## Development Image Building
+To build the development image, run the following script:
+```bash
+./internal/scripts/build_dev_image.sh
+```
+
+## Interactive Shell in Development Image
+After building the development image, you can start a container from it and open a bash shell in it by executing:
+```bash
+./internal/scripts/run_dev.sh
+```
+
+## Downloading artifacts
+Set the AWS access info in environment prior to running the dev-container launch script:
+```bash
+AWS_ACCESS_KEY_ID="team-bionemo"
+AWS_SECRET_ACCESS_KEY=$(grep aws_secret_access_key ~/.aws/config | cut -d' ' -f 3)
+AWS_REGION="us-east-1"
+AWS_ENDPOINT_URL="https://pbss.s8k.io"
+```
+then, running tests should download the test data to a cache location when first invoked.
+
+For more information on adding new test artifacts, see the documentation in
+[`bionemo.testing.data.load`](sub-packages/bionemo-testing/src/bionemo/testing/data/README.md).
+
 
 ### Updating pinned versions of NeMo / Megatron-LM
 
