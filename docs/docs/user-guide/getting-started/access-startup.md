@@ -9,12 +9,12 @@ In this section of the documentation, we will guide you through the process of p
 setting up a local development environment. By following these steps, you will be able to quickly get started with the
 BioNeMo Framework and begin exploring its features and capabilities.
 
-# Access the BioNeMo Framework
+## Access the BioNeMo Framework
 
 To access the BioNeMo Framework container, you will need a free NVIDIA GPU Cloud (NGC) account and an API key linked to
 that account.
 
-## NGC Account and API Key Configuration
+### NGC Account and API Key Configuration
 
 NGC is a portal of enterprise services, software, and support for artificial intelligence and high-performance computing
 (HPC) workloads. The BioNeMo Docker container is hosted on the NGC Container Registry. To pull and run a container from
@@ -29,7 +29,7 @@ at this direct link in the
 [NGC Catalog](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/clara/containers/bionemo-framework) or by searching the
 NGC Catalog for “BioNeMo Framework”. Feel free to explore the other resources available to you in the catalog.
 
-## NGC CLI Configuration
+### NGC CLI Configuration
 
 The NGC Command Line Interface (CLI) is a command-line tool for managing resources in NGC, including datasets and model
 checkpoints. You can download the CLI on your local machine using the instructions
@@ -46,13 +46,13 @@ Once you have installed the NGC CLI, run `ngc config set` at the command line to
 Note that the **org** and **team** are only relevant when pulling private containers/datasets from NGC created by you or
 your team. To access BioNeMo Framework, you can use the default value.
 
-# Startup Instructions
+## Startup Instructions
 
 BioNeMo is compatible with a wide variety of computing environments, including both local workstations, data centers,
 and Cloud Service Providers (CSPs) such as Amazon Web Services, Microsoft Azure, Google Cloud Platform, and Oracle Cloud
 Infrastructure, and NVIDIA’s own DGX Cloud.
 
-## Running the Container on a Local Machine
+### Running the Container on a Local Machine
 
 This section will provide instructions for running the BioNeMo Framework container on a local workstation. This process
 will involve the following steps:
@@ -61,7 +61,7 @@ will involve the following steps:
 2. Pulling the container from the registry
 3. Running a Jupyter Lab instance inside the container for local development
 
-### Pull Docker Container from NGC
+#### Pull Docker Container from NGC
 
 Within the NGC Catalog, navigate to **BioNeMo Framework > Tags > Get Container**, and copy the image path for the latest
 tag.
@@ -87,7 +87,7 @@ You can now pull the BioNeMo Framework container using the following command:
 docker pull {{ docker_url }}:{{ docker_tag }}
 ```
 
-### Run the BioNeMo Framework Container
+#### Run the BioNeMo Framework Container
 
 Now that you have pulled the BioNeMo Framework container, you can run it as you would a normal Docker container. For
 instance, to get basic shell access you can run the following command:
