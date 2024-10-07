@@ -25,8 +25,30 @@ this registry, you will need to create a free NGC account and an API Key using t
 **Confirm**. Copy and store your API Key in a secure location.
 
 You can now view the BioNeMo Framework container
-at this direct link in the [NGC Catalog](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/clara/containers/bionemo-framework) or by searching the NGC
-Catalog for “BioNeMo Framework”. Feel free to explore the other resources available to you in the catalog.
+at this direct link in the
+[NGC Catalog](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/clara/containers/bionemo-framework) or by searching the
+NGC Catalog for “BioNeMo Framework”. Feel free to explore the other resources available to you in the catalog.
+
+## NGC CLI Configuration
+
+The NGC Command Line Interface (CLI) is a command-line tool for managing Docker containers in NGC. You can download
+it on your local machine using the instructions [on the NGC CLI website](https://org.ngc.nvidia.com/setup/installers/cli).
+
+Once you have installed the NGC CLI, run `ngc config set` at the command line to setup your NGC credentials:
+
+* **API key**: Enter your API Key
+* **CLI output**: Accept the default (ASCII format) by pressing `Enter`
+* **org**: Choose your preferred organization from the supplied list
+* **team**: Choose the team to which you have been assigned from the supplied list
+* **ace** : Choose an ACE, if applicable, otherwise press `Enter` to continue
+
+Note that the **org** and **team** are only relevant when pulling private containers/datasets from NGC created by you or
+your team. To access BioNeMo Framework, you can use the default value.
+
+!!! note
+    The NGC documentation also discusses how to mount your own
+    [datasets](https://docs.nvidia.com/base-command-platform/user-guide/latest/index.html#managing-datasets) and
+    [workspaces](https://docs.nvidia.com/base-command-platform/user-guide/latest/index.html#managing-workspaces).
 
 # Startup Instructions
 
@@ -86,3 +108,34 @@ refer to the [Docker documentation](https://docs.docker.com/reference/cli/docker
 
 In the next section, [Initialization Guide](./initialization-guide.md), we will present some useful `docker run` command
 variants for common workflows.
+
+## Running on Any Major CSP with the NVIDIA GPU-Optimized VMI
+
+The BioNeMo Framework container is supported on cloud-based GPU instances through the
+**NVIDIA GPU-Optimized Virtual Machine Image (VMI)**, available for
+[AWS](https://aws.amazon.com/marketplace/pp/prodview-7ikjtg3um26wq#pdp-pricing),
+[GCP](https://console.cloud.google.com/marketplace/product/nvidia-ngc-public/nvidia-gpu-optimized-vmi),
+[Azure](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/nvidia.ngc_azure_17_11?tab=overview), and
+[OCI](https://cloudmarketplace.oracle.com/marketplace/en_US/listing/165104541).
+NVIDIA VMIs are built on Ubuntu and provide a standardized operating system environment across cloud infrastructure for
+running NVIDIA GPU-accelerated software. These images are pre-configured with software dependencies such as NVIDIA GPU
+drivers, Docker, and the NVIDIA Container Toolkit. More details about NVIDIA VMIs can be found in the
+[NGC Catalog](https://catalog.ngc.nvidia.com/orgs/nvidia/collections/nvidia_vmi).
+
+The general steps for launching the BioNeMo Framework container using a CSP are:
+
+1. Launch a GPU instance running the NVIDIA GPU-Optimized VMI on your preferred CSP. Follow the instructions for
+    launching a GPU-equipped instance provided by your CSP.
+2. Connect to the running instance using SSH and run the BioNeMo Framework container exactly as outlined in the
+    [Running the Container on a Local Machine](#running-the-container-on-a-local-machine) section on
+    the Access and Startup page.
+
+### Integration with Managed Cloud Services
+
+BioNeMo is also compatible with various managed services from these cloud providers. Check out blogs about BioNeMo on
+[SageMaker](https://aws.amazon.com/blogs/industries/find-the-next-blockbuster-with-nvidia-bionemo-framework-on-amazon-sagemaker/)
+(example code [repository](https://github.com/aws-samples/amazon-sagemaker-with-nvidia-bionemo)),
+[ParallelCluster](https://aws.amazon.com/blogs/hpc/protein-language-model-training-with-nvidia-bionemo-framework-on-aws-parallelcluster/)
+(example code [repository](https://github.com/aws-samples/awsome-distributed-training/tree/main/3.test_cases/14.bionemo)),
+and [EKS](https://aws.amazon.com/blogs/hpc/accelerate-drug-discovery-with-nvidia-bionemo-framework-on-amazon-eks/)
+(example code [repository](https://github.com/awslabs/data-on-eks/tree/main/ai-ml/bionemo)).

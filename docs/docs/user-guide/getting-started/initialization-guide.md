@@ -72,89 +72,6 @@ Running this command will make these variables available for use in the `docker 
         above.
     4. Set the environment variable inside your container using the `-e` option, as shown in the next section.
 
-## Common `docker run` Options
-
-Below we explain some common `docker run` options and how to use them as part of your BioNeMo development workflows.
-
-### Mounting Volumes with the `-v` Option
-
-The `-v`  allows you to mount a host machine's directory as a volume inside the
-container. This enables data persistence even after the container is deleted or restarted. In the context of machine
-learning workflows, leveraging the `-v` option is essential for maintaining a local cache of datasets, model weights, and
-results on the host machine such that they can persist after the container terminates and be reused across container
-runs.
-
-**Syntax:**
-
-```
-docker run -v <host_directory>:<container_directory> <image_name>
-```
-**Example:**
-
-```
-docker run -v /path/to/local/cache:/workspace/bionemo2/cache \
-    {{ docker_url }}:{{ docker_tag }}
-```
-
-In this example, the `/path/to/local/cache` directory on the host machine is mounted as a volume at
-`/workspace/bionemo2/cache` inside the container.
-
-### Setting Environment Variables with the `-e` Option
-
-The `-e` option allows you to set environment variables inside the container. You can use this option to define
-variables that will be available to the application running inside the container.
-
-**Example:**
-
-```bash
-docker run -e MY_VAR=value -e ANOTHER_VAR=another_value \
-    {{ docker_url }}:{{ docker_tag }}
-```
-
-- `-e MY_VAR=value` sets the `MY_VAR` environment variable to `value` inside the container.
-- `-e ANOTHER_VAR=another_value` sets the `ANOTHER_VAR` environment variable to `another_value` inside the container.
-
-You can set multiple environment variables by repeating the `-e` option. The values of these variables will be available
-to the application running inside the container, allowing you to customize its behavior.
-
-Note that you can also use shell variables and command substitutions to set environment variables dynamically. For
-example:
-
-```bash
-MY_EXTERNAL_VAR=external_value
-docker run -e MY_INTERNAL_VAR=$MY_EXTERNAL_VAR \
-    {{ docker_url }}:{{ docker_tag }}
-```
-
-In this example, the `MY_INTERNAL_VAR` environment variable inside the container will be set to the value of the
-`MY_EXTERNAL_VAR` shell variable on the host machine.
-
-### Setting User and Group IDs with the `-u` Option
-
-The `-u` option sets the user and group IDs to use for the container process. By matching the IDs of the user on the
-host machine, the user inside the container will have identical permissions for reading and writing files in the mounted
-volumes as the user that ran the command. You can use command substitutions to automatically retrieve your user and
-group IDs.
-
-**Example:**
-
-```bash
-docker run -u $(id -u):$(id -g) \
-    {{ docker_url }}:{{ docker_tag }}
-```
-
-- `$(id -u)` is a command substitution that executes the id -u command and captures its output. `id -u` prints the
-    effective user ID of the current user.
-- `$(id -g)` is another command substitution that executes the `id -g` command and captures its output. `id -g` prints
-    the effective group ID of the current user.
-
-## Starting the BioNeMo Container for Common Workflows
-
-Below we describe some common BioNeMo workflows, including how to setup and run the container in each case. Each of the
-following examples will assume that you have a local workspace directory (`<YOUR WORKSPACE>`) that you will attach to
-the container via a volume mount. When running these commands, replace `<YOUR WORKSPACE>` with the path to your desired
-directory.
-
 ### Starting a Shell Inside the Container
 
 With a shell inside the BioNeMo Docker container, you can execute commands, edit files, and run applications as if you
@@ -236,3 +153,86 @@ Refer to the guide below for an explanation of the recommended Jupyter Lab optio
 	+ `--ContentsManager.allow_hidden=True`: Allow the contents manager to access hidden files and directories.
 	+ `--notebook-dir=/workspace/bionemo2/<YOUR_WORKSPACE>`: Set the notebook directory to
         `/workspace/bionemo/<YOUR_WORKSPACE>` inside the container.
+
+??? note "Common `docker run` Options"
+
+    Below we explain some common `docker run` options and how to use them as part of your BioNeMo development workflows.
+
+    ### Mounting Volumes with the `-v` Option
+
+    The `-v`  allows you to mount a host machine's directory as a volume inside the
+    container. This enables data persistence even after the container is deleted or restarted. In the context of machine
+    learning workflows, leveraging the `-v` option is essential for maintaining a local cache of datasets, model weights, and
+    results on the host machine such that they can persist after the container terminates and be reused across container
+    runs.
+
+    **Syntax:**
+
+    ```
+    docker run -v <host_directory>:<container_directory> <image_name>
+    ```
+    **Example:**
+
+    ```
+    docker run -v /path/to/local/cache:/workspace/bionemo2/cache \
+        {{ docker_url }}:{{ docker_tag }}
+    ```
+
+    In this example, the `/path/to/local/cache` directory on the host machine is mounted as a volume at
+    `/workspace/bionemo2/cache` inside the container.
+
+    ### Setting Environment Variables with the `-e` Option
+
+    The `-e` option allows you to set environment variables inside the container. You can use this option to define
+    variables that will be available to the application running inside the container.
+
+    **Example:**
+
+    ```bash
+    docker run -e MY_VAR=value -e ANOTHER_VAR=another_value \
+        {{ docker_url }}:{{ docker_tag }}
+    ```
+
+    - `-e MY_VAR=value` sets the `MY_VAR` environment variable to `value` inside the container.
+    - `-e ANOTHER_VAR=another_value` sets the `ANOTHER_VAR` environment variable to `another_value` inside the container.
+
+    You can set multiple environment variables by repeating the `-e` option. The values of these variables will be available
+    to the application running inside the container, allowing you to customize its behavior.
+
+    Note that you can also use shell variables and command substitutions to set environment variables dynamically. For
+    example:
+
+    ```bash
+    MY_EXTERNAL_VAR=external_value
+    docker run -e MY_INTERNAL_VAR=$MY_EXTERNAL_VAR \
+        {{ docker_url }}:{{ docker_tag }}
+    ```
+
+    In this example, the `MY_INTERNAL_VAR` environment variable inside the container will be set to the value of the
+    `MY_EXTERNAL_VAR` shell variable on the host machine.
+
+    ### Setting User and Group IDs with the `-u` Option
+
+    The `-u` option sets the user and group IDs to use for the container process. By matching the IDs of the user on the
+    host machine, the user inside the container will have identical permissions for reading and writing files in the mounted
+    volumes as the user that ran the command. You can use command substitutions to automatically retrieve your user and
+    group IDs.
+
+    **Example:**
+
+    ```bash
+    docker run -u $(id -u):$(id -g) \
+        {{ docker_url }}:{{ docker_tag }}
+    ```
+
+    - `$(id -u)` is a command substitution that executes the id -u command and captures its output. `id -u` prints the
+        effective user ID of the current user.
+    - `$(id -g)` is another command substitution that executes the `id -g` command and captures its output. `id -g` prints
+        the effective group ID of the current user.
+
+    ## Starting the BioNeMo Container for Common Workflows
+
+    Below we describe some common BioNeMo workflows, including how to setup and run the container in each case. Each of the
+    following examples will assume that you have a local workspace directory (`<YOUR WORKSPACE>`) that you will attach to
+    the container via a volume mount. When running these commands, replace `<YOUR WORKSPACE>` with the path to your desired
+    directory.
