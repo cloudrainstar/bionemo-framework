@@ -160,13 +160,13 @@ if __name__ == "__main__":
     n_steps_train = 50
     seed = 42
 
-        # To download a pre-trained ESM2 model that works with this inference script, run the following command...
-        # $ download_bionemo_data esm2/650m:2.0 --source ngc
-        # ... and pass the output path (e.g. `.../.cache/bionemo/975d29ee980fcb08c97401bbdfdcf8ce-esm2_650M_nemo2.tar.gz.untar`)
-        # as an argument into `initial_ckpt_path` below!
-        config = ESM2FineTuneSeqConfig(
-            # initial_ckpt_path=str(pretrain_ckpt_path)
-        )
+    # To download a pre-trained ESM2 model that works with this inference script, run the following command...
+    # $ download_bionemo_data esm2/650m:2.0 --source ngc
+    # ... and pass the output path (e.g. `.../.cache/bionemo/975d29ee980fcb08c97401bbdfdcf8ce-esm2_650M_nemo2.tar.gz.untar`)
+    # as an argument into `initial_ckpt_path` below!
+    config = ESM2FineTuneSeqConfig(
+        # initial_ckpt_path=str(pretrain_ckpt_path)
+    )
 
     checkpoint, metrics, trainer = train_model(
         experiment_name=experiment_name,
