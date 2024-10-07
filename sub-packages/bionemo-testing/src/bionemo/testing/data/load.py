@@ -236,10 +236,19 @@ def main_cli():
                 sources.append("pbss")
             print(f"{resource_name}\t{','.join(sources)}")
         sys.exit(0)  # Successful exit
-
-    if args.artifact_name:
+    elif args.artifact_name:
         # Get the local path for the provided artifact name
-        local_path = load(args.artifact_name, source=args.source)
+        with tempfile.NamedTemporaryFile(mode="w+", delete=True) as temp_file:
+            try:
+                with contextlib.redirect_stdout(temp_file):
+                    local_path = load(args.artifact_name, source=args.source)
+            except Exception as e:
+                # After the block, you can read the contents of the temp file if needed
+                temp_file.seek(0)
+                output = temp_file.read()
+                raise ValueError(
+                    f"Error downloading target={args.artifact_name}, source={args.source}. Got: {e} {output}"
+                )
         # Print the result
         print(local_path)
     else:
