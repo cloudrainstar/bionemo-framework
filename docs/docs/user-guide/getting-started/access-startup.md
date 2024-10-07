@@ -31,8 +31,9 @@ NGC Catalog for “BioNeMo Framework”. Feel free to explore the other resource
 
 ## NGC CLI Configuration
 
-The NGC Command Line Interface (CLI) is a command-line tool for managing Docker containers in NGC. You can download
-it on your local machine using the instructions [on the NGC CLI website](https://org.ngc.nvidia.com/setup/installers/cli).
+The NGC Command Line Interface (CLI) is a command-line tool for managing resources in NGC, including datasets and model
+checkpoints. You can download the CLI on your local machine using the instructions
+[on the NGC CLI website](https://org.ngc.nvidia.com/setup/installers/cli).
 
 Once you have installed the NGC CLI, run `ngc config set` at the command line to setup your NGC credentials:
 
@@ -45,11 +46,6 @@ Once you have installed the NGC CLI, run `ngc config set` at the command line to
 Note that the **org** and **team** are only relevant when pulling private containers/datasets from NGC created by you or
 your team. To access BioNeMo Framework, you can use the default value.
 
-!!! note
-    The NGC documentation also discusses how to mount your own
-    [datasets](https://docs.nvidia.com/base-command-platform/user-guide/latest/index.html#managing-datasets) and
-    [workspaces](https://docs.nvidia.com/base-command-platform/user-guide/latest/index.html#managing-workspaces).
-
 # Startup Instructions
 
 BioNeMo is compatible with a wide variety of computing environments, including both local workstations, data centers,
@@ -61,7 +57,7 @@ Infrastructure, and NVIDIA’s own DGX Cloud.
 This section will provide instructions for running the BioNeMo Framework container on a local workstation. This process
 will involve the following steps:
 
-1. Logging into the NGC Container Registry (nvcr.io)
+1. Logging into the NGC Container Registry (`nvcr.io`)
 2. Pulling the container from the registry
 3. Running a Jupyter Lab instance inside the container for local development
 
