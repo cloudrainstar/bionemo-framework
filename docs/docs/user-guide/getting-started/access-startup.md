@@ -120,18 +120,8 @@ drivers, Docker, and the NVIDIA Container Toolkit. More details about NVIDIA VMI
 
 The general steps for launching the BioNeMo Framework container using a CSP are:
 
-1. Launch a GPU instance running the NVIDIA GPU-Optimized VMI on your preferred CSP. Follow the instructions for
+1. Launch a GPU-equipped instance running the NVIDIA GPU-Optimized VMI on your preferred CSP. Follow the instructions for
     launching a GPU-equipped instance provided by your CSP.
 2. Connect to the running instance using SSH and run the BioNeMo Framework container exactly as outlined in the
     [Running the Container on a Local Machine](#running-the-container-on-a-local-machine) section on
     the Access and Startup page.
-
-### Integration with Managed Cloud Services
-
-BioNeMo is also compatible with various managed services from these cloud providers. Check out blogs about BioNeMo on
-[SageMaker](https://aws.amazon.com/blogs/industries/find-the-next-blockbuster-with-nvidia-bionemo-framework-on-amazon-sagemaker/)
-(example code [repository](https://github.com/aws-samples/amazon-sagemaker-with-nvidia-bionemo)),
-[ParallelCluster](https://aws.amazon.com/blogs/hpc/protein-language-model-training-with-nvidia-bionemo-framework-on-aws-parallelcluster/)
-(example code [repository](https://github.com/aws-samples/awsome-distributed-training/tree/main/3.test_cases/14.bionemo)),
-and [EKS](https://aws.amazon.com/blogs/hpc/accelerate-drug-discovery-with-nvidia-bionemo-framework-on-amazon-eks/)
-(example code [repository](https://github.com/awslabs/data-on-eks/tree/main/ai-ml/bionemo)).
