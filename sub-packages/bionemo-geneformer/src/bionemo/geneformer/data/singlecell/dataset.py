@@ -197,7 +197,7 @@ class SingleCellDataset(Dataset):
         rng = np.random.default_rng([self._seed, idx])
 
         """Performs a lookup and the required transformation for the model"""
-        gene_data, col_idxs, feature_ids = self.lookup_cell_by_idx(idx)
+        gene_data, col_idxs, feature_ids = self.lookup_cell_by_idx(idx) # needs to be the epoch_idx.idx 
         return process_item(
             gene_data,
             col_idxs,
