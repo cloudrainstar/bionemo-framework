@@ -1,10 +1,11 @@
 # Contributing Guidelines
 
-Note: For code review standards please see [CODE-REVIEW](CODE-REVIEW.md)
+!!! note
+    For code review standards please see [CODE-REVIEW](CODE-REVIEW.md)
 
-Note: For all PRs, an approved NVIDIA staff member must sign off and trigger the continuous integration (CI) tests.
-These are initiated by the member commenting `/build-ci` directly on the PR. All PRs must have successful CI runs and
-sufficient code review before being merged.
+    For all PRs, an approved NVIDIA staff member must sign off and trigger the continuous integration (CI) tests.
+    These are initiated by the member commenting `/build-ci` directly on the PR. All PRs must have successful CI runs and
+    sufficient code review before being merged.
 
 ## Python Coding Standards
 
@@ -140,9 +141,10 @@ Changes that affect model training accuracy or compute performance should be tes
 
 Developer workflow for _external_ code contributions is as follows:
 
-1. External developers must first [fork](https://help.github.com/en/articles/fork-a-repo) the [upstream](https://github.com/nvidia/bionemo-fw-ea) BioNeMo OSS repository and for BioNeMo2 (this branch) use the `v2-main` branch as base.
+1. External developers must first [fork](https://help.github.com/en/articles/fork-a-repo) the
+[upstream]({{ github_url }}) BioNeMo OSS repository and for BioNeMo2 (this branch) use the `main` branch as base.
 
-2. Git clone the forked repository and push changes to the personal fork.
+2. Clone the forked repository and push changes to the personal fork.
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/YOUR_FORK.git bionemo-fw-ea
@@ -186,7 +188,7 @@ otherwise please create a fork with your branch and submit a PR with `main` as t
 - Make sure all unit tests finish successfully before running PR pipeline by invoking `pytest scripts sub-packages`.
 - Make sure you added necessary tests and documentation changes (could be just comments in the config files) for the
   feature in your PR
-- Rebase your feature branch with the latest `dev` to include any new changes that have been added. Resolve merge
+- Rebase your feature branch with the latest `main` to include any new changes that have been added. Resolve merge
   conflicts, if any
 - Send your PR and request a review
 - If your PR is still WIP, mark it as "Draft"
