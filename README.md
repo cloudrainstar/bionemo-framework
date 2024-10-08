@@ -75,8 +75,8 @@ For more information on adding new test artifacts, see the documentation in
 
 ## Updating pinned versions of NeMo / Megatron-LM
 
-To update the pinned commits of NeMo or Megatron-LM, checkout the commit of interest in the submodule folder, and then commit the
-result in the top-level bionemo repository.
+Pinned commits are bumped by depend-a-bot. To update the pinned commits of NeMo or Megatron-LM manually, checkout the
+commit of interest in the submodule folder, and then commit the result in the top-level bionemo repository.
 
 ```bash
 cd 3rdparty/NeMo/
@@ -263,11 +263,6 @@ We'll maintain two images going forward:
 Currently, the devcontainer derives from the cuda-based image above, while the release image derives from the pytorch
 image.
 
-## Building the CUDA image
-
-```bash
-docker build -f Dockerfile.uv . -t bionemo-uv
-```
 
 ## Runnings tests inside the CUDA container.
 
