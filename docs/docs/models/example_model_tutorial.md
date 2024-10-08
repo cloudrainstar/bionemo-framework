@@ -1,4 +1,4 @@
-This tutorial demonstrates the creation of a simple Megatron model to classify MNIST digits within the BioNemo framework.
+This tutorial demonstrates the creation of a simple Megatron model to classify MNIST digits within the BioNemo framework. This should be run in a bionemo contaner.
 
 `Megatron` / `NeMo` modules and datasets are special derivatives of PyTorch modules and datasets that extend and accelerate the distributed training and inference capabilities of PyTorch.
 
@@ -67,7 +67,6 @@ class MSELossReduction(MegatronLossReduction):
         Returns:
             A tuple containing [<loss_tensor>, ReductionT] where the loss tensor will be used for
                 backpropagation and the ReductionT will be passed to the reduce method
-                (which currently only works for logging.).
         """
         x = batch["data"]
         x_hat = forward_out["x_hat"]
@@ -78,9 +77,6 @@ class MSELossReduction(MegatronLossReduction):
 
     def reduce(self, losses_reduced_per_micro_batch: Sequence[SameSizeLossDict]) -> Tensor:
         """Works across micro-batches. (data on single gpu).
-
-        Note: This currently only works for logging and this loss will not be used for backpropagation.
-
         Args:
             losses_reduced_per_micro_batch: a list of the outputs of forward
 
@@ -227,7 +223,6 @@ class ExampleModelTrunk(MegatronModule):
         self.linear2 = nn.Linear(64, 3)
 
     def forward(self, x: Tensor) -> Tensor:
-        # we could return a dictionary of strings to tensors here, but let's demonstrate this is not necessary
         x = x.view(x.size(0), -1)
         z = self.linear1(x)
         z = self.relu(z)
@@ -235,7 +230,6 @@ class ExampleModelTrunk(MegatronModule):
         return z
 
     def set_input_tensor(self, input_tensor: Optional[Tensor]) -> None:
-        """This _would_ be needed for model parallel and other kinds of more complicated forward passes in megatron."""
         pass
 
 
@@ -386,10 +380,6 @@ class BionemoLightningModule(pl.LightningModule, io.IOMixin, LightningPassthroug
 
     def forward(self, batch: Dict, batch_idx: int) -> Any:
         """This forward will be called by the megatron scheduler and it will be wrapped.
-
-        !!! note
-
-            The `training_step` defines the training loop and is independent of the `forward` method here.
 
         Args:
             batch: A dictionary of data.
