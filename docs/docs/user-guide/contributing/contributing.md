@@ -12,8 +12,6 @@
 This page contains the Python coding standards for the BioNeMo repository. They apply to all Python code in the
 repository (unless external constraints prevent it).
 
-## General principles
-
 ## Coding Style
 - We follow the [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html) with a few tweaks.
 - The most important parts of this style guide that our code must adhere to are:
@@ -23,7 +21,7 @@ repository (unless external constraints prevent it).
   - [Default iterators](https://google.github.io/styleguide/pyguide.html#28-default-iterators-and-operators)
   - [Bad naming / abbreviation](https://google.github.io/styleguide/pyguide.html#316-naming)
 - The exceptions to this style guide are:
-  + [Module](https://google.github.io/styleguide/pyguide.html#22-imports) imports. If a module is uniquely named, import
+    + [Module](https://google.github.io/styleguide/pyguide.html#22-imports) imports. If a module is uniquely named, import
     the module. Otherwise, import the value, type, or function directly.
 - Linting and formatting of all code is required by using `ruff` with BioNeMo's configured options.
 - Unit testing with `pytest`.
@@ -31,7 +29,7 @@ repository (unless external constraints prevent it).
   also obviates the need for including type hints in the function docstring. It is ok to omit annotations for private
   helper functions, but use your best judgement.
 - Include docstrings for every class, function, and method exposed to the user.
-  +Docstrings **should** answer (a) what is the code doing and (b) why would someone use it.
+    + Docstrings **should** answer (a) what is the code doing and (b) why would someone use it.
 - Never use wildcard imports.
 - Define `__all__ = (,)` in modules: make explicit the API of each module, auto-documenting the most important definitions.
 - Minimize the use of `**kwargs`.
@@ -49,29 +47,29 @@ repository (unless external constraints prevent it).
 - **Legal**: if you copy even one line of code from the Internet, make sure that the code allows the license that
   BioNeMo supports. Give credit and link back to the code.
 - **Sensible**: code should make sense. If you think a piece of code might be confusing, write comments.
-- **Consistency**: we work in a team. It is important to integrate changes with existing code.
-- **Readability**: your code should be easy to read and understand by any other engineer, including outside NVIDIA. Some
+- **Consistent**: we work in a team. It is important to integrate changes with existing code.
+- **Readable**: your code should be easy to read and understand by any other engineer, including outside NVIDIA. Some
   tips:
-  + Document your code. Make all comments complete sentences, starting with a capitalized letter and ending with a
+    + Document your code. Make all comments complete sentences, starting with a capitalized letter and ending with a
     period.
-  + Avoid abbreviations: 'bn' is harder to understand than 'batch_norm'.
-  + Avoid baked-in constants throughout the code. Instead, specify them as parameters to your function. If you must have
+    + Avoid abbreviations: 'bn' is harder to understand than 'batch_norm'.
+    + Avoid baked-in constants throughout the code. Instead, specify them as parameters to your function. If you must have
     a constant, follow the naming guideline (e.g., `GLOBAL_CONSTANT`).
-  + Avoid functions that span hundreds of lines. Large functions are more difficult to read and more difficult to test.
+    + Avoid functions that span hundreds of lines. Large functions are more difficult to read and more difficult to test.
     If >120 lines, consider re-factoring it into smaller logical functions, each unit-tested and well-documented.
-  + Re-use code by importing. **Do not copy and paste code.**
-  + Usage of third-party code should be legally compatible and attributed.
+    + Re-use code by importing. **Do not copy and paste code.**
+    + Usage of third-party code should be legally compatible and attributed.
 
 
 
 ## Pull Request (PR) Guidelines
 ### Signing Your Work
 
-* We require that all contributors "sign-off" on their commits (not gpg signing, just adding the `-s | --signoff`
-  argument, or follow the instructions below for auto-signing). This certifies that the contribution is your original
-  work, or you have rights to submit it under the same license, or a compatible license.
+* We require that all contributors "sign-off" on their commits (not GPG signing, just adding the `-s | --signoff`
+  argument, or follow the instructions below for auto-signing). This sign-off certifies that the contribution is your original
+  work, or you have rights to submit it under the same license or a compatible license.
 
-* Any contribution which contains commits that are not Signed-Off will not be accepted.
+* Any contribution which contains commits that are not signed-off will not be accepted.
 
 * To sign off on a commit you simply use the `--signoff` (or `-s`) option when committing your changes:
   ```bash
@@ -99,7 +97,7 @@ repository (unless external constraints prevent it).
 
 * Full text of the DCO:
 
-  ```
+    ```
     Developer Certificate of Origin
     Version 1.1
 
@@ -109,9 +107,9 @@ repository (unless external constraints prevent it).
     San Francisco, CA, 94129
 
     Everyone is permitted to copy and distribute verbatim copies of this license document, but changing it is not allowed.
-  ```
+    ```
 
-  ```
+    ```
     Developer's Certificate of Origin 1.1
 
     By making a contribution to this project, I certify that:
@@ -130,11 +128,11 @@ repository (unless external constraints prevent it).
     (d) I understand and agree that this project and the contribution are public and that a record of the contribution
     (including all personal information I submit with it, including my sign-off) is maintained indefinitely and may be
     redistributed consistent with this project or the open source license(s) involved.
-  ```
+    ```
 
 ### Developer workflows:
 
-You should always carefully test your changes. Run `pytest ...` in-container locally. All tests are done via `pytest`.
+You should always carefully test your changes. Run `pytest ...` in your container locally. All tests are done via `pytest`.
 
 Changes that affect model training accuracy or compute performance should be tested on SLURM.
 
@@ -162,25 +160,24 @@ Developer workflow for _internal_ or those developers that have been granted pus
 
 For both internal and external developers, the next step is opening a PR:
 
-4. Once the code changes are staged on the fork and ready for review, a
+1. Once the code changes are staged on the fork and ready for review, a
   [Pull Request](https://help.github.com/en/articles/about-pull-requests) (PR) can be
     [requested](https://help.github.com/en/articles/creating-a-pull-request) to merge the changes from a branch of the
     fork or branch into `main`.
-  * Exercise caution when selecting the source and target branches for the PR.
+    * Exercise caution when selecting the source and target branches for the PR.
     Note that versioned releases of TensorRT OSS are posted to `release/` branches of the upstream repo.
-  * Creation of a PR creation kicks off the code review process.
-  * At least one TensorRT engineer will be assigned for the review.
-  * While under review, mark your PRs as work-in-progress by prefixing the PR title with [WIP].
-
-5. Once ready, CI can be started by a developer with permissions when they add a `/build-ci` comment. This must pass
+    * Creation of a PR creation kicks off the code review process.
+    * At least one TensorRT engineer will be assigned for the review.
+    * While under review, mark your PRs as work-in-progress by prefixing the PR title with [WIP].
+2. Once ready, CI can be started by a developer with permissions when they add a `/build-ci` comment. This must pass
   prior to merging.
 
 
 ### General guidelines
+
 **Send your PRs to the `main` branch**. Branch off from `main` when making your changes.
-Prefix your branches with your name or initials (i.e. `yourname/branch_description`) if you have push access to our
-  repository
-otherwise please create a fork with your branch and submit a PR with `main` as the target.
+Prefix your branches with your name or initials (for example, `your_name/branch_description`) if you have push access to
+our repository otherwise please create a fork with your branch and submit a PR with `main` as the target.
 
 - Make sure your PR does one thing. Have a clear answer to "What does this PR do?"
 - Make sure you have the linters enabled via pre-commit hooks (`pre-commit install`)
@@ -191,9 +188,9 @@ otherwise please create a fork with your branch and submit a PR with `main` as t
 - Rebase your feature branch with the latest `main` to include any new changes that have been added. Resolve merge
   conflicts, if any
 - Send your PR and request a review
-- If your PR is still WIP, mark it as "Draft"
+- If your PR is still a work in progress, mark it as "Draft"
 - Your merge request must pass all pipelines and be peer-reviewed before it can be merged.
-- Make sure to merge your PR when it's ready and pipeline is successful
+- Make sure to merge your PR when it is ready and pipeline is successful
 
 ### Unit tests
 Contributors to BioNeMo FW are expected to unit test their introduced changes.
