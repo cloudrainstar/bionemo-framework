@@ -63,9 +63,6 @@ will involve the following steps:
 
 #### Pull Docker Container from NGC
 
-Within the NGC Catalog, navigate to **BioNeMo Framework > Tags > Get Container**, and copy the image path for the latest
-tag.
-
 Open a command prompt on your machine and enter the following:
 
 ```bash
