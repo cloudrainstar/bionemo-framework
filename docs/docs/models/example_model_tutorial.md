@@ -558,6 +558,8 @@ llm.train(
 We can view the results and look at the last created model that is checkpointed.
 ```python
 pretrain_ckpt_dirpath = checkpoint_callback.last_model_path.replace(".ckpt", "")
+print(metric_tracker.collection_train['loss'])
+print(metric_tracker.collection_val['logged_metrics'])
 ```
 
 Next, we will finetune this model as a classification task. A new logger,  and training module are set up. In this example, there is no digit_classifier output in the previous model but there is in this model. So we set initial_ckpt_skip_keys_with_these_prefixes to {"digit_classifier"} in the training module. Then, we train the model.
@@ -572,8 +574,8 @@ nemo_logger2 = NeMoLogger(
 )
 
 lightning_module2 = BionemoLightningModule(
-    config=ExampleFineTuneDropParentConfig(
-        initial_ckpt_path=ckpt_dirpath,
+    config=ExampleFineTuneConfig(
+        initial_ckpt_path=pretrain_ckpt_dirpath,
         initial_ckpt_skip_keys_with_these_prefixes={"digit_classifier"}
     )
 )
@@ -588,12 +590,12 @@ llm.train(
             resume_ignore_no_checkpoint=True,
         ),
     )
+finetune_dir = Path(checkpoint_callback.last_model_path.replace(".ckpt", "")
 ```
 
-Next, we can change run the model on the test data. Here, we need to reset the global batch size, which can be done with destroy_num_microbatches_calculator.
+Next, we can change run the model on the test data. In a seperate file, copy or import the relevant imports, classes, and variables for the next chunk of code. (strategy, finetune_dir, BionemoLightningModule, ExampleFineTuneConfig, ExampleGenericConfig,ExampleFineTuneModel, ExampleTrunk, MNISTDataModule).
 
 ```python
-destroy_num_microbatches_calculator()
 
 test_run_trainer = nl.Trainer(
     accelerator="gpu",
@@ -605,8 +607,8 @@ test_run_trainer = nl.Trainer(
 )
 
 lightning_module3 = BionemoLightningModule(
-    config=ExampleFineTuneDropParentConfig(
-        initial_ckpt_path=Path(checkpoint_callback.last_model_path.replace(".ckpt", ""))
+    config=ExampleFineTuneConfig(
+        initial_ckpt_path=finetune_dir)
     )
 )
 new_data_module = MNISTDataModule(
