@@ -240,7 +240,7 @@ def main_cli():
         # Get the local path for the provided artifact name
         with tempfile.NamedTemporaryFile(mode="w+", delete=True) as temp_file:
             try:
-                with contextlib.redirect_stdout(temp_file):
+                with contextlib.redirect_stdout(sys.stderr):
                     local_path = load(args.artifact_name, source=args.source)
             except Exception as e:
                 # After the block, you can read the contents of the temp file if needed
