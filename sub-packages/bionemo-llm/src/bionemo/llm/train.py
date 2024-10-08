@@ -14,24 +14,35 @@
 # limitations under the License.
 
 
-import pathlib
-from nemo.lightning.pytorch.optim.lr_scheduler import CosineAnnealingScheduler
 import math
+import pathlib
 from typing import Optional
+
 from megatron.core.optimizer import OptimizerConfig
-from bionemo.llm.config.config_models import DataModuleT, ExperimentConfig, ParallelConfig, TrainingConfig, ExposedModelConfig, DataConfig, OptimizerSchedulerConfig
+from nemo import lightning as nl
+from nemo.collections import llm
+from nemo.lightning import resume
+from nemo.lightning.pytorch import callbacks as nl_callbacks
 from nemo.lightning.pytorch.optim import MegatronOptimizerModule
+from nemo.lightning.pytorch.optim.lr_scheduler import CosineAnnealingScheduler
+from nemo.utils import logging
+from pytorch_lightning.callbacks import LearningRateMonitor, RichModelSummary
+from tokenizers import Tokenizer
+
+from bionemo.llm.config.config_models import (
+    DataConfig,
+    DataModuleT,
+    ExperimentConfig,
+    ExposedModelConfig,
+    OptimizerSchedulerConfig,
+    ParallelConfig,
+    TrainingConfig,
+)
 from bionemo.llm.model.biobert.lightning import BioBertLightningModule
 from bionemo.llm.model.biobert.model import BioBertGenericConfig
 from bionemo.llm.utils.datamodule_utils import infer_global_batch_size
 from bionemo.llm.utils.logger_utils import WandbConfig, setup_nemo_lightning_logger
-from nemo import lightning as nl
-from nemo.utils import logging
-from nemo.collections import llm
-from pytorch_lightning.callbacks import LearningRateMonitor, RichModelSummary
-from tokenizers import Tokenizer
-from nemo.lightning import resume
-from nemo.lightning.pytorch import callbacks as nl_callbacks
+
 
 def nemo_logger_factory(experiment_config: ExperimentConfig, wandb_config: Optional[WandbConfig]) -> nl.NeMoLogger:
     checkpoint_callback = nl_callbacks.ModelCheckpoint(
@@ -52,7 +63,7 @@ def nemo_logger_factory(experiment_config: ExperimentConfig, wandb_config: Optio
     return nemo_logger
 
 
-def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConfig, callbacks = None) -> nl.Trainer:
+def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConfig, callbacks=None) -> nl.Trainer:
     strategy = nl.MegatronStrategy(
         tensor_model_parallel_size=parallel_config.tensor_model_parallel_size,
         pipeline_model_parallel_size=parallel_config.pipeline_model_parallel_size,
@@ -78,6 +89,7 @@ def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConf
         plugins=nl.MegatronMixedPrecision(precision=training_config.precision),
     )
     return trainer
+
 
 def biobert_lightning_module(
     bionemo_model_config: BioBertGenericConfig,
