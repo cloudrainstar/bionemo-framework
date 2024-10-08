@@ -32,6 +32,28 @@ interacting with `NeMo2`. Some examples of these include:
 * `bionemo-core`: High-level APIs
 * `bionemo-llm`: Abstract base classes for code that multiple large language models (eg BERT variants) share.
 
+### Package Structure
+
+Within each of the Bionemo packages, a consistent structure is employed to facilitate organization and maintainability.
+The following components are present in each package:
+
+* **`pyproject.toml`**: Defines package metadata, including version, package name, and executable scripts to be installed.
+* **`src`**: Contains all source code for the package. Each package features a top-level `bionemo` folder, which serves
+    as the primary namespace for imports. During the build process, all `bionemo/*` source files are combined into a
+    single package, with unique subdirectory names appended to the `bionemo` directory.
+* **`tests`**: Houses all package tests. The convention for test files is to locate them in the same path as the
+    corresponding `src` file, but within the `tests` directory, with a `test_` prefix added to the test file name. For
+    example, to test a module-level file `src/bionemo/my_module`, a test file `tests/bionemo/test_my_module.py` should
+    be created. Similarly, to test a specific file `src/bionemo/my_module/my_file.py`, the test file should be named
+    `tests/bionemo/my_module/test_my_file.py`. Running `py.test sub-packages/my_package` will execute all tests within
+    the `tests` directory.
+* **`examples`**: Some packages include an `examples` directory containing Jupyter Notebook (`.ipynb`) files, which are
+    aggregated into the main documentation.
+* **`README.md`**: The core package README file serves as the primary documentation for each sub-package when uploaded
+    to PyPI.
+* **`LICENSE`**: For consistency, all Bionemo packages should utilize the Apache-2.0 license. By contributing code to
+    BioNeMo, you acknowledge permission for the code to be re-released under an Apache v2 license.
+
 ## Model Training Process
 
 The process for pretraining models from BioNeMo involves running scripts located in the `scripts` directory. Each script
