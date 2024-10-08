@@ -12,11 +12,13 @@ options.
 
 ## Setting Up Your Host Machine Environment
 
-### Creating .env For First Time Setup
-To create the `.env` file for the first time, run the following setup script from the repository's root:
-```bash
-./internal/scripts/setup_env_file.sh
-```
+To effectively use the BioNeMo Framework, we recommend an organized environment configuration and directory
+structure. Specifically, we recommend having several cache directories per project. These directories will contain
+project files such as data, model checkpoints, training scripts, and outputs such as logs and predictions. To
+facilitate container set up, we recommend storing the paths to these directories in a `.env` file that can be referenced
+at container runtime. Below, we suggest useful environment variables to define in this file.
+
+### Creating a .env File For First Time Setup
 
 We recommend using a `.env` file in your local workspace to define environment variables.
 Specifically, the following variables are useful to include in your `.env` file:
@@ -56,17 +58,7 @@ Refer to the list below for an explanation of each of these variables:
 - `WANDB_API_KEY`: An API key for Weights and Biases (W&B), a platform for machine learning experiment tracking and
     visualization.
 
-
-For each of these variables, you can define them using `=`. For example, you can set the NGC API key using
-`NGC_CLI_API_KEY=<your API key here>`. You can then define these variables in your current shell using:
-
-```bash
-source .env
-```
-
-Running this command will make these variables available for use in the `docker run` command examples shown below.
-
-!!! note "Weights and Biases Setup (Optional)"
+??? note "Weights and Biases Setup (WANDB_API_KEY, Optional)"
 
     [Weights and Biases](https://wandb.ai/) (W&B) is a machine learning operations platform that provides tools and
     services to help machine learning practitioners build, train, and deploy models more efficiently. BioNeMo
@@ -78,6 +70,24 @@ Running this command will make these variables available for use in the `docker 
     3. Set the `WANDB_API_KEY` variable in your `.env` in the same way as you set the previous environment variable
         above.
     4. Set the environment variable inside your container using the `-e` option, as shown in the next section.
+
+For each of these variables, you can define them using `=`. For example, you can set the NGC API key using
+`NGC_CLI_API_KEY=<your API key here>`. You can then define these variables in your current shell using:
+
+```bash
+source .env
+```
+
+Running this command will make these variables available for use in the `docker run` command examples shown below.
+
+!!! note "Automatic Setup of Your `.env.` File"
+
+    The BioNeMo GitHub Repository contains a script that can help you generate this `.env` file automatically. To use
+    this script, you must first clone the [BioNeMo GitHub Repository]({{ github_url }}). Then, from the repository's root, run the following setup script:
+
+    ```bash
+    ./internal/scripts/setup_env_file.sh
+    ```
 
 ## Starting the BioNeMo Container for Common Workflows
 
@@ -119,23 +129,28 @@ docker run \
 * `--rm`: Removes the container when it exits.
 * `-it`: Allocates a pseudo-TTY and keeps the container running in the foreground.
 * `-u $(id -u):$(id -g)`: Sets the user and group IDs to match those of the user running on the host machine.
-* `--gpus all`: Allocate all available GPUs on the host machine.
+* `--gpus all`: Allocates all available GPUs on the host machine.
+* `--network host`: Allows the container to use the host's network stack, effectively sharing the host's network
+    namespace and allowing the container to access the host's network interfaces directly.
+* `--shm-size=4g`: Sets the size of the shared memory (/dev/shm) in the container to 4 gigabytes, which can be useful for applications that rely heavily on shared memory.
 * `-e <VARIABLE>`: Sets the environment variable inside the container, taking the value set on the host machine.
 * `-v <LOCAL DIRECTORY>:<DOCKER DIRECTORY>`: Mounts a volume from the host machine to the container.
 * `{{ docker_url }}:{{ docker_tag }}`: The path to the Docker image to use.
 * `/bin/bash`: The command to run inside the container, which starts a Bash shell.
 
-#### Developers Only -- Development Container Build & Launch Process
-If you are developing bionemo code and you have checked out the repository, you can execute the following script
-to launch a development container from the latest checked-in changes:
-```bash
-./internal/scripts/run_dev.sh
-```
+!!! tip "Source Code Developers Only: Development Container Build and Launch Process"
+    If you are developing BioNeMo Framework source code and you have checked out the repository, you can execute the
+    following script to launch a development container from the latest checked-in changes:
 
-Be sure to build the development image first, after committing changes, by running:
-```bash
-./internal/scripts/build_dev_image.sh
-```
+    ```bash
+    ./internal/scripts/run_dev.sh
+    ```
+
+    Be sure to build the development image first, after committing changes, by running:
+
+    ```bash
+    ./internal/scripts/build_dev_image.sh
+    ```
 
 ### Running a Model Training Script Inside the Container
 

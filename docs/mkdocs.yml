@@ -92,6 +92,7 @@ extra:
       link: https://github.com/NVIDIA/bionemo-fw-ea
   docker_url: nvcr.io/nvidian/cvai_bnmo_trng/bionemo
   docker_tag: main--nightly
+  github_url: https://github.com/NVIDIA/bionemo-fw-ea
 
 copyright: |
   &copy; Copyright 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
