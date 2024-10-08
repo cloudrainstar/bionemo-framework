@@ -35,7 +35,7 @@ from bionemo.llm.lightning import PerplexityLoggingCallback
 from bionemo.llm.model.biobert.lightning import BioBertLightningModule
 from bionemo.llm.model.biobert.model import BiobertSpecOption
 from bionemo.llm.utils.datamodule_utils import float_or_int_or_none, infer_global_batch_size
-from bionemo.llm.utils.logger_utils import WandbConfig, WandbLoggerOptions, setup_nemo_lightning_logger
+from bionemo.llm.utils.logger_utils import WandbConfig, setup_nemo_lightning_logger
 
 
 __all__: Sequence[str] = ("main", "parser")
@@ -174,7 +174,6 @@ def main(
         plugins=nl.MegatronMixedPrecision(precision=precision),
     )
 
-
     # Initialize the data module.
     data = ESMDataModule(
         train_cluster_path=train_cluster_path,
@@ -187,7 +186,7 @@ def main(
         max_seq_length=max_seq_length,
         num_workers=num_dataset_workers,
         random_mask_strategy=random_mask_strategy,
-        tokenizer = get_tokenizer()
+        tokenizer=get_tokenizer(),
     )
     # NOTE(SKH) added this.
     tokenizer = data._tokenizer
