@@ -27,7 +27,7 @@ most issues with the change should be caught and addressed.
 
 Proceed to the next step after you've addressed your team's comments and
 have received an approval. There is no actual requirement in
-gitlab to receive your team-based approval - it's
+gitlab to receive your team-based approval - it is
 simply best practice.
 
 ### 2. Owner Review
