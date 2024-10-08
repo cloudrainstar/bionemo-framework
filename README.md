@@ -58,7 +58,7 @@ After building the development image, you can start a container from it and open
 ./internal/scripts/run_dev.sh
 ```
 
-## Downloading artifacts
+## Downloading artifacts (For NVIDIA Employees)
 Set the AWS access info in environment prior to running the dev-container launch script:
 ```bash
 AWS_ACCESS_KEY_ID="team-bionemo"
@@ -95,7 +95,7 @@ tests for all sub-packages.
 
 ## Publishing Packages
 
-*Note*: Once we have a pypi deployment strategy, we should automate the following commands to run automatically via
+**NOTE**: Once we have a pypi deployment strategy, we should automate the following commands to run automatically via
 github actions on new git tags. We can therefore trigger wheel building and pypi deployment by minting new releases as
 part of the github.com CI.
 
@@ -115,7 +115,7 @@ Bionemo packages follow [semantic versioning 2.0](https://semver.org/) rules: AP
 features are `MINOR`, and bug-fixes and refactors are `PATCH` in `MAJOR.MINOR.PATCH` version string format.
 
 If subsequent commits are added after a git tag, the version string will reflect the additional commits (e.g.
-`2.0.0a1.post1`). Note, we don't consider uncommitted changes in determining the version string.
+`2.0.0a1.post1`). **NOTE**: we don't consider uncommitted changes in determining the version string.
 
 ### Building a python wheel
 
@@ -152,7 +152,7 @@ TWINE_PASSWORD="<pypi pass>" TWINE_USERNAME="<pypi user>" uvx twine upload /sub-
 #### Running
 First off, we have a utility function for downloading full/test data and model checkpoints called `download_bionemo_data` that our following examples currently use. This will download the object if it is not already on your local system,  and then return the path either way. For example if you run this twice in a row, you should expect the second time you run it to return the path almost instantly.
 
-Note NVIDIA employees should use `pbss` rather than `ngc` for the data source.
+**NOTE**: NVIDIA employees should use `pbss` rather than `ngc` for the data source.
 
 ```bash
 export MY_DATA_SOURCE="ngc"
@@ -216,7 +216,7 @@ Eventually we will also add CLI options to hot swap in different data modules an
 pass new information into your model for fine-tuning or new targets, but if you want that functionality _now_ you could
 copy the `scripts/singlecell/geneformer/train.py` and modify the DataModule class that gets initialized.
 
-Simple fine-tuning example (NOTE: please change `--restore-from-checkpoint-path` to be the one that was output last
+Simple fine-tuning example (**NOTE**: please change `--restore-from-checkpoint-path` to be the checkpoint directory path that was output last
 by the previous train run)
 ```bash
 TEST_DATA_DIR=$(download_bionemo_data single_cell/testdata-20240506 --source $MY_DATA_SOURCE); \
