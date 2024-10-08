@@ -80,7 +80,7 @@ source .env
 
 Running this command will make these variables available for use in the `docker run` command examples shown below.
 
-!!! note "Automatic Setup of Your `.env.` File"
+!!! note "Automatic Setup of Your `.env` File"
 
     The BioNeMo GitHub Repository contains a script that can help you generate this `.env` file automatically. To use
     this script, you must first clone the [BioNeMo GitHub Repository]({{ github_url }}). Then, from the repository's root, run the following setup script:
@@ -178,9 +178,11 @@ container, which runs the `training.py` Python script with the specified command
 
 ### Running Jupyter Lab Inside the Container
 
-First, create a local workspace directory (to be mounted to the home directory of the Docker container to persist data).
-You can then launch the container. We recommend running the container in a Jupyter Lab environment using the command
-below:
+By starting a Jupyter Lab instance inside the BioNeMo Framework container, users can leverage the container's optimized
+environment for machine learning workloads to accelerate their data science workflows, while also benefiting from the
+interactive and collaborative features of Jupyter Lab. This allows users to seamlessly transition between data
+preparation, model development, and visualization, all within a single, streamlined environment. You can then launch the
+container. We recommend running the container in a Jupyter Lab environment using the command below:
 
 ```bash
 docker run --rm -d --gpus all -u $(id -u):$(id -g) \
