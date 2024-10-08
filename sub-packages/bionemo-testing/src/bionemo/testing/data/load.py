@@ -250,7 +250,7 @@ def main_cli():
                     f"Error downloading target={args.artifact_name}, source={args.source}. Got: {e} {output}"
                 )
         # Print the result
-        print(local_path)
+        print(str(local_path.absolute())
     else:
         parser.error("You must provide an artifact name if --list-resources is not set.")
 
