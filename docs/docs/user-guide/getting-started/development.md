@@ -65,6 +65,12 @@ The model fine-tuning process involves downloading the required model checkpoint
 script. This script takes in the model name and version as arguments, along with the data source, which can be either
 `ngc` (default) or `pbss` for NVIDIA employees.
 
+To view a list of available resources (both model checkpoints and datasets), you can use the following command:
+
+```bash
+download_bionemo_data --list-resources
+```
+
 ### Step 1: Download Data and Checkpoints
 
 To download the data and checkpoints, use the following command:
