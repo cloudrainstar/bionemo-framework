@@ -1,4 +1,5 @@
-This tutorial demonstrates the creation of a model in BioNeMo.
+This tutorial demonstrates the creation of a simple Megatron model to classify MNIST digits within the BioNemo framework.
+
 `Megatron` / `NeMo` modules and datasets are special derivatives of PyTorch modules and datasets that extend and accelerate the distributed training and inference capabilities of PyTorch.
 
 Some distinctions of Megatron / NeMo are:
@@ -8,39 +9,50 @@ Some distinctions of Megatron / NeMo are:
 - Megatron configuration classes (e.g. `megatron.core.transformer.TransformerConfig`) are extended with a `configure_model` method that defines how model weights are initialized and loaded in a way that is compliant with training via NeMo2.
 - Various modifications and extensions to common PyTorch classes, such as adding a `MegatronDataSampler` (and re-sampler such as `PRNGResampleDataset` or `MultiEpochDatasetResampler`) to your `LightningDataModule`.
 
-This tutorial demonstrates the construction of a simple Megatron model to classify MNIST digits.
-
 
 ```python
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Tuple, Type, TypeVar
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import Any, Dict, Generic, List, Optional, Sequence, Tuple, Type, TypedDict, TypeVar
+
+import numpy as np
 import pytorch_lightning as pl
 import torch
-from megatron.core import ModelParallelConfig
-from megatron.core.transformer.enums import ModelType
-from megatron.core.transformer.module import MegatronModule
-from nemo.lightning.megatron_parallel import MegatronLossReduction
-from nemo.lightning.pytorch.plugins import MegatronDataSampler
-from torch import nn, Tensor
+from torch import Tensor, nn
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import MNIST
+
+from megatron.core import ModelParallelConfig
+from megatron.core.num_microbatches_calculator import destroy_num_microbatches_calculator
+from megatron.core.optimizer.optimizer_config import OptimizerConfig
+from megatron.core.transformer.enums import ModelType
+from megatron.core.transformer.module import MegatronModule
+from nemo import lightning as nl
+from nemo.collections import llm
+from nemo.lightning import NeMoLogger, io, resume
+from nemo.lightning.megatron_parallel import MegatronLossReduction
+from nemo.lightning.pytorch import callbacks as nl_callbacks
+from nemo.lightning.pytorch.optim import MegatronOptimizerModule
+from nemo.lightning.pytorch.plugins import MegatronDataSampler
+
+from bionemo.core import BIONEMO_CACHE_DIR
 from bionemo.core.data.resamplers import PRNGResampleDataset
-from bionemo.llm.model.config import OVERRIDE_BIONEMO_CONFIG_DEFAULTS, MegatronBioNeMoTrainableModelConfig
+from bionemo.llm.api import MegatronLossType
 from bionemo.llm.lightning import LightningPassthroughPredictionMixin
-from pathlib import Path
+from bionemo.llm.model.config import OVERRIDE_BIONEMO_CONFIG_DEFAULTS, MegatronBioNeMoTrainableModelConfig
+from bionemo.llm.utils import iomixin_utils as iom
 
 from pytorch_lightning.loggers import TensorBoardLogger
-from nemo import lightning as nl
-import tempfile
 ```
-First, we define a simple loss function. These should inherit from losses in nemo.lightning.megatron_parallel and can inherit from MegatronLossReduction.  The output of forward and backwared passes happen in parallel. There should be a forward function that calculateees the loss defined. The reduce function is required.
+
+First, we define a simple loss function. These should inherit from losses in nemo.lightning.megatron_parallel and can inherit from MegatronLossReduction.  The output of forward and backwared passes happen in parallel. There should be a forward function that calculates the loss defined. The reduce function is required.
 ```python
 class SameSizeLossDict(TypedDict):
     """This is the return type for a loss that is computed for the entire batch, where all microbatches are the same size."""
 
     avg: Tensor
-
 
 class MSELossReduction(MegatronLossReduction):
     """A class used for calculating the loss, and for logging the reduced loss across micro batches."""
@@ -78,39 +90,39 @@ class MSELossReduction(MegatronLossReduction):
         mse_losses = torch.stack([loss["avg"] for loss in losses_reduced_per_micro_batch])
         return mse_losses.mean()
 
-    class ClassifierLossReduction(MegatronLossReduction):
-        """A class used for calculating the loss, and for logging the reduced loss across micro batches."""
+class ClassifierLossReduction(MegatronLossReduction):
+    """A class used for calculating the loss, and for logging the reduced loss across micro batches."""
 
-        def forward(self, batch: MnistItem, forward_out: Tensor) -> Tuple[Tensor, SameSizeLossDict]:
-            """Calculates the loss within a micro-batch. A micro-batch is a batch of data on a single GPU.
+    def forward(self, batch: MnistItem, forward_out: Tensor) -> Tuple[Tensor, SameSizeLossDict]:
+        """Calculates the loss within a micro-batch. A micro-batch is a batch of data on a single GPU.
 
-            Args:
-                batch: A batch of data that gets passed to the original forward
-                forward_out: the output of the forward method
+        Args:
+            batch: A batch of data that gets passed to the original forward
+            forward_out: the output of the forward method
 
-            Returns:
-                A tuple containing [<loss_tensor>, ReductionT] where the loss tensor will be used for
-                    backpropagation and the ReductionT will be passed to the reduce method
-                    (which currently only works for logging.).
-            """
-            digits = batch["label"]
-            digit_logits = forward_out
-            loss = nn.functional.cross_entropy(digit_logits, digits)
-            return loss, {"avg": loss}
+        Returns:
+            A tuple containing [<loss_tensor>, ReductionT] where the loss tensor will be used for
+                backpropagation and the ReductionT will be passed to the reduce method
+                (which currently only works for logging.).
+        """
+        digits = batch["label"]
+        digit_logits = forward_out
+        loss = nn.functional.cross_entropy(digit_logits, digits)
+        return loss, {"avg": loss}
 
-        def reduce(self, losses_reduced_per_micro_batch: Sequence[SameSizeLossDict]) -> Tensor:
-            """Works across micro-batches. (data on single gpu).
+    def reduce(self, losses_reduced_per_micro_batch: Sequence[SameSizeLossDict]) -> Tensor:
+        """Works across micro-batches. (data on single gpu).
 
-            Note: This currently only works for logging and this loss will not be used for backpropagation.
+        Note: This currently only works for logging and this loss will not be used for backpropagation.
 
-            Args:
-                losses_reduced_per_micro_batch: a list of the outputs of forward
+        Args:
+            losses_reduced_per_micro_batch: a list of the outputs of forward
 
-            Returns:
-                A tensor that is the mean of the losses. (used for logging).
-            """
-            mse_losses = torch.stack([loss["avg"] for loss in losses_reduced_per_micro_batch])
-            return mse_losses.mean()
+        Returns:
+            A tensor that is the mean of the losses. (used for logging).
+        """
+        mse_losses = torch.stack([loss["avg"] for loss in losses_reduced_per_micro_batch])
+        return mse_losses.mean()
 ```
 
 We define a wrapper for the MNIST dataset that returns a dictionary instead of a tuple or a tensor.
@@ -140,13 +152,13 @@ class MNISTCustom(MNIST):
         }
 ```
 Datasets used for model training must be compatible with megatron datasets.
-The dataset modules must have a data_sampler in it which is a nemo2 peculiarity. Also the sampler will not shuffle your data! So you need to wrap your dataset in a dataset shuffler that maps sequential ids to random ids in your dataset. This is what PRNGResampleDataset does. For further information, see: docs/user-guide/background/megatron_datasets.md. Moreover, the compatability of datasets with megatron can be checked by running bionemo.testing.data_utils.assert_dataset_compatible_with_megatron.
+The dataset modules must have a data_sampler in it which is a nemo2 peculiarity. Also the sampler will not shuffle your data. So you need to wrap your dataset in a dataset shuffler that maps sequential ids to random ids in your dataset. This is what PRNGResampleDataset does. For further information, see: docs/user-guide/background/megatron_datasets.md. Moreover, the compatability of datasets with megatron can be checked by running bionemo-testing.megatron_dataset_compatibility.assert_dataset_compatible_with_megatron.
 
 In the data module class, it's necessary to have data_sampler method to shuffle the data and that allows the sampler to be used with megatron. A nemo.lightning.pytorch.plugins.MegatronDataSampler is the best choice. It sets up the capability to utilize micro-batching and gradient accumulation. It is also the place where the global batch size is constructed.
 
 ```python
 class MNISTDataModule(pl.LightningDataModule):
-    def __init__(self, data_dir: str = "./", batch_size: int = 32, output_log = False) -> None:  # noqa: D107
+    def __init__(self, data_dir: str = "./", batch_size: int = 32, output_log = False) -> None:
         super().__init__()
         self.micro_batch_size = batch_size
         self.global_batch_size = batch_size
@@ -192,10 +204,11 @@ Models need to be megatron modules. At the most basic level this just means:
   2. They need a self.model_type:megatron.core.transformer.enums.ModelType enum defined (ModelType.encoder_or_decoder is probably usually fine)
   3. def set_input_tensor(self, input_tensor) needs to be present. This is used in model parallelism. This function can be a stub/ placeholder function.
 
-  ```python
-  class ExampleModelOutput(TypedDict):
-    """Output for the example model implementation."""
+Here, we define some models. ExampleModelTrunk is a base model. PretrainModel adds layers that enable pre-training. ExampleFineTuneModel is used for finetuning the previous model to classify the digits.
 
+```python
+class ExampleModelOutput(TypedDict):
+    """Output for the example model implementation."""
     x_hat: Tensor
     z: Tensor
 
@@ -226,7 +239,7 @@ class ExampleModelTrunk(MegatronModule):
         pass
 
 
-class ExampleModel(ExampleModelTrunk):  # noqa: D101
+class PretrainModel(ExampleModelTrunk):
     def __init__(self, config: ModelParallelConfig) -> None:
         """Constructor of the model.
 
@@ -252,6 +265,19 @@ class ExampleModel(ExampleModelTrunk):  # noqa: D101
         x_hat = self.relu2(x_hat)
         x_hat = self.linear4(x_hat)
         return {"x_hat": x_hat, "z": z}
+
+class ExampleFineTuneModel(ExampleModelTrunk):
+    """Example of taking the example model and replacing output task."""
+
+    def __init__(self, config: ModelParallelConfig):
+        super().__init__(config)
+        # 10 output digits, and use the latent output layer (z) for making predictions
+        self.digit_classifier = nn.Linear(self.linear2.out_features, 10)
+
+    def forward(self, x: Tensor) -> Tensor:
+        z: Tensor = super().forward(x)
+        digit_logits = self.digit_classifier(z)  # to demonstrate flexibility, in this case we return a tensor
+        return digit_logits
 
 ```
 The model config class is used to instatiate the model. These configs must have:
@@ -300,35 +326,42 @@ class ExampleGenericConfig(
         return self.loss_cls
 ```
 
-This config defines which model class to pair with which loss, since the abstractions around getting the model and loss are handled in the ExampleGenericConfig class.
+These configs defines which model class to pair with which loss, since the abstractions around getting the model and loss are handled in the ExampleGenericConfig class.
 ```python
 @dataclass
-class ExampleConfig(ExampleGenericConfig["ExampleModel", "MSELossReduction"], iom.IOMixinWithGettersSetters):
+class PretrainConfig(ExampleGenericConfig["PretrainModel", "MSELossReduction"], iom.IOMixinWithGettersSetters):
+    """PretrainConfig is a dataclass that is used to configure the model.
+
+    Timers from ModelParallelConfig are required for megatron forward compatibility.
+    """
+
+    model_cls: Type[PretrainModel] = PretrainModel
+    loss_cls: Type[MSELossReduction] = MSELossReduction
+
+@dataclass
+class ExampleFineTuneConfig(
+    ExampleGenericConfig["ExampleFineTuneModel", "ClassifierLossReduction"], iom.IOMixinWithGettersSetters
+):
     """ExampleConfig is a dataclass that is used to configure the model.
 
     Timers from ModelParallelConfig are required for megatron forward compatibility.
     """
 
-    model_cls: Type[ExampleModel] = ExampleModel
-    loss_cls: Type[MSELossReduction] = MSELossReduction
-
 ```
 
 It is helfpul to have a training module that interits pl.LightningModule which organizes the model architecture, training, validation, and testing logic while abstracting away boilerplate code, enabling easier and more scalable training.
-This is a general training wrapper that can be re-used for all model/loss combos. In this example, training_step defines the training loop and is independent of the forward method.
+This is a general training wrapper that can be re-used for all model/loss combos. In this example, training_step and predict_step define the training/prediction loop and are independent of the forward method.
 
-This is some background on the training_step.
+This is some background on the training_step/predict_step.
 1. NeMo's Strategy overrides this method.
 2. The strategies' training step will call the forward method of the model.
 3. That forward method then calls the wrapped forward step of MegatronParallel which wraps the forward method of the model.
 4. That wrapped forward step is then executed inside the Mcore scheduler, which calls the `_forward_step` method from the MegatronParallel class.
 5. Which then calls the training_step function here.
 
-In this example wrapper, we simply call the forward method of this class, the lightning module.
-
 ```python
-class LitAutoEncoder(pl.LightningModule, io.IOMixin, LightningPassthroughPredictionMixin):
-    """A very basic lightning module for testing the megatron strategy and the megatron-nemo2-bionemo contract."""
+class BionemoLightningModule(pl.LightningModule, io.IOMixin, LightningPassthroughPredictionMixin):
+    """A very basic lightning module for the megatron strategy and the megatron-nemo2-bionemo contract."""
 
     def __init__(self, config: MegatronBioNeMoTrainableModelConfig):
         """Initializes the model.
@@ -400,68 +433,102 @@ class LitAutoEncoder(pl.LightningModule, io.IOMixin, LightningPassthroughPredict
         return self.config.get_loss_reduction_class()
 ```
 
+It is useful to have a pytorch lightning callback defined to track the metric. A simple example is here:
+```python
+class MetricTracker(pl.Callback):
+    def __init__(self, metrics_to_track_val: List[str], metrics_to_track_train: List[str]):
+        self.metrics_to_track_val = metrics_to_track_val
+        self.metrics_to_track_train = metrics_to_track_train
+        self._collection_val = defaultdict(list)
+        self._collection_train = defaultdict(list)
+
+    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
+        if isinstance(outputs, torch.Tensor):
+            self._collection_val["unnamed"].append(outputs)
+        else:
+            for metric in self.metrics_to_track_val:
+                self._collection_val[metric].append(outputs[metric])
+
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
+        if isinstance(outputs, torch.Tensor):
+            self._collection_train["unnamed"].append(outputs)
+        else:
+            for metric in self.metrics_to_track_train:
+                self._collection_train[metric].append(outputs[metric])
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        elogs = trainer.logged_metrics  # access it here
+        self._collection_val["logged_metrics"].extend(elogs)
+
+    def on_train_epoch_end(self, trainer, pl_module):
+        elogs = trainer.logged_metrics  # access it here
+        self._collection_train["logged_metrics"].extend(elogs)
+
+    @property
+    def collection_val(self) -> Dict[str, torch.Tensor | List[str]]:
+        res = {k: torch.tensor(v) for k, v in self._collection_val.items() if k != "logged_metrics"}
+        res["logged_metrics"] = self._collection_val["logged_metrics"]
+        return res
+
+    @property
+    def collection_train(self) -> Dict[str, torch.Tensor | str]:
+        res = {k: torch.tensor(v) for k, v in self._collection_train.items() if k != "logged_metrics"}
+        res["logged_metrics"] = self._collection_train["logged_metrics"]
+        return res
+```
+
 Now, we can run pre-training on MNIST. First, this creates the callbacks for model checkpoints.
 
 ```python
-    checkpoint_callback = nl_callbacks.ModelCheckpoint(
-            save_last=True,
-            save_on_train_epoch_end=True,
-            monitor="reduced_train_loss",
-            every_n_train_steps=25,
-            always_save_context=True,  # Enables the .nemo file-like checkpointing where all IOMixins are under SerDe
-    )
+checkpoint_callback = nl_callbacks.ModelCheckpoint(
+        save_last=True,
+        save_on_train_epoch_end=True,
+        monitor="reduced_train_loss",
+        every_n_train_steps=25,
+        always_save_context=True,  # Enables the .nemo file-like checkpointing where all IOMixins are under SerDe
+)
 ```
 
 This sets up the logger, the data module and the lightning module.
 ```python
 temp_dir = tempfile.TemporaryDirectory()
-save_dir = temp_dir/"example"
-    # Setup the logger and train the model
+save_dir = temp_dir/"pretrain"
+name = "example"
+# Setup the logger train the model
+nemo_logger = NeMoLogger(
+    log_dir=str(save_dir),
+    name=name,
+    tensorboard=TensorBoardLogger(save_dir=save_dir, name=name),
+    ckpt=checkpoint_callback,
+)
+#Set up the data module
+data_module = MNISTDataModule(data_dir=str(BIONEMO_CACHE_DIR), batch_size=128)
 
-    nemo_logger = NeMoLogger(
-        log_dir=str(save_dir),
-        name=name,
-        tensorboard=TensorBoardLogger(save_dir=save_dir, name=name),
-        ckpt=checkpoint_callback,
-    )
-    #Set up the data module
-    data_module = MNISTDataModule(data_dir=str(BIONEMO_CACHE_DIR), batch_size=128)
-
-    #Set up the training module
-    lightning_module = LitAutoEncoder(
-        config=ExampleConfig()
-    )
+#Set up the training module
+lightning_module = BionemoLightningModule(
+    config=PretrainConfig()
+)
 ```
 
 Next, the megatron training strategy is specified.
 ```python
-    train_strategy = nl.MegatronStrategy(
-        tensor_model_parallel_size=1,
-        pipeline_model_parallel_size=1,
-        ddp="megatron",
-        find_unused_parameters=True,
-        always_save_context=True,
-    )
-```
-
-Then, set up the tracker for metrics and specify the trainer.
-```python
-lightning_module = LitAutoEncoder(
-    config=ExampleConfig()
-)
-train_strategy = nl.MegatronStrategy(
+strategy = nl.MegatronStrategy(
     tensor_model_parallel_size=1,
     pipeline_model_parallel_size=1,
     ddp="megatron",
     find_unused_parameters=True,
     always_save_context=True,
 )
+```
+
+Then, set up the tracker for metrics and specify the trainer.
+```python
 metric_tracker = MetricTracker(metrics_to_track_val=["loss"], metrics_to_track_train=["loss"])
 
 trainer = nl.Trainer(
     accelerator="gpu",
     devices=1,
-    strategy=train_strategy,
+    strategy=strategy,
     limit_val_batches=5,
     val_check_interval=25,
     max_steps=500,
@@ -473,7 +540,7 @@ trainer = nl.Trainer(
 )
 ```
 
-Next, the model is trained with these components and we can view the results.
+Next, the model is trained with these components.
 ```python
 #This trains the model
 llm.train(
@@ -486,6 +553,67 @@ llm.train(
             resume_ignore_no_checkpoint=True,  # When false this will throw an error with no existing checkpoint.
         ),
     )
-ckpt_dirpath = checkpoint_callback.last_model_path.replace(".ckpt", "")
+```
 
+We can view the results and look at the last created model that is checkpointed.
+```python
+pretrain_ckpt_dirpath = checkpoint_callback.last_model_path.replace(".ckpt", "")
+```
+
+Next, we will finetune this model as a classification task. A new logger,  and training module are set up. In this example, there is no digit_classifier output in the previous model but there is in this model. So we set initial_ckpt_skip_keys_with_these_prefixes to {"digit_classifier"} in the training module. Then, we train the model.
+```python
+save_dir = temp_dir/"classifier"
+
+nemo_logger2 = NeMoLogger(
+    log_dir=str(save_dir),
+    name=name,
+    tensorboard=TensorBoardLogger(save_dir=save_dir, name=name),
+    ckpt=checkpoint_callback,
+)
+
+lightning_module2 = BionemoLightningModule(
+    config=ExampleFineTuneDropParentConfig(
+        initial_ckpt_path=ckpt_dirpath,
+        initial_ckpt_skip_keys_with_these_prefixes={"digit_classifier"}
+    )
+)
+
+llm.train(
+        model=lightning_module2,
+        data=data_module,
+        trainer=trainer,
+        log=nemo_logger2,
+        resume=resume.AutoResume(
+            resume_if_exists=True,
+            resume_ignore_no_checkpoint=True,
+        ),
+    )
+```
+
+Next, we can change run the model on the test data. Here, we need to reset the global batch size, which can be done with destroy_num_microbatches_calculator.
+
+```python
+destroy_num_microbatches_calculator()
+
+test_run_trainer = nl.Trainer(
+    accelerator="gpu",
+    devices=1,
+    strategy=strategy,
+    num_nodes=1,
+    plugins=nl.MegatronMixedPrecision(precision="bf16-mixed"),
+    callbacks=None,
+)
+
+lightning_module3 = BionemoLightningModule(
+    config=ExampleFineTuneDropParentConfig(
+        initial_ckpt_path=Path(checkpoint_callback.last_model_path.replace(".ckpt", ""))
+    )
+)
+new_data_module = MNISTDataModule(
+    data_dir=str(BIONEMO_CACHE_DIR),
+    batch_size=len(data_module.mnist_test),
+    output_log=False
+)
+
+results = test_run_trainer.predict(lightning_module3, datamodule=new_data_module)
 ```
