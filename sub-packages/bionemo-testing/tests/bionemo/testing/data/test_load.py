@@ -51,6 +51,7 @@ def test_load_cli():
     path = Path(result.stdout.strip())
     assert path.exists()
     assert path.is_dir()
+    assert str(path).startswith("/")
     assert str(path).endswith(".untar")
 
 
