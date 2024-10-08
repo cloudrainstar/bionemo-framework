@@ -1,4 +1,4 @@
-## Introduction
+# Code Review
 
 This document describes the process and etiquette for code review in the
 BioNeMo repo. You should read this document if you are a developer
