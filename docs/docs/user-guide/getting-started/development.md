@@ -9,7 +9,8 @@ to be used in these workflows.
 ## BioNeMo Code Overview
 
 The BioNeMo codebase is structured as a meta-package that collects together many Python packages. We designed BioNeMo
-this way with the expectation that users will import and use BioNeMo in their own projects. By structuring code this way, we ensure that bionemo developers follow similar patterns to those we expect of our end users.
+this way with the expectation that users will import and use BioNeMo in their own projects. By structuring code this way,
+we ensure that BioNeMo developers follow similar patterns to those we expect of our end users.
 
 Each model is stored in its own subdirectory of `sub-packages`. Some examples of models include:
 
@@ -33,9 +34,12 @@ interacting with `NeMo2`. Some examples of these include:
 
 ## Model Training Process
 
-The process for pretraining models from BioNeMo involves running scripts located in the `scripts` directory. Each script exposes a Command-Line Interface (CLI) that contains and documents the options available for that model.
+The process for pretraining models from BioNeMo involves running scripts located in the `scripts` directory. Each script
+exposes a Command-Line Interface (CLI) that contains and documents the options available for that model.
 
-To pretrain a model, you need to run the corresponding script with the required parameters. For example, to pretrain the ESM-2 model, you would run the `esm2_pretrain.py` script located in `scripts/protein/esm2`. Similarly, to pretrain the Geneformer model, you would run the `train.py` script located in `scripts/singlecell/geneformer`.
+To pretrain a model, you need to run the corresponding script with the required parameters. For example, to pretrain the
+ESM-2 model, you would run the `esm2_pretrain.py` script located in `scripts/protein/esm2`. Similarly, to pretrain the
+Geneformer model, you would run the `train.py` script located in `scripts/singlecell/geneformer`.
 
 The scripts provide various options that can be customized for pretraining, such as:
 
@@ -53,6 +57,7 @@ The scripts provide various options that can be customized for pretraining, such
 You can specify these options when running the script using command-line arguments. For each of the available scripts,
 you can use the `--help` option for an explanation of the available options for that model.
 
+For more information on pretraining a model, refer to the [ESM2 Pretraining Tutorial](../examples/bionemo-esm2/pretrain).
 
 ## Fine-Tuning
 
