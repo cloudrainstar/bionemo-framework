@@ -237,18 +237,9 @@ def main_cli():
             print(f"{resource_name}\t{','.join(sources)}")
         sys.exit(0)  # Successful exit
     elif args.artifact_name:
-        # Get the local path for the provided artifact name
-        with tempfile.NamedTemporaryFile(mode="w+", delete=True) as temp_file:
-            try:
-                with contextlib.redirect_stdout(sys.stderr):
-                    local_path = load(args.artifact_name, source=args.source)
-            except Exception as e:
-                # After the block, you can read the contents of the temp file if needed
-                temp_file.seek(0)
-                output = temp_file.read()
-                raise ValueError(
-                    f"Error downloading target={args.artifact_name}, source={args.source}. Got: {e} {output}"
-                )
+        # Redirect stdout from the subprocess calls to stderr
+        with contextlib.redirect_stdout(sys.stderr):
+            local_path = load(args.artifact_name, source=args.source)
         # Print the result
         print(str(local_path.absolute()))
     else:
