@@ -563,7 +563,7 @@ print(metric_tracker.collection_val['logged_metrics'])
 print(pretrain_ckpt_dirpath)
 ```
 
-Next, we will finetune this model as a classification task. Create a new file. Swap out the logger, and training module from the last step, then train the model. In this example, there is no digit_classifier output in the previous model but there is in this model. So we set initial_ckpt_skip_keys_with_these_prefixes to {"digit_classifier"} in the training module. Then, we train the model.
+Next, we will finetune this model as a classification task. Create a new file. Swap out the logger, and training module from the last step, then train the model. In this example, there is no digit_classifier output in the previous model but there is in this model. So we set initial_ckpt_skip_keys_with_these_prefixes to {"digit_classifier"} in the training module. Set the checkpoint in the config to be the pretrain_ckpt_dirpath obtained when running the last file. Then, we train the model.
 ```python
 save_dir = temp_dir/"classifier"
 
@@ -595,7 +595,7 @@ finetune_dir = Path(checkpoint_callback.last_model_path.replace(".ckpt", "")
 print(finetune_dir)
 ```
 
-Next, we can change run the model on the test data. In a seperate file, copy or import the relevant imports, classes. Swap out the trainer, lightning module and data module from the previous file. Then, the results are obtained by running predict on the trainer.
+Next, we can change run the model on the test data. In a seperate file, copy or import the relevant imports, classes. Swap out the trainer, lightning module and data module from the previous file. Set the checkpoint in the config to be the finetune directory obtained when running the last file. Then, the results are obtained by running predict on the trainer.
 
 ```python
 
