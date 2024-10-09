@@ -10,13 +10,12 @@ Some distinctions of Megatron / NeMo are:
 - Various modifications and extensions to common PyTorch classes, such as adding a `MegatronDataSampler` (and re-sampler such as `PRNGResampleDataset` or `MultiEpochDatasetResampler`) to your `LightningDataModule`.
 
 
+Initially, we will define a models, losses, configs and other modules that are necessary for training. These can be put into a file (model_components.py)
+
 ```python
 from dataclasses import dataclass, field
-from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Any, Dict, Generic, List, Optional, Sequence, Tuple, Type, TypedDict, TypeVar
 
-import numpy as np
 import pytorch_lightning as pl
 import torch
 from torch import Tensor, nn
@@ -25,26 +24,19 @@ from torchvision import transforms
 from torchvision.datasets import MNIST
 
 from megatron.core import ModelParallelConfig
-from megatron.core.num_microbatches_calculator import destroy_num_microbatches_calculator
 from megatron.core.optimizer.optimizer_config import OptimizerConfig
 from megatron.core.transformer.enums import ModelType
 from megatron.core.transformer.module import MegatronModule
-from nemo import lightning as nl
-from nemo.collections import llm
-from nemo.lightning import NeMoLogger, io, resume
+from nemo.lightning import  io
 from nemo.lightning.megatron_parallel import MegatronLossReduction
-from nemo.lightning.pytorch import callbacks as nl_callbacks
 from nemo.lightning.pytorch.optim import MegatronOptimizerModule
 from nemo.lightning.pytorch.plugins import MegatronDataSampler
 
-from bionemo.core import BIONEMO_CACHE_DIR
 from bionemo.core.data.resamplers import PRNGResampleDataset
 from bionemo.llm.api import MegatronLossType
 from bionemo.llm.lightning import LightningPassthroughPredictionMixin
 from bionemo.llm.model.config import OVERRIDE_BIONEMO_CONFIG_DEFAULTS, MegatronBioNeMoTrainableModelConfig
 from bionemo.llm.utils import iomixin_utils as iom
-
-from pytorch_lightning.loggers import TensorBoardLogger
 ```
 
 First, we define a simple loss function. These should inherit from losses in nemo.lightning.megatron_parallel and can inherit from MegatronLossReduction.  The output of forward and backwared passes happen in parallel. There should be a forward function that calculates the loss defined. The reduce function is required.
@@ -467,7 +459,25 @@ class MetricTracker(pl.Callback):
         return res
 ```
 
-Now, we can run pre-training on MNIST. First, this creates the callbacks for model checkpoints.
+Now, we can run pre-training on MNIST. For each of the training and testing steps, create a sepereate python script.
+Create a new file name (model_pretrain.py)
+
+```python
+import pytorch_lightning as pl
+import tempfile
+from nemo import lightning as nl
+from nemo.collections import llm
+from nemo.lightning import NeMoLogger, resume
+from nemo.lightning.pytorch import callbacks as nl_callbacks
+
+from bionemo.core import BIONEMO_CACHE_DIR
+from bionemo.llm.utils import iomixin_utils as iom
+
+from pytorch_lightning.loggers import TensorBoardLogger
+
+from model_components import MNISTDataModule, BionemoLightningModule, PretrainConfig, MetricTracker
+```
+First, this creates the callbacks for model checkpoints.
 
 ```python
 checkpoint_callback = nl_callbacks.ModelCheckpoint(
@@ -550,9 +560,10 @@ We can view the results and look at the last created model that is checkpointed.
 pretrain_ckpt_dirpath = checkpoint_callback.last_model_path.replace(".ckpt", "")
 print(metric_tracker.collection_train['loss'])
 print(metric_tracker.collection_val['logged_metrics'])
+print(pretrain_ckpt_dirpath)
 ```
 
-Next, we will finetune this model as a classification task. A new logger,  and training module are set up. In this example, there is no digit_classifier output in the previous model but there is in this model. So we set initial_ckpt_skip_keys_with_these_prefixes to {"digit_classifier"} in the training module. Then, we train the model.
+Next, we will finetune this model as a classification task. Create a new file. Swap out the logger, and training module from the last step, then train the model. In this example, there is no digit_classifier output in the previous model but there is in this model. So we set initial_ckpt_skip_keys_with_these_prefixes to {"digit_classifier"} in the training module. Then, we train the model.
 ```python
 save_dir = temp_dir/"classifier"
 
@@ -581,9 +592,10 @@ llm.train(
         ),
     )
 finetune_dir = Path(checkpoint_callback.last_model_path.replace(".ckpt", "")
+print(finetune_dir)
 ```
 
-Next, we can change run the model on the test data. In a seperate file, copy or import the relevant imports, classes, and variables for the next chunk of code. (strategy, finetune_dir, BionemoLightningModule, ExampleFineTuneConfig, ExampleGenericConfig,ExampleFineTuneModel, ExampleTrunk, MNISTDataModule).
+Next, we can change run the model on the test data. In a seperate file, copy or import the relevant imports, classes. Swap out the trainer, lightning module and data module from the previous file. Then, the results are obtained by running predict on the trainer.
 
 ```python
 
