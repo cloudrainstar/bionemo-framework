@@ -15,6 +15,7 @@
 
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Tuple
 
@@ -87,6 +88,7 @@ class SingleCellDataset(Dataset):
         random_token_prob: float = 0.1,
         prepend_cls_token: bool = True,
         assert_increasing_columns: bool = True,
+        keep_metadata: bool = False,
         seed: int = np.random.SeedSequence().entropy,  # type: ignore
     ):
         super().__init__()
@@ -136,7 +138,7 @@ class SingleCellDataset(Dataset):
                 features_all_same = False
                 break
 
-        if not features_all_same:
+        if not features_all_same or keep_metadata:
             # We need to store per-file metadata of feature_ids. Make sure you run with a lot of RAM or few dataset workers.
             #  we need to store per-file metadata in this case because some of the files have different subsets of the
             #  feature_ids.
@@ -191,13 +193,13 @@ class SingleCellDataset(Dataset):
         feature_ids: np.ndarray = (
             self.feature_ids if self.metadata is None else self.metadata_lookup(idx)["feature_ids"]
         )
-        return gene_data, col_idxs, feature_ids
+        return gene_data, col_idxs, feature_ids #verify that these features we get back here are the same that we get back from get_row()
 
     def __getitem__(self, idx: int) -> types.BertSample:  # noqa: D105
         rng = np.random.default_rng([self._seed, idx])
 
         """Performs a lookup and the required transformation for the model"""
-        gene_data, col_idxs, feature_ids = self.lookup_cell_by_idx(idx) # needs to be the epoch_idx.idx 
+        gene_data, col_idxs, feature_ids = self.lookup_cell_by_idx(idx) # needs to be the epoch_idx.idx  # replace with scdl.getrow() 
         return process_item(
             gene_data,
             col_idxs,
