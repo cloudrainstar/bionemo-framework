@@ -28,6 +28,7 @@ from bionemo.core.utils import random_utils
 from bionemo.geneformer.data.singlecell.utils import sample_or_truncate
 from bionemo.geneformer.tokenizer.gene_tokenizer import GeneTokenizer
 from bionemo.llm.data import masking, types
+from bionemo.scdl.io.single_cell_memmap_dataset import SingleCellMemMapDataset
 
 
 __all__: Sequence[str] = (
@@ -54,6 +55,9 @@ class SingleCellDataset(Dataset):
 
     Attributes:
         data_path (str): Path where the single cell files are stored.
+        h5ad_path: #TODO 
+        use_single_cell_collection: #TODO 
+        h5ad_dir: #TODO  
         max_len (int): The maximum length of the input sequence.
         metadata (dict): Metadata loaded from `metadata.json`.
         gene_medians (dict): A dictionary containing median values for each gene. If None, a median of '1' is assumed for all genes.
@@ -80,6 +84,9 @@ class SingleCellDataset(Dataset):
     def __init__(  # noqa: D107
         self,
         data_path: str,
+        h5ad_path: Optional[str] = None,
+        use_single_cell_collection: bool = False,
+        h5ad_dir: Optional[str] = None, 
         tokenizer: Any,
         median_dict: Optional[dict] = None,
         max_len: int = 1024,
@@ -92,7 +99,11 @@ class SingleCellDataset(Dataset):
         seed: int = np.random.SeedSequence().entropy,  # type: ignore
     ):
         super().__init__()
+
+
+
         self.data_path = data_path
+        self.hfad_path = h5ad_path
         self.max_len = max_len
         self.random_token_prob = random_token_prob
         self.mask_token_prob = mask_token_prob
@@ -102,8 +113,14 @@ class SingleCellDataset(Dataset):
         # check if column indices are increasing for looking up genes. This is a way of spotting if the sc_memmap.py
         #  script produced properly strctured sparse files.
         self.assert_increasing_columns = assert_increasing_columns
-        path = Path(data_path)
+        # output_path = "/workspace/bionemo2/data/cellxgene_2023-12-15_small/collated_h5ad_test_data"
+        # with tempfile.TemporaryDirectory() as temp_dir:
+        #         coll = SingleCellCollection(temp_dir)
+        #         coll.load_h5ad_multi(, max_workers=4, use_processes=False)
+        #         coll.flatten(output_path, destroy_on_copy=True)
 
+        path = Path(data_path)
+    
         # - metadata
         metadata = json.load(open(path / "metadata.json", "r"))
 
@@ -138,7 +155,7 @@ class SingleCellDataset(Dataset):
                 features_all_same = False
                 break
 
-        if not features_all_same or keep_metadata:
+        if not features_all_same or keep_metadata: #TODO: this may require a bit more thought 
             # We need to store per-file metadata of feature_ids. Make sure you run with a lot of RAM or few dataset workers.
             #  we need to store per-file metadata in this case because some of the files have different subsets of the
             #  feature_ids.
@@ -172,7 +189,7 @@ class SingleCellDataset(Dataset):
     def __len__(self):  # noqa: D105
         return self.num_samples
 
-    def metadata_lookup(self, idx) -> Dict[str, np.ndarray]:
+    def metadata_lookup(self, idx) -> Dict[str, np.ndarray]: #TODO: get rid of this 
         """Go from a cell idx to the file-level metadata associated with that cell."""
         did = sum(~(self.dataset_ccum > idx)) - 1
         metadata = self.metadata[self.dataset_map[did]]
