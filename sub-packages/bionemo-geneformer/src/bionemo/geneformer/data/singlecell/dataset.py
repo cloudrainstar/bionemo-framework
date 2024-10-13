@@ -17,10 +17,12 @@
 import json
 import os
 from pathlib import Path
+import tempfile
 from typing import Any, Dict, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
+from bionemo.scdl.io.single_cell_collection import SingleCellCollection
 from nemo.utils import logging
 from torch.utils.data import Dataset
 
@@ -110,14 +112,18 @@ class SingleCellDataset(Dataset):
         self.mask_prob = mask_prob
         self.prepend_cls_token = prepend_cls_token
         self._seed = seed
+        self.scdl = None
         # check if column indices are increasing for looking up genes. This is a way of spotting if the sc_memmap.py
         #  script produced properly strctured sparse files.
         self.assert_increasing_columns = assert_increasing_columns
-        # output_path = "/workspace/bionemo2/data/cellxgene_2023-12-15_small/collated_h5ad_test_data"
-        # with tempfile.TemporaryDirectory() as temp_dir:
-        #         coll = SingleCellCollection(temp_dir)
-        #         coll.load_h5ad_multi(, max_workers=4, use_processes=False)
-        #         coll.flatten(output_path, destroy_on_copy=True)
+        if use_single_cell_collection and h5ad_dir: 
+            with tempfile.TemporaryDirectory() as temp_dir:
+                coll = SingleCellCollection(temp_dir)
+                coll.load_h5ad_multi(h5ad_dir, max_workers=4, use_processes=False)
+                coll.flatten(data_path, destroy_on_copy=True)
+                self.scdl = SingleCellMemMapDataset(data_path) 
+        else: 
+            self.scdl = SingleCellMemMapDataset(data_path, h5ad_dir) 
 
         path = Path(data_path)
     
