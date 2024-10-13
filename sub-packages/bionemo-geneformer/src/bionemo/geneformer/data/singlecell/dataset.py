@@ -128,27 +128,27 @@ class SingleCellDataset(Dataset):
         path = Path(data_path)
     
         # - metadata
-        metadata = json.load(open(path / "metadata.json", "r"))
+        # metadata = json.load(open(path / "metadata.json", "r"))
 
         # - median dict
         self.gene_medians = median_dict
 
         # - train/val idxs sampled contiguously
         total_el = sum([v["num_el"] for _, v in metadata.items()])
-        self.num_samples = sum([v["shape"][0] for _, v in metadata.items()])
+        # self.num_samples = sum([v["shape"][0] for _, v in metadata.items()])
         # - load data
-        self.gene_data = np.memmap(path / "gene_expression_data.npy", dtype="float32", mode="r", shape=(total_el,))
+        # self.gene_data = np.memmap(path / "gene_expression_data.npy", dtype="float32", mode="r", shape=(total_el,))
 
-        self.gene_data_indices = np.memmap(
-            path / "gene_expression_ind.npy", dtype="int32", mode="r", shape=(total_el,)
-        )
+        # self.gene_data_indices = np.memmap(
+        #     path / "gene_expression_ind.npy", dtype="int32", mode="r", shape=(total_el,)
+        # )
 
-        self.gene_data_ptr = np.memmap(
-            path / "gene_expression_ptr.npy", dtype="int64", mode="r", shape=(self.num_samples + 1,)
-        )
+        # self.gene_data_ptr = np.memmap(
+        #     path / "gene_expression_ptr.npy", dtype="int64", mode="r", shape=(self.num_samples + 1,)
+        # )
         self.tokenizer = tokenizer
-        rnd_key = next(iter(metadata))
-        feature_ids = np.array(metadata[rnd_key]["feature_ids"])
+        # rnd_key = next(iter(metadata))
+        # feature_ids = np.array(metadata[rnd_key]["feature_ids"])
 
         # Determine if we need to store the full metadata (per file feature_ids) or just a single feature_id
         #  vector for all files. If we can do the later this is much more memory efficient.
@@ -156,44 +156,45 @@ class SingleCellDataset(Dataset):
         #  of steps. Online discussion points to native python objects like dictionaries of a lot of data
         #  being a primary culprit behind large RAM usage in dataloaders that use multiprocessing.
         features_all_same = True
-        for m in metadata.values():
+        for m in self.scdl.metadata.values():
             if np.any(np.char.not_equal(np.array(m["feature_ids"]), feature_ids)):
                 features_all_same = False
                 break
 
-        if not features_all_same or keep_metadata: #TODO: this may require a bit more thought 
-            # We need to store per-file metadata of feature_ids. Make sure you run with a lot of RAM or few dataset workers.
-            #  we need to store per-file metadata in this case because some of the files have different subsets of the
-            #  feature_ids.
-            logging.warning(
-                "Feature ids are not the same across datasets. This can cause heavy RAM usage "
-                "for large datasets, try setting num_workers to 0."
-            )
-            self.metadata = metadata
-            self.feature_ids = None
+        # if not features_all_same or keep_metadata: #TODO: this may require a bit more thought 
+        #     # We need to store per-file metadata of feature_ids. Make sure you run with a lot of RAM or few dataset workers.
+        #     #  we need to store per-file metadata in this case because some of the files have different subsets of the
+        #     #  feature_ids.
+        #     logging.warning(
+        #         "Feature ids are not the same across datasets. This can cause heavy RAM usage "
+        #         "for large datasets, try setting num_workers to 0."
+        #     )
+        #     self.metadata = metadata
+        #     self.feature_ids = None
 
-            # map row indices to dataset id
-            self.dataset_ccum = np.zeros(
-                len(self.metadata),
-            )
-            # Maps dataset ids to dataset names (used in the metadata dict)
-            self.dataset_map = {}
-            count = 0
-            for i, k in enumerate(self.metadata):
-                self.dataset_ccum[i] = count
-                self.dataset_map[i] = k
-                count += self.metadata[k]["shape"][0]
-            self.dataset_ccum[0] = -1
-        else:
-            # We can store a single feature_id vector for all datasets, and do not need to store the full metadata array.
-            logging.warning(
-                "Feature ids are the same across datasets. This is good, using the same feature_ids for all datasets."
-            )
-            self.feature_ids = feature_ids
-            self.metadata = None
+        #     # map row indices to dataset id
+        #     self.dataset_ccum = np.zeros(
+        #         len(self.metadata),
+        #     )
+        #     # Maps dataset ids to dataset names (used in the metadata dict)
+        #     self.dataset_map = {}
+        #     count = 0
+        #     for i, k in enumerate(self.metadata):
+        #         self.dataset_ccum[i] = count
+        #         self.dataset_map[i] = k
+        #         count += self.metadata[k]["shape"][0]
+        #     self.dataset_ccum[0] = -1
+        # else:
+        #     # We can store a single feature_id vector for all datasets, and do not need to store the full metadata array.
+        #     logging.warning(
+        #         "Feature ids are the same across datasets. This is good, using the same feature_ids for all datasets."
+        #     )
+        #     self.feature_ids = feature_ids
+        #     self.metadata = None
 
     def __len__(self):  # noqa: D105
-        return self.num_samples
+        # return self.num_samples
+        return len(self.scdl)
 
     def metadata_lookup(self, idx) -> Dict[str, np.ndarray]: #TODO: get rid of this 
         """Go from a cell idx to the file-level metadata associated with that cell."""
@@ -220,9 +221,10 @@ class SingleCellDataset(Dataset):
 
     def __getitem__(self, idx: int) -> types.BertSample:  # noqa: D105
         rng = np.random.default_rng([self._seed, idx])
-
         """Performs a lookup and the required transformation for the model"""
-        gene_data, col_idxs, feature_ids = self.lookup_cell_by_idx(idx) # needs to be the epoch_idx.idx  # replace with scdl.getrow() 
+        values, feature_ids = self.scdl.get_row(idx, return_features=True, feature_vars=["feature_id"])
+        gene_data, col_idxs = values[0], values[1]
+        # gene_data, col_idxs, feature_ids = self.lookup_cell_by_idx(idx) # needs to be the epoch_idx.idx  # replace with scdl.getrow() 
         return process_item(
             gene_data,
             col_idxs,
