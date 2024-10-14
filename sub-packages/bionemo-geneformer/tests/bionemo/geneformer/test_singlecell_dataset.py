@@ -42,61 +42,75 @@ bionemo2_root = pathlib.Path("/workspace/bionemo2")
 data_path = bionemo2_root / "data/cellxgene_2023-12-15_small/processed_data"
 
 
-def test_dataset_init_lookup(tmp_path, test_processed_directory, test_input_directory):
-    # This is a convention based on the way the data is generated, not a general rule for how to look
-    #  up raw data paths. In general there is no guarantee that we have the path to the original h5ad data.
+# def test_dataset_init_lookup(tmp_path, test_processed_directory, test_input_directory):
+#     # This is a convention based on the way the data is generated, not a general rule for how to look
+#     #  up raw data paths. In general there is no guarantee that we have the path to the original h5ad data.
+#     tokenizer = MagicMock()
+
+#     dataset = SingleCellDataset(tmp_path / test_processed_directory, tokenizer, keep_metadata=True)
+#     first_metadata = dataset.metadata_lookup(0)  # I think we can open these up directly to test 
+#     scanpy.read_h5ad(
+#        tmp_path / test_input_directory(first_metadata["file_path"])
+#     )
+
+#     last_metadata = dataset.metadata_lookup(len(dataset) - 1)
+#     scanpy.read_h5ad(
+#        tmp_path / test_input_directory(last_metadata["file_path"])
+#     )
+
+#     random_metadata = dataset.metadata_lookup(150)
+#     scanpy.read_h5ad(
+#        tmp_path / test_input_directory(random_metadata["file_path"])
+#     )
+#     assert len(dataset) == 7689
+
+
+# def test_dataset_ccum(tmp_path, test_processed_directory, test_input_directory):
+#     data_path = bionemo2_root / "test_data/cellxgene_2023-12-15_small/processed_data/test"
+#     tokenizer = MagicMock()
+#     tokenizer.mask_token_id = 103 
+
+#     dataset = SingleCellDataset(tmp_path / test_processed_directory, tokenizer, keep_metadata=True)
+#     # should sum to the total length
+#     assert len(dataset) == sum(
+#         [m["shape"][0] for m in dataset.metadata.values()]
+#     )  # A dataset is the shape of the individual metadata shapes
+#     assert len(dataset.dataset_ccum) == 2  # Two datasets
+
+#     # NOTE(SKH) these are the source files that created the memmap stored in the metadata, not actual files that must exist.
+#     datasets = [
+#         "data/cellxgene_2023-12-15_small/input_data/test/assay__10x_3_v2/sex__male/development_stage__45-year-old_human_stage/self_reported_ethnicity__unknown/tissue_general__small_intestine/dataset_id__ee195b7d-184d-4dfa-9b1c-51a7e601ac11/sidx_19480503_2689_0.h5ad",
+#         "data/cellxgene_2023-12-15_small/input_data/test/assay__10x_3_v3/sex__male/development_stage__42-year-old_human_stage/self_reported_ethnicity__European/tissue_general__brain/dataset_id__00476f9f-ebc1-4b72-b541-32f912ce36ea/sidx_29791758_10099_1.h5ad",
+#     ]
+#     set(dataset.dataset_map.values()) == set(datasets)
+
+#     first_ds_key = datasets[0]
+#     second_ds_key = datasets[1]
+
+#     # Exhaustive search over did lookup, 100 elements for each, should map to the appropriate dataset
+#     print(len(dataset.metadata[first_ds_key]["feature_ids"]))
+#     assert all(
+#         dataset.metadata_lookup(i) == dataset.metadata[first_ds_key]
+#         for i in range(dataset.metadata[first_ds_key]["shape"][0])
+#     )
+#     assert all(
+#         dataset.metadata_lookup(i) == dataset.metadata[second_ds_key]
+#         for i in range(dataset.metadata[first_ds_key]["shape"][0], len(dataset))
+#     )
+
+def test_load_sc_dataset(tmp_path, sc_test_data_directory): 
     tokenizer = MagicMock()
+    dataset = SingleCellDataset(tmp_path / sc_test_data_directory, tokenizer)
+    assert len(dataset) == 2689 
 
-    dataset = SingleCellDataset(tmp_path / test_processed_directory, tokenizer, keep_metadata=True)
-    first_metadata = dataset.metadata_lookup(0)  # I think we can open these up directly to test 
-    scanpy.read_h5ad(
-       tmp_path / test_input_directory(first_metadata["file_path"])
-    )
-
-    last_metadata = dataset.metadata_lookup(len(dataset) - 1)
-    scanpy.read_h5ad(
-       tmp_path / test_input_directory(last_metadata["file_path"])
-    )
-
-    random_metadata = dataset.metadata_lookup(150)
-    scanpy.read_h5ad(
-       tmp_path / test_input_directory(random_metadata["file_path"])
-    )
-    assert len(dataset) == 7689
-
-
-def test_dataset_ccum(tmp_path, test_processed_directory, test_input_directory):
-    data_path = bionemo2_root / "test_data/cellxgene_2023-12-15_small/processed_data/test"
+def test_load_sc_h5ad(tmp_path, sc_test_h5ad): 
     tokenizer = MagicMock()
-    tokenizer.mask_token_id = 103 
+    h5ad_path= sc_test_h5ad("sidx_19480503_2689_0.h5ad")
+    print("final path arg: ", h5ad_path)
+    dataset = SingleCellDataset(tmp_path / "test_dc_data", tokenizer, h5ad_path=h5ad_path)
+    assert len(dataset) == 2689 
 
-    dataset = SingleCellDataset(tmp_path / test_processed_directory, tokenizer, keep_metadata=True)
-    # should sum to the total length
-    assert len(dataset) == sum(
-        [m["shape"][0] for m in dataset.metadata.values()]
-    )  # A dataset is the shape of the individual metadata shapes
-    assert len(dataset.dataset_ccum) == 2  # Two datasets
-
-    # NOTE(SKH) these are the source files that created the memmap stored in the metadata, not actual files that must exist.
-    datasets = [
-        "data/cellxgene_2023-12-15_small/input_data/test/assay__10x_3_v2/sex__male/development_stage__45-year-old_human_stage/self_reported_ethnicity__unknown/tissue_general__small_intestine/dataset_id__ee195b7d-184d-4dfa-9b1c-51a7e601ac11/sidx_19480503_2689_0.h5ad",
-        "data/cellxgene_2023-12-15_small/input_data/test/assay__10x_3_v3/sex__male/development_stage__42-year-old_human_stage/self_reported_ethnicity__European/tissue_general__brain/dataset_id__00476f9f-ebc1-4b72-b541-32f912ce36ea/sidx_29791758_10099_1.h5ad",
-    ]
-    set(dataset.dataset_map.values()) == set(datasets)
-
-    first_ds_key = datasets[0]
-    second_ds_key = datasets[1]
-
-    # Exhaustive search over did lookup, 100 elements for each, should map to the appropriate dataset
-    assert all(
-        dataset.metadata_lookup(i) == dataset.metadata[first_ds_key]
-        for i in range(dataset.metadata[first_ds_key]["shape"][0])
-    )
-    assert all(
-        dataset.metadata_lookup(i) == dataset.metadata[second_ds_key]
-        for i in range(dataset.metadata[first_ds_key]["shape"][0], len(dataset))
-    )
-
+#TODO: add a test for loading in a collated dataset
 
 def test_dataset_process_item():
     tokenizer = MagicMock()

@@ -86,10 +86,10 @@ class SingleCellDataset(Dataset):
     def __init__(  # noqa: D107
         self,
         data_path: str,
+        tokenizer: Any,
         h5ad_path: Optional[str] = None,
         use_single_cell_collection: bool = False,
         h5ad_dir: Optional[str] = None, 
-        tokenizer: Any,
         median_dict: Optional[dict] = None,
         max_len: int = 1024,
         mask_prob: float = 0.15,
@@ -105,7 +105,7 @@ class SingleCellDataset(Dataset):
 
 
         self.data_path = data_path
-        self.hfad_path = h5ad_path
+        self.h5ad_path = h5ad_path
         self.max_len = max_len
         self.random_token_prob = random_token_prob
         self.mask_token_prob = mask_token_prob
@@ -123,7 +123,7 @@ class SingleCellDataset(Dataset):
                 coll.flatten(data_path, destroy_on_copy=True)
                 self.scdl = SingleCellMemMapDataset(data_path) 
         else: 
-            self.scdl = SingleCellMemMapDataset(data_path, h5ad_dir) 
+            self.scdl = SingleCellMemMapDataset(data_path, h5ad_path) 
 
         path = Path(data_path)
     
@@ -134,7 +134,7 @@ class SingleCellDataset(Dataset):
         self.gene_medians = median_dict
 
         # - train/val idxs sampled contiguously
-        total_el = sum([v["num_el"] for _, v in metadata.items()])
+        # total_el = sum([v["num_el"] for _, v in metadata.items()])
         # self.num_samples = sum([v["shape"][0] for _, v in metadata.items()])
         # - load data
         # self.gene_data = np.memmap(path / "gene_expression_data.npy", dtype="float32", mode="r", shape=(total_el,))
@@ -155,11 +155,11 @@ class SingleCellDataset(Dataset):
         #  without this change, if num_workers>0, we seem to hit a memory leak after a relatively small number
         #  of steps. Online discussion points to native python objects like dictionaries of a lot of data
         #  being a primary culprit behind large RAM usage in dataloaders that use multiprocessing.
-        features_all_same = True
-        for m in self.scdl.metadata.values():
-            if np.any(np.char.not_equal(np.array(m["feature_ids"]), feature_ids)):
-                features_all_same = False
-                break
+        # features_all_same = True
+        # for m in self.scdl.metadata.values():
+        #     if np.any(np.char.not_equal(np.array(m["feature_ids"]), feature_ids)):
+        #         features_all_same = False
+        #         break
 
         # if not features_all_same or keep_metadata: #TODO: this may require a bit more thought 
         #     # We need to store per-file metadata of feature_ids. Make sure you run with a lot of RAM or few dataset workers.

@@ -35,6 +35,29 @@ def test_processed_directory() -> Path:
     # return load("scdl/sample") / "scdl_data"
 
 @pytest.fixture
+def sc_test_data_directory() -> Path:
+    """Gets the path to the directory with the Single Cell test data
+
+    Returns:
+        A Path object that is the directory with test data.
+    """
+    bionemo2_root = Path("/workspace/bionemo2")
+    return  bionemo2_root / "sc_data"
+
+@pytest.fixture
+def sc_test_h5ad() -> Path:
+    """Gets the path to the file with the input Single Cell test h5ad data
+
+    Returns:
+        A Path object that is the directory with test data.
+    """
+    bionemo2_root = Path("/workspace/bionemo2")
+    base_h5ad_path = bionemo2_root / "data/cellxgene_2023-12-15_small/scdl_h5ad_test/"
+    def _test_h5ad_file_path(file_name) -> Path: 
+        return base_h5ad_path / file_name 
+    return _test_h5ad_file_path
+
+@pytest.fixture
 def test_input_directory() -> Path:
     """Gets the path to the directory with test processed data.
 
