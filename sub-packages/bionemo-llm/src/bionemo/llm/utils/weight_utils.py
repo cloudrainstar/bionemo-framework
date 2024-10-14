@@ -18,7 +18,8 @@ from typing import Sequence, Set
 
 from megatron.core import dist_checkpointing
 from megatron.core.dist_checkpointing.mapping import ShardedTensor
-from megatron.core.transformer.module import MegatronModule
+
+from bionemo.llm.api import MegatronModelType
 
 
 __all__: Sequence[str] = (
@@ -126,8 +127,8 @@ def _key_in_filter(k: str, filter: Set[str]) -> bool:
 
 
 def load_weights_sharded_inplace_nemo2_to_mcore(
-    model: MegatronModule, distributed_checkpoint_dir: str | Path, skip_keys_with_these_prefixes: Set[str]
-):
+    model: MegatronModelType, distributed_checkpoint_dir: str | Path, skip_keys_with_these_prefixes: Set[str]
+) -> None:
     """Given a megatron module, this function will determine which keys/subsets of weights to load given the
         parallel/distributed state. This operates assuming a checkpoint was saved by a nemo2 trainer which places
         the `module.` prefix on all key names, but we are then going to load directly in to the megatron module
@@ -148,6 +149,6 @@ def load_weights_sharded_inplace_nemo2_to_mcore(
     }
     dist_checkpointing.load(
         sharded_state_dict=sharded_state_dict,
-        checkpoint_dir=str(distributed_checkpoint_dir),
+        checkpoint_dir=str(Path(distributed_checkpoint_dir) / "weights"),
         strict=dist_checkpointing.serialization.StrictHandling.ASSUME_OK_UNEXPECTED,
     )

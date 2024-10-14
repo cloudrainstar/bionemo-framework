@@ -23,6 +23,7 @@ from typing import Any, List, Sequence, Tuple
 import pytest
 import pytorch_lightning as pl
 import torch
+import torch.utils.data
 from lightning.pytorch.callbacks import BasePredictionWriter
 from megatron.core.optimizer.optimizer_config import OptimizerConfig
 from megatron.core.transformer.module import Float16Module
@@ -31,13 +32,14 @@ from nemo.collections import llm as nllm
 from nemo.lightning import io, resume
 from nemo.lightning.nemo_logger import NeMoLogger
 from nemo.lightning.pytorch import callbacks as nl_callbacks
+from nemo.lightning.pytorch.callbacks.model_transform import ModelTransform
+from nemo.lightning.pytorch.callbacks.peft import PEFT
 from nemo.lightning.pytorch.optim.megatron import MegatronOptimizerModule
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from bionemo import geneformer
 from bionemo.core.data.resamplers import PRNGResampleDataset
 from bionemo.core.utils.batching_utils import pad_token_ids
 from bionemo.core.utils.dtypes import get_autocast_dtype
@@ -48,29 +50,24 @@ from bionemo.geneformer.data.singlecell.dataset import SingleCellDataset
 from bionemo.geneformer.data.singlecell.preprocess import GeneformerPreprocess
 from bionemo.geneformer.model.finetune_token_regressor import (
     FineTuneSeqLenBioBertConfig,
+    LoRAForGeneFormerTokenRegressor,
 )
 from bionemo.llm.data import collate
-from bionemo.llm.lightning import LossLoggingCallback
-from bionemo.llm.model.biobert.lightning import BioBertLightningModule
+from bionemo.llm.model.biobert.lightning import biobert_lightning_module
 from bionemo.llm.model.biobert.model import BiobertSpecOption
 from bionemo.llm.utils.weight_utils import nemo1_to_nemo2_biobert_key_mapping
 from bionemo.testing import megatron_parallel_state_utils
 from bionemo.testing.callbacks import MetricTracker
 from bionemo.testing.data.load import load
-from bionemo.testing.utils import assert_matrix_correlation_above_value, assert_matrix_mape_below_value
+from bionemo.testing.utils import (
+    assert_matrix_correlation_above_value,
+    assert_matrix_mape_below_value,
+)
 
 
-bionemo2_root: Path = (
-    # geneformer module's path is the most dependable --> don't expect this to change!
-    Path(geneformer.__file__)
-    # This gets us from 'sub-packages/bionemo-geneformer/src/bionemo/geneformer/__init__.py' to 'sub-packages/bionemo-geneformer'
-    .parent.parent.parent.parent
-    # From here, we want to get to the root of the repository: _before_ sub-packages/
-    .parent.parent
-).absolute()
-assert bionemo2_root != Path("/")
 nemo1_checkpoint_path: Path = load("geneformer/qa")
-nemo1_release_checkpoint_path: Path = load("geneformer/10M_240530")
+nemo1_release_checkpoint_path: Path = load("geneformer/10M_240530:1.0")
+nemo2_release_checkpoint_path: Path = load("geneformer/10M_240530:2.0")
 nemo_1_per_layer_outputs_path: Path = load("single_cell/nemo1-geneformer-per-layer-outputs")
 nemo_1_expected_values_path: Path = load("single_cell/nemo1-geneformer-golden-vals")
 data_path: Path = load("single_cell/testdata-20240506") / "cellxgene_2023-12-15_small" / "processed_data"
@@ -124,7 +121,8 @@ CELLS_FOR_TEST: List[List[str]] = [
 ]
 
 MODEL_PRECISION: str = "bf16-mixed"
-USE_TE: bool = False  # TODO use this for high level decisions around whether we're ready to switch to TE
+USE_TE: bool = True
+TARGET_MEAN_LOSS: float = 2.368649959564209
 
 
 @pytest.fixture()
@@ -160,16 +158,14 @@ def geneformer_config():
         layernorm_epsilon=1.0e-12,
         activation_func=F.gelu,  # TODO(@jstjohn) check this
         qk_layernorm=False,  # TODO(@jstjohn) check this
-        apply_residual_connection_post_layernorm=True,  # False is new default, True was BERT pub.
+        apply_residual_connection_post_layernorm=False,  # False is new default, True was BERT pub.
         bias_activation_fusion=True,  # TODO(@jstjohn) check this
         bias_dropout_fusion=True,  # TODO(@jstjohn) check this
-        get_attention_mask_from_fusion=False,
-        attention_dropout=0.1,
+        get_attention_mask_from_fusion=True,
+        attention_dropout=0.1,  # historically ignored in nemo1, always set to 0.1
         share_embeddings_and_output_weights=True,
         enable_autocast=False,  # This has to be set to True if we use the mixed precision plugin
-        biobert_spec_option=BiobertSpecOption.bert_layer_with_transformer_engine_spec
-        if USE_TE
-        else BiobertSpecOption.bert_layer_local_spec,
+        biobert_spec_option=BiobertSpecOption.bert_layer_with_transformer_engine_spec,
         nemo1_ckpt_path=str(nemo1_checkpoint_path),
         return_only_hidden_states=True,  # This is what we did in nemo1 for inference
     )
@@ -203,11 +199,6 @@ class BatchPredictionWriter(BasePredictionWriter, pl.Callback):
             batch_indices,
             os.path.join(self.output_dir, f"batch_indices__rank_{trainer.global_rank}__batch_{batch_idx}.pt"),
         )
-
-
-def test_bionemo2_rootdir():
-    assert (bionemo2_root / "sub-packages").exists(), "Could not find bionemo2 root directory."
-    assert (bionemo2_root / "sub-packages").is_dir(), "sub-packages is supposed to be a directory."
 
 
 def test_nemo1_nemo2_weight_shapes_match(geneformer_config, seed: int = 42):
@@ -439,7 +430,7 @@ def test_geneformer_nemo1_v_nemo2_inference_golden_values(
             micro_batch_size=3,
             global_batch_size=3,
             seq_len=16,
-            output_log=False,
+            output_log=False,  # this is needed for predict step to work
         ),
     )
     trainer = nl.Trainer(
@@ -458,7 +449,7 @@ def test_geneformer_nemo1_v_nemo2_inference_golden_values(
             bf16=geneformer_config.bf16,
         )
     )
-    module = BioBertLightningModule(config=geneformer_config, tokenizer=tokenizer, optimizer=optimizer)
+    module = biobert_lightning_module(config=geneformer_config, tokenizer=tokenizer, optimizer=optimizer)
 
     dataloader = torch.utils.data.DataLoader(_DummyDataSet(cells, tokenizer), batch_size=3, num_workers=0)
     with megatron_parallel_state_utils.distributed_model_parallel_state(seed):
@@ -538,7 +529,7 @@ def test_distributed_inference_workflow(tmpdir, geneformer_config, cells: List[L
             bf16=geneformer_config.bf16,
         )
     )
-    module = BioBertLightningModule(config=geneformer_config, tokenizer=tokenizer, optimizer=optimizer)
+    module = biobert_lightning_module(config=geneformer_config, tokenizer=tokenizer, optimizer=optimizer)
 
     dataloader = torch.utils.data.DataLoader(_DummyDataSet(cells, tokenizer), batch_size=1, num_workers=0)
     with megatron_parallel_state_utils.distributed_model_parallel_state(seed):
@@ -865,8 +856,33 @@ def test_inference_loss_10m_released_checkpoint(geneformer_config: GeneformerCon
     #  the target is defined as described above for the 10M checkpoint based on our first pass
     #  of the megatron implementation. Since we manually passed experiment 1 this experiment
     #  will define our initial "golden value" test target.
-    target: float = 2.368649959564209
-    assert mean_loss < target or mean_loss == pytest.approx(target, abs=1e-2, rel=None)
+    assert mean_loss < TARGET_MEAN_LOSS or mean_loss == pytest.approx(TARGET_MEAN_LOSS, abs=1e-2, rel=None)
+
+
+def test_inference_loss_10m_nemo2_released_checkpoint(geneformer_config: GeneformerConfig, seed: int = 42):
+    """Test that we get a good loss when loading a bionemo1 checkpoint with a properly initialized config"""
+    geneformer_config_logit = deepcopy(geneformer_config)
+    # Set up the model to return logits and switch to the released 10M checkpoint
+    geneformer_config_logit.set_hparam("return_only_hidden_states", False)  # return logits
+    geneformer_config_logit.set_hparam(
+        "initial_ckpt_path", nemo2_release_checkpoint_path
+    )  # release checkpoint is important
+
+    mean_loss = _get_loss_from_model(geneformer_config_logit, seed)
+
+    # NOTE: the values in the table were from the average of averages of 8 sized batches
+    # Experiment 1) loaded the 10M model and did the mean of mean loss with 8 sized batches
+    #  this gives: 2.3558831214904785 vs 2.357126723703872, so we actually do better!
+    # For NVIDIA employees see work here:
+    #   https://docs.google.com/document/d/1CofamqHbQlp5U8SjmW7NR7PbTbF72Lj9L9xz1W5t3ZI/edit
+    # Experiment 2)
+    #  With a proper loss (sum/n) and limiting to 200 _random_ batches of size 8 for speed
+    #  we get a similar range number of 2.368649959564209.
+    #  a small change that has lower impact than the change between models is probably acceptable.
+    #  the target is defined as described above for the 10M checkpoint based on our first pass
+    #  of the megatron implementation. Since we manually passed experiment 1 this experiment
+    #  will define our initial "golden value" test target.
+    assert mean_loss < TARGET_MEAN_LOSS or mean_loss == pytest.approx(TARGET_MEAN_LOSS, abs=1e-2, rel=None)
 
 
 def test_inference_loss_10m_released_checkpoint_wrong_activation(geneformer_config: GeneformerConfig, seed: int = 42):
@@ -901,6 +917,7 @@ def _train_model_get_ckpt(
     config: GeneformerConfig,
     n_steps_train: int,
     batch_size: int,
+    peft: PEFT | None = None,
 ) -> Tuple[Path, MetricTracker, nl.Trainer]:
     data_error_str = "Please download test data with:\n`python scripts/download_artifacts.py --models all --model_dir ./models --data all --data_dir ./ --verbose --source pbss`"
     data_dir = Path(data_path)
@@ -935,18 +952,17 @@ def _train_model_get_ckpt(
     )
 
     checkpoint_callback = nl_callbacks.ModelCheckpoint(
-        save_best_model=False,
         save_last=True,
         save_on_train_epoch_end=True,
         monitor="reduced_train_loss",  # TODO find out how to get val_loss logged and use "val_loss",
         every_n_train_steps=n_steps_train // 2,
-        enable_nemo_ckpt_io=True,  # Enables the .nemo file-like checkpointing where all IOMixins are under SerDe
+        always_save_context=True,  # Enables the .nemo file-like checkpointing where all IOMixins are under SerDe
     )
     save_dir = root_dir / name
     tb_logger = TensorBoardLogger(save_dir=save_dir, name=name)
     # Setup the logger and train the model
     nemo_logger = NeMoLogger(
-        dir=str(root_dir),
+        log_dir=str(root_dir),
         name=name,
         tensorboard=tb_logger,
         ckpt=checkpoint_callback,
@@ -962,16 +978,19 @@ def _train_model_get_ckpt(
             bf16=config.bf16,
         )
     )
-    module = BioBertLightningModule(config=config, tokenizer=tokenizer, optimizer=optimizer)
+    module = biobert_lightning_module(config=config, tokenizer=tokenizer, optimizer=optimizer, model_transform=peft)
 
     strategy = nl.MegatronStrategy(
         tensor_model_parallel_size=1,
         pipeline_model_parallel_size=1,
         ddp="megatron",
         find_unused_parameters=True,
-        enable_nemo_ckpt_io=True,
+        always_save_context=True,
     )
     metric_tracker = MetricTracker(metrics_to_track_val=["loss"], metrics_to_track_train=["loss"])
+    callbacks = [metric_tracker]
+    if peft is not None:
+        callbacks.append(ModelTransform())
     trainer = nl.Trainer(
         accelerator="gpu",
         devices=1,
@@ -981,7 +1000,7 @@ def _train_model_get_ckpt(
         max_steps=n_steps_train,
         num_nodes=1,
         log_every_n_steps=n_steps_train // 2,
-        callbacks=[LossLoggingCallback(), metric_tracker],
+        callbacks=callbacks,
         plugins=nl.MegatronMixedPrecision(precision=MODEL_PRECISION),
     )
     nllm.train(
@@ -990,7 +1009,6 @@ def _train_model_get_ckpt(
         trainer=trainer,
         log=nemo_logger,
         resume=resume.AutoResume(
-            path=None,  # Overrides the path found by resume_if_exists when set.
             resume_if_exists=True,  # Looks for the -last checkpoint to continue training.
             resume_ignore_no_checkpoint=True,  # When false this will throw an error with no existing checkpoint.
         ),
@@ -1025,9 +1043,10 @@ def test_continue_from_checkpoint_geneformer(
             n_steps_train=n_steps_train,
             batch_size=batch_size,
         )
-        assert ckpt_path.exists()
-        assert ckpt_path.is_dir()
-        assert io.is_distributed_ckpt(ckpt_path)
+        weights_ckpt = ckpt_path / "weights"
+        assert weights_ckpt.exists()
+        assert weights_ckpt.is_dir()
+        assert io.is_distributed_ckpt(weights_ckpt)
         assert initial_trainer.model.config.num_layers == n_layers_test
         assert initial_metrics.collection_train["loss"][0] > initial_metrics.collection_train["loss"][-1]
     with megatron_parallel_state_utils.distributed_model_parallel_state(43):
@@ -1042,9 +1061,10 @@ def test_continue_from_checkpoint_geneformer(
             n_steps_train=n_steps_train,
             batch_size=batch_size,
         )
-        assert continue_checkpoint.exists()
-        assert continue_checkpoint.is_dir()
-        assert io.is_distributed_ckpt(continue_checkpoint)
+        weights_ckpt = ckpt_path / "weights"
+        assert weights_ckpt.exists()
+        assert weights_ckpt.is_dir()
+        assert io.is_distributed_ckpt(weights_ckpt)
         assert continue_trainer.model.config.num_layers == n_layers_test
         assert continue_metrics.collection_train["loss"][0] > continue_metrics.collection_train["loss"][-1]
         assert sum(continue_metrics.collection_train["loss"][:5]) < sum(initial_metrics.collection_train["loss"][-5:])
@@ -1076,9 +1096,10 @@ def test_finetune_geneformer(
             n_steps_train=n_steps_train,
             batch_size=batch_size,
         )
-        assert ckpt_path.exists()
-        assert ckpt_path.is_dir()
-        assert io.is_distributed_ckpt(ckpt_path)
+        weights_ckpt = ckpt_path / "weights"
+        assert weights_ckpt.exists()
+        assert weights_ckpt.is_dir()
+        assert io.is_distributed_ckpt(weights_ckpt)
         assert initial_trainer.model.config.num_layers == n_layers_test
         assert initial_metrics.collection_train["loss"][0] > initial_metrics.collection_train["loss"][-1]
     with megatron_parallel_state_utils.distributed_model_parallel_state(43):
@@ -1093,8 +1114,70 @@ def test_finetune_geneformer(
             n_steps_train=n_steps_train,
             batch_size=batch_size,
         )
-        assert simple_ft_checkpoint.exists()
-        assert simple_ft_checkpoint.is_dir()
-        assert io.is_distributed_ckpt(simple_ft_checkpoint)
+        weights_ckpt = simple_ft_checkpoint / "weights"
+        assert weights_ckpt.exists()
+        assert weights_ckpt.is_dir()
+        assert io.is_distributed_ckpt(weights_ckpt)
         assert ft_trainer.model.config.num_layers == n_layers_test
         assert simple_ft_metrics.collection_train["loss"][0] > simple_ft_metrics.collection_train["loss"][-1]
+
+
+@pytest.mark.needs_gpu
+@pytest.mark.skip(reason="PEFT currently broken with fusions activated.")
+def test_finetune_geneformer_with_peft(
+    tmpdir, geneformer_config: GeneformerConfig, n_layers_test: int = 3, n_steps_train: int = 50, batch_size: int = 16
+):
+    base_geneformer_config = io.reinit(geneformer_config)  # generate a new copy by calling the cached init.
+
+    # Modify both the variable and associated saved init hyper-param by calling config.mutate(...)
+    base_geneformer_config.set_hparam("return_only_hidden_states", False)
+    base_geneformer_config.set_hparam("nemo1_ckpt_path", None)
+    base_geneformer_config.set_hparam("num_layers", n_layers_test)  # set to 3 layers
+    base_geneformer_config.set_hparam("hidden_size", 128)
+    base_geneformer_config.set_hparam("ffn_hidden_size", 256)
+    # Re-initialize after manually updating hidden_size/ffn_hidden_size since so many other parameters
+    #  are based off of these parameters and modified in post_init of the transformer config.
+    base_geneformer_config = io.reinit(base_geneformer_config)
+    assert base_geneformer_config.num_layers == n_layers_test
+    assert base_geneformer_config.nemo1_ckpt_path is None
+    assert not base_geneformer_config.return_only_hidden_states
+    with megatron_parallel_state_utils.distributed_model_parallel_state(32):
+        ckpt_path, initial_metrics, initial_trainer = _train_model_get_ckpt(
+            name="test_experiment",
+            root_dir=tmpdir / "pretrain",
+            config=base_geneformer_config,
+            n_steps_train=n_steps_train,
+            batch_size=batch_size,
+        )
+        weights_ckpt = ckpt_path / "weights"
+        assert weights_ckpt.exists()
+        assert weights_ckpt.is_dir()
+        assert io.is_distributed_ckpt(weights_ckpt)
+        assert initial_trainer.model.config.num_layers == n_layers_test
+        assert initial_metrics.collection_train["loss"][0] > initial_metrics.collection_train["loss"][-1]
+    with megatron_parallel_state_utils.distributed_model_parallel_state(43):
+        ft_geneformer_config = FineTuneSeqLenBioBertConfig(
+            # All other hparams will be pulled from this checkpoint, aside from those in `override_parent_fields``
+            initial_ckpt_path=str(ckpt_path),
+        )
+        peft = LoRAForGeneFormerTokenRegressor()
+        simple_ft_checkpoint, simple_ft_metrics, ft_trainer = _train_model_get_ckpt(
+            name="finetune_new_head",
+            root_dir=tmpdir / "finetune_new_head",  # new checkpoint will land in a subdir of this
+            config=ft_geneformer_config,  # same config as before since we are just continuing training
+            n_steps_train=n_steps_train,
+            batch_size=batch_size,
+            peft=peft,
+        )
+        weights_ckpt = simple_ft_checkpoint / "weights"
+        assert weights_ckpt.exists()
+        assert weights_ckpt.is_dir()
+        assert io.is_distributed_ckpt(weights_ckpt)
+        assert ft_trainer.model.config.num_layers == n_layers_test
+        assert simple_ft_metrics.collection_train["loss"][0] > simple_ft_metrics.collection_train["loss"][-1]
+
+        model = ft_trainer.model[0].module.module.module
+        assert all(not p.requires_grad for p in model.embedding.parameters())
+        assert all(not p.requires_grad for name, p in model.encoder.named_parameters() if "adapter" not in name)
+        assert all(p.requires_grad for name, p in model.encoder.named_parameters() if "adapter" in name)
+        assert all(p.requires_grad for p in model.regression_head.parameters())

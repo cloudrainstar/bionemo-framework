@@ -7,6 +7,7 @@
         "botocore",
         "docstrings",
         "dtype",
+        "Knowledgebase",
         "NBVAL",
         "nemo",
         "ngcsdk",
@@ -15,10 +16,12 @@
         "pretraining",
         "pydantic",
         "rampup",
+        "Resampler",
         "resamplers",
         "singlecell",
         "tqdm",
-        "uniref"
+        "uniref",
+        "upsampling"
     ],
     "editor.rulers": [
         120

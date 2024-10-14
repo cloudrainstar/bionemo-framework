@@ -1,19 +1,52 @@
-# Getting Started
+---
+hide:
+  - navigation
+---
 
-## Initializing 3rd-party dependencies as git submodules
 
-For development, the NeMo and Megatron-LM dependencies are vendored in the bionemo-2 repository workspace as git
-submodules. The pinned commits for these submodules represent the "last-known-good" versions of these packages that are
-confirmed to be working with bionemo2 (and those that are tested in CI).
+**NVIDIA BioNeMo Framework** is a collection of programming tools, libraries, and models for computational drug
+discovery. It accelerates the most time-consuming and costly stages of building and adapting biomolecular AI models by
+providing domain-specific, optimized models and tooling that are easily integrated into GPU-based computational
+resources for the fastest performance on the market. You can access BioNeMo Framework as a free community resource or
+learn more about getting an enterprise license for improved expert-level support at the
+[BioNeMo homepage](https://www.nvidia.com/en-us/clara/bionemo/).
 
-To initialize these sub-modules when cloning the repo, add the `--recursive` flag to the git clone command:
 
-```bash
-git clone --recursive git@github.com:NVIDIA/bionemo-fw-ea.git
-```
+<div class="grid cards" markdown>
 
-To download the pinned versions of these submodules within an existing git repository, run
+-   :material-book-open-variant:{ .lg } __User Guide__
 
-```bash
-git submodule update --init --recursive
-```
+    ---
+
+    Install BioNeMo and set up your environment to start accelerating your bioinformatics workflows.
+
+    [Get Started](user-guide){ .md-button .md-button }
+
+-   :material-code-greater-than:{ .lg } __API Reference__
+
+    ---
+
+    Access comprehensive documentation on BioNeMo's sub-packages, functions, and classes.
+
+    [API Reference](API_reference/bionemo/core/api/){ .md-button .md-button }
+
+-   :material-cube-outline:{ .lg } __Models__
+
+    ---
+
+    Explore detailed instructions and best practices for using BioNeMo models in your research.
+
+    [Explore Models](models){ .md-button .md-button }
+
+
+
+-   :material-database-outline:{ .lg } __Datasets__
+
+    ---
+
+    Explore biomolecular datasets that come pre-packaged with the BioNeMo Framework.
+
+    [Explore Datasets](datasets){ .md-button .md-button }
+
+
+</div>

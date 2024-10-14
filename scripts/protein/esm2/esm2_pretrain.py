@@ -13,10 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import argparse
 from pathlib import Path
-from typing import Optional, Sequence, get_args
+from typing import List, Optional, Sequence, get_args
 
 from megatron.core.optimizer import OptimizerConfig
 from nemo import lightning as nl
@@ -29,10 +28,11 @@ from pytorch_lightning.callbacks import LearningRateMonitor, RichModelSummary
 from bionemo.core.utils.dtypes import PrecisionTypes, get_autocast_dtype
 from bionemo.esm2.api import ESM2Config
 from bionemo.esm2.data.datamodule import ESMDataModule
+from bionemo.esm2.data.dataset import RandomMaskStrategy
 from bionemo.esm2.data.tokenizer import get_tokenizer
 from bionemo.esm2.model.lr_scheduler import WarmupAnnealDecayHoldScheduler
-from bionemo.llm.lightning import LossLoggingCallback
-from bionemo.llm.model.biobert.lightning import BioBertLightningModule
+from bionemo.llm.lightning import PerplexityLoggingCallback
+from bionemo.llm.model.biobert.lightning import biobert_lightning_module
 from bionemo.llm.model.biobert.model import BiobertSpecOption
 from bionemo.llm.utils.datamodule_utils import float_or_int_or_none, infer_global_batch_size
 from bionemo.llm.utils.logger_utils import WandbLoggerOptions, setup_nemo_lightning_logger
@@ -48,10 +48,9 @@ def main(
     valid_database_path: Path,
     num_nodes: int,
     devices: int,
-    seq_length: int,
+    min_seq_length: Optional[int],
+    max_seq_length: int,
     result_dir: Path,
-    wandb_project: Optional[str],
-    wandb_offline: bool,
     num_steps: int,
     warmup_steps: int,
     limit_val_batches: int,
@@ -64,7 +63,16 @@ def main(
     experiment_name: str,
     resume_if_exists: bool,
     precision: PrecisionTypes,
-    wandb_entity: str = "clara-discovery",
+    wandb_entity: Optional[str] = None,
+    wandb_project: Optional[str] = None,
+    wandb_offline: bool = False,
+    wandb_tags: Optional[List[str]] = None,
+    wandb_group: Optional[str] = None,
+    wandb_id: Optional[str] = None,
+    wandb_anonymous: Optional[bool] = False,
+    wandb_log_model: bool = False,
+    pipeline_model_parallel_size: int = 1,
+    tensor_model_parallel_size: int = 1,
     create_tensorboard_logger: bool = False,
     nemo1_init_path: Optional[Path] = None,
     restore_from_checkpoint_path: Optional[str] = None,
@@ -73,6 +81,11 @@ def main(
     metric_to_monitor_for_checkpoints: str = "val_loss",
     save_top_k: int = 2,
     save_every_n_steps: int = 100,
+    nsys_profiling: bool = False,
+    nsys_start_step: int = 0,
+    nsys_end_step: Optional[int] = None,
+    nsys_ranks: List[int] = [0],
+    random_mask_strategy: RandomMaskStrategy = RandomMaskStrategy.ALL_TOKENS,
     num_layers: int = 33,
     hidden_size: int = 1280,
     num_attention_heads: int = 20,
@@ -89,8 +102,14 @@ def main(
         devices (int): number of devices
         seq_length (int): sequence length
         result_dir (Path): directory to store results, logs and checkpoints
-        wandb_project (Optional[str]): weights and biases project name
-        wandb_offline (bool): if wandb should happen in offline mode
+        wandb_entity (str): The team posting this run (default: your username or your default team)
+        wandb_project (str): The name of the project to which this run will belong.
+        wandb_tags (List[str]): Tags associated with this run.
+        wandb_group (str): A unique string shared by all runs in a given group
+        wandb_offline (bool): Run offline (data can be streamed later to wandb servers).
+        wandb_id (str): Sets the version, mainly used to resume a previous run.
+        wandb_anonymous (bool): Enables or explicitly disables anonymous logging.
+        wandb_log_model (bool): Save checkpoints in wandb dir to upload on W&B servers.
         num_steps (int): number of steps to train the model for
         limit_val_batches (int): limit the number of validation global batches to this many
         val_check_interval (int): number of steps to periodically check the validation loss and save num_dataset_workers (
@@ -101,17 +120,14 @@ def main(
         experiment_name (str): experiment name, this is the name used for the wandb run, and the sub-directory of the
             result_dir that stores the logs and checkpoints.
         resume_if_exists (bool): attempt to resume if the checkpoint exists [FIXME @skothenhill this doesn't work yet]
-        wandb_entity (str): the group to use for the wandb run, sometimes called a team, could also be your username
         create_tensorboard_logger (bool): create the tensorboard logger
         restore_from_checkpoint_path (path): If set, restores the model from the directory passed in. Expects the
-            checkpoint to be created by using the ModelCheckpoint class and enable_nemo_ckpt_io=True.
+            checkpoint to be created by using the ModelCheckpoint class and always_save_context=True.
     """
     # Create the result directory if it does not exist.
     result_dir.mkdir(parents=True, exist_ok=True)
 
     # Setup the strategy and trainer
-    pipeline_model_parallel_size = 1
-    tensor_model_parallel_size = 1
     global_batch_size = infer_global_batch_size(
         micro_batch_size=micro_batch_size,
         num_nodes=num_nodes,
@@ -129,6 +145,8 @@ def main(
         ckpt_include_optimizer=True,
     )
 
+    # for wandb integration
+    # Please refer to https://pytorch-lightning.readthedocs.io/en/0.7.6/api/pytorch_lightning.loggers.html"
     wandb_options: Optional[WandbLoggerOptions] = (
         None
         if wandb_project is None
@@ -136,9 +154,28 @@ def main(
             offline=wandb_offline,
             project=wandb_project,
             entity=wandb_entity,
-            log_model=False,
+            tags=wandb_tags,
+            group=wandb_group,
+            id=wandb_id,
+            anonymous=wandb_anonymous,
+            log_model=wandb_log_model,
         )
     )
+
+    callbacks = [
+        PerplexityLoggingCallback(log_train=False, log_val=True),
+        RichModelSummary(max_depth=4),
+        LearningRateMonitor(),
+    ]
+    if nsys_profiling:
+        if nsys_end_step is None:
+            nsys_end_step = num_steps
+        callbacks.append(
+            nl_callbacks.NsysCallback(
+                start_step=nsys_start_step, end_step=nsys_end_step, ranks=nsys_ranks, gen_shape=True
+            )
+        )
+
     trainer = nl.Trainer(
         devices=devices,
         max_steps=num_steps,
@@ -147,11 +184,7 @@ def main(
         limit_val_batches=limit_val_batches,  # This controls upsampling and downsampling
         val_check_interval=val_check_interval,
         num_nodes=num_nodes,
-        callbacks=[
-            LossLoggingCallback(),
-            RichModelSummary(max_depth=4),
-            LearningRateMonitor(),
-        ],
+        callbacks=callbacks,
         plugins=nl.MegatronMixedPrecision(precision=precision),
     )
 
@@ -165,14 +198,15 @@ def main(
         valid_database_path=valid_database_path,
         global_batch_size=global_batch_size,
         micro_batch_size=micro_batch_size,
-        min_seq_length=None,
-        max_seq_length=seq_length,
+        min_seq_length=min_seq_length,
+        max_seq_length=max_seq_length,
         num_workers=num_dataset_workers,
+        random_mask_strategy=random_mask_strategy,
     )
 
     # Configure the model
     esm2_config = ESM2Config(
-        seq_length=seq_length,
+        seq_length=max_seq_length,
         num_layers=num_layers,
         hidden_size=hidden_size,
         num_attention_heads=num_attention_heads,
@@ -181,10 +215,13 @@ def main(
         pipeline_dtype=get_autocast_dtype(precision),
         autocast_dtype=get_autocast_dtype(precision),  # setting this speeds things up a lot
         biobert_spec_option=biobert_spec_option,
-        nemo1_ckpt_path=nemo1_init_path,
+        nemo1_ckpt_path=str(nemo1_init_path) if nemo1_init_path is not None else None,
+        # handle checkpoint resumption here rather than auto-resume so this supports fine-tuning capabilities
+        initial_ckpt_path=str(restore_from_checkpoint_path) if restore_from_checkpoint_path is not None else None,
+        variable_seq_lengths=min_seq_length != max_seq_length,
     )
 
-    model = BioBertLightningModule(
+    model = biobert_lightning_module(
         esm2_config,
         tokenizer=tokenizer,
         optimizer=MegatronOptimizerModule(
@@ -204,12 +241,11 @@ def main(
 
     # Configure our custom Checkpointer
     checkpoint_callback = nl_callbacks.ModelCheckpoint(
-        save_best_model=save_best_checkpoint,
         save_last=save_last_checkpoint,
         monitor=metric_to_monitor_for_checkpoints,  # "val_loss",
         save_top_k=save_top_k,
         every_n_train_steps=save_every_n_steps,
-        enable_nemo_ckpt_io=True,  # Enables the .nemo file-like checkpointing where all IOMixins are under SerDe
+        always_save_context=True,  # Enables the .nemo file-like checkpointing where all IOMixins are under SerDe
     )
 
     # Setup the logger and train the model
@@ -227,7 +263,6 @@ def main(
         trainer=trainer,
         log=nemo_logger,
         resume=resume.AutoResume(
-            path=restore_from_checkpoint_path,  # Overrides the path found by resume_if_exists when set.
             resume_if_exists=resume_if_exists,  # Looks for the -last checkpoint to continue training.
             resume_ignore_no_checkpoint=True,  # When false this will throw an error with no existing checkpoint.
         ),
@@ -288,14 +323,21 @@ parser.add_argument(
     "--result-dir", type=Path, required=False, default=Path("./results"), help="Path to the result directory."
 )
 parser.add_argument("--experiment-name", type=str, required=False, default="esm2", help="Name of the experiment.")
-parser.add_argument("--wandb-offline", action="store_true", default=False, help="Use wandb in offline mode.")
+
+parser.add_argument("--wandb-entity", type=str, default=None, help="The team posting this run")
+parser.add_argument("--wandb-project", type=str, default=None, help="Wandb project name ")
+parser.add_argument("--wandb-tags", nargs="+", type=str, default=None, help="Tags associated with this run")
 parser.add_argument(
-    "--wandb-project",
-    type=str,
-    required=False,
-    default=None,
-    help="Wandb project name. Wandb will only happen if this is set.",
+    "--wandb-group", type=str, default=None, help="A unique string shared by all runs in a given group"
 )
+parser.add_argument(
+    "--wandb-id", type=str, default=None, help="Sets the version, mainly used to resume a previous run"
+)
+parser.add_argument("--wandb-anonymous", action="store_true", help="Enable or explicitly disable anonymous logging")
+parser.add_argument(
+    "--wandb-log-model", action="store_true", help="Save checkpoints in wandb dir to upload on W&B servers"
+)
+parser.add_argument("--wandb-offline", action="store_true", help="Use wandb in offline mode")
 parser.add_argument(
     "--num-gpus",
     type=int,
@@ -339,11 +381,18 @@ parser.add_argument(
     help="Number of steps between validation. Default is 10000.",
 )
 parser.add_argument(
-    "--seq-length",
+    "--min-seq-length",
+    type=float_or_int_or_none,
+    required=False,
+    default=1024,
+    help="Minimum sequence length. Sampled will be padded if less than this value. Set 'None' to unset minimum.",
+)
+parser.add_argument(
+    "--max-seq-length",
     type=int,
     required=False,
     default=1024,
-    help="Sequence length of cell. Default is 1024.",
+    help="Maximum sequence length. Samples will be truncated if exceeds this value.",
 )
 parser.add_argument(
     "--limit-val-batches",
@@ -360,6 +409,20 @@ parser.add_argument(
     help="Micro-batch size. Global batch size is inferred from this.",
 )
 parser.add_argument(
+    "--pipeline-model-parallel-size",
+    type=int,
+    required=False,
+    default=1,
+    help="Pipeline model parallel size. Default is 1.",
+)
+parser.add_argument(
+    "--tensor-model-parallel-size",
+    type=int,
+    required=False,
+    default=1,
+    help="Tensor model parallel size. Default is 1.",
+)
+parser.add_argument(
     "--accumulate-grad-batches",
     type=int,
     required=False,
@@ -371,8 +434,8 @@ parser.add_argument(
     type=BiobertSpecOption,
     choices=[e.value for e in BiobertSpecOption],
     required=False,
-    default=BiobertSpecOption.esm2_bert_layer_local_spec.value,
-    help="Biobert spec option to use for the model. Default is 'esm2_bert_layer_local_spec'.",
+    default=BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec.value,
+    help="Biobert spec option to use for the model. Default is 'esm2_bert_layer_with_transformer_engine_spec'.",
 )
 parser.add_argument(
     "--nemo1-init-path",
@@ -387,10 +450,24 @@ parser.add_argument(
     help="Save the best checkpoint based on the metric to monitor.",
 )
 parser.add_argument(
+    "--no-save-best-checkpoint",
+    action="store_false",
+    default=True,
+    dest="save_best_checkpoint",
+    help="Disable saving the best checkpoint based on the metric to monitor.",
+)
+parser.add_argument(
     "--save-last-checkpoint",
     action="store_true",
     default=True,
     help="Save the last checkpoint.",
+)
+parser.add_argument(
+    "--no-save-last-checkpoint",
+    action="store_false",
+    dest="save_last_checkpoint",
+    default=True,
+    help="Disable saving the last checkpoint.",
 )
 parser.add_argument(
     "--metric-to-monitor-for-checkpoints",
@@ -413,8 +490,45 @@ parser.add_argument(
     default=None,
     help="Path to the checkpoint directory to restore from. Will override `--resume-if-exists` when set.",
 )
+parser.add_argument(
+    "--nsys-profiling",
+    action="store_true",
+    default=False,
+    help="Enable targeted `nsys` profiling on the training loop for a defined step range. To actually get profiling output you must run the whole program with `nsys`. For example: "
+    " `nsys profile -s none -o output_report_name -t cuda,nvtx --force-overwrite true --capture-range=cudaProfilerApi --capture-range-end=stop  [regular python command here]`",
+)
+# start, end, rank
+parser.add_argument(
+    "--nsys-start-step",
+    type=int,
+    required=False,
+    default=0,
+    help="Start nsys profiling after this step.",
+)
+parser.add_argument(
+    "--nsys-end-step",
+    type=int,
+    required=False,
+    help="End nsys profiling after this step.",
+)
+# rank as list of integers
+parser.add_argument(
+    "--nsys-ranks",
+    type=int,
+    nargs="+",
+    required=False,
+    default=[0],
+    help="Enable nsys profiling for these ranks.",
+)
 
 # ESM2 specific configuration (default: 650M)
+parser.add_argument(
+    "--random-mask-strategy",
+    type=RandomMaskStrategy,
+    choices=[e.value for e in RandomMaskStrategy],
+    default=RandomMaskStrategy.ALL_TOKENS.value,
+    help=f"""In ESM2 pretraining, 15%% of all tokens are masked and among which 10%% are replaced with a random token. This class controls the set of random tokens to choose from. Options are: '{"', '".join([e.value for e in RandomMaskStrategy])}'. Note that 'all_token' will introduce non-canonical amino acid tokens as effective mask tokens, and the resultant loss will appear lower than that from 'amino_acids_only'. Note that 'all_token' is the method used in hugging face as well as portions of fairseq.""",
+)
 parser.add_argument(
     "--num-layers",
     type=int,
@@ -453,9 +567,16 @@ if __name__ == "__main__":
         valid_database_path=args.valid_database_path,
         num_nodes=args.num_nodes,
         devices=args.num_gpus,
-        seq_length=args.seq_length,
+        min_seq_length=args.min_seq_length,
+        max_seq_length=args.max_seq_length,
         result_dir=args.result_dir,
+        wandb_entity=args.wandb_entity,
         wandb_project=args.wandb_project,
+        wandb_tags=args.wandb_tags,
+        wandb_group=args.wandb_group,
+        wandb_id=args.wandb_id,
+        wandb_anonymous=args.wandb_anonymous,
+        wandb_log_model=args.wandb_log_model,
         wandb_offline=args.wandb_offline,
         num_steps=args.num_steps,
         warmup_steps=args.warmup_steps,
@@ -465,6 +586,8 @@ if __name__ == "__main__":
         biobert_spec_option=args.biobert_spec_option,
         lr=args.lr,
         micro_batch_size=args.micro_batch_size,
+        pipeline_model_parallel_size=args.pipeline_model_parallel_size,
+        tensor_model_parallel_size=args.tensor_model_parallel_size,
         accumulate_grad_batches=args.accumulate_grad_batches,
         precision=args.precision,
         experiment_name=args.experiment_name,
@@ -476,6 +599,11 @@ if __name__ == "__main__":
         metric_to_monitor_for_checkpoints=args.metric_to_monitor_for_checkpoints,
         save_top_k=args.save_top_k,
         save_every_n_steps=args.val_check_interval,
+        nsys_profiling=args.nsys_profiling,
+        nsys_start_step=args.nsys_start_step,
+        nsys_end_step=args.nsys_end_step,
+        nsys_ranks=args.nsys_ranks,
+        random_mask_strategy=args.random_mask_strategy,
         num_layers=args.num_layers,
         hidden_size=args.hidden_size,
         num_attention_heads=args.num_attention_heads,

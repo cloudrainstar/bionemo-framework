@@ -17,6 +17,7 @@ from unittest import mock
 
 import pytest
 import torch.utils.data
+from nemo.lightning.data import MegatronPretrainingRandomSampler, MegatronPretrainingSampler
 
 from bionemo.esm2.data.datamodule import ESMDataModule
 from bionemo.llm.utils.datamodule_utils import tensor_dict_hash
@@ -67,7 +68,7 @@ def test_create_esm_datamodule_creates_valid_dataloaders(dummy_protein_dataset, 
         train_database_path=dummy_protein_dataset,
         valid_cluster_path=valid_cluster_path,
         valid_database_path=dummy_protein_dataset,
-        global_batch_size=8,
+        global_batch_size=2,
         micro_batch_size=4,
         min_seq_length=36,
         max_seq_length=36,
@@ -88,8 +89,8 @@ def test_create_esm_datamodule_creates_valid_dataloaders(dummy_protein_dataset, 
     val_dataloader = data_module.val_dataloader()
     assert isinstance(val_dataloader, torch.utils.data.DataLoader)
 
-    assert len(train_dataloader) == 10 * 8  # max steps * global batch size
-    assert len(val_dataloader) == 8  # global batch size; index reset every val epoch
+    assert len(train_dataloader) == 10 * 2  # max steps * global batch size
+    assert len(val_dataloader) == 2  # global batch size; index reset every val epoch
 
     for batch in train_dataloader:
         assert isinstance(batch, dict)
@@ -119,7 +120,7 @@ def test_create_esm_datamodule_creates_valid_dataloaders_with_fractional_limit_v
         train_database_path=dummy_protein_dataset,
         valid_cluster_path=valid_cluster_path,
         valid_database_path=dummy_protein_dataset,
-        global_batch_size=1,
+        global_batch_size=2,
         micro_batch_size=1,
         min_seq_length=36,
         max_seq_length=36,
@@ -140,8 +141,8 @@ def test_create_esm_datamodule_creates_valid_dataloaders_with_fractional_limit_v
     val_dataloader = data_module.val_dataloader()
     assert isinstance(val_dataloader, torch.utils.data.DataLoader)
 
-    assert len(train_dataloader) == 10 * 1  # max steps * global batch size
-    assert len(val_dataloader) == int(2 * 0.5) // 1  # number of validation clusters // global batch size
+    assert len(train_dataloader) == 10 * 2  # max steps * global batch size
+    assert len(val_dataloader) == int(4 * 0.5) // 1  # number of validation clusters // global batch size
 
 
 def test_create_esm_datamodule_creates_valid_dataloaders_fractional_limit_val_batches_smaller_than_global_batch_size(
@@ -168,8 +169,8 @@ def test_create_esm_datamodule_creates_valid_dataloaders_fractional_limit_val_ba
     data_module.trainer.val_check_interval = 2
     data_module.trainer.limit_val_batches = 0.5  # fractional value
 
-    # num_val_cluster * limit_val_batches = 2 * 0.5 = 1 < global_batch_size
-    with pytest.raises(ValueError, match="The limited number of val samples 1 is less than the global batch size 8"):
+    # num_val_cluster * limit_val_batches = 4 * 0.5 = 1 < global_batch_size
+    with pytest.raises(ValueError, match="The limited number of val samples 2 is less than the global batch size 8"):
         data_module.setup()
 
 
@@ -235,7 +236,7 @@ def test_create_esm_datamodule_creates_valid_dataloaders_fractional_limit_val_ba
     assert isinstance(val_dataloader, torch.utils.data.DataLoader)
 
     assert len(train_dataloader) == 10 * 1  # max steps * global batch size
-    assert len(val_dataloader) == int(2 * 0.7) // 1  # number of validation clusters // global batch size
+    assert len(val_dataloader) == int(4 * 0.7) // 1  # number of validation clusters // global batch size
 
 
 def test_create_esm_datamodule_creates_valid_dataloaders_fractional_limit_val_batches_1p0(
@@ -271,7 +272,7 @@ def test_create_esm_datamodule_creates_valid_dataloaders_fractional_limit_val_ba
     assert isinstance(val_dataloader, torch.utils.data.DataLoader)
 
     assert len(train_dataloader) == 10 * 1  # max steps * global batch size
-    assert len(val_dataloader) == 2 // 1  # number of validation clusters // global batch size
+    assert len(val_dataloader) == 4 // 1  # number of validation clusters // global batch size
 
 
 def test_create_esm_datamodule_limit_val_batches_none_equals_limit_val_batches_1p0(
@@ -375,3 +376,87 @@ def test_create_esm_datamodule_valid_dataloaders_has_consistent_samples_per_epoc
         batch_hashes1 = set(batch_hashes1)
         batch_hashes2 = {tensor_dict_hash(batch) for batch in data_module.val_dataloader()}
         assert batch_hashes1 == batch_hashes2
+
+
+def test_create_esm_datamodule_train_dataloaders_with_sequential_epoch_sampling(
+    dummy_protein_dataset, dummy_parquet_train_val_inputs
+):
+    train_cluster_path, valid_cluster_path = dummy_parquet_train_val_inputs
+    micro_batch_size = 2
+
+    # Initialize the data module.
+    data_module = ESMDataModule(
+        train_cluster_path=train_cluster_path,
+        train_database_path=dummy_protein_dataset,
+        valid_cluster_path=valid_cluster_path,
+        valid_database_path=dummy_protein_dataset,
+        global_batch_size=2,
+        micro_batch_size=micro_batch_size,
+        min_seq_length=36,
+        max_seq_length=36,
+        dataloader_type="single",
+    )
+    assert data_module is not None
+
+    data_module.trainer = mock.Mock()
+    data_module.trainer.max_epochs = 1
+    data_module.trainer.max_steps = 10
+    data_module.trainer.val_check_interval = 2
+    data_module.trainer.limit_val_batches = None  # None to use the whole dataset
+    data_module.setup()
+
+    with (
+        mock.patch("megatron.core.parallel_state.get_data_parallel_rank", return_value=0),
+        mock.patch("megatron.core.parallel_state.get_data_parallel_world_size", return_value=1),
+    ):
+        train_dataloader = data_module.data_sampler.transform_dataloader(data_module.train_dataloader())
+
+    assert isinstance(train_dataloader.batch_sampler, MegatronPretrainingSampler)
+
+    batch_hashes1 = [tensor_dict_hash(batch) for batch in train_dataloader]
+    batch_hashes2 = [tensor_dict_hash(batch) for batch in train_dataloader]
+
+    for batch1, batch2 in zip(batch_hashes1, batch_hashes2):
+        assert batch1 == batch2
+
+
+def test_create_esm_datamodule_train_dataloaders_with_random_epoch_sampling(
+    dummy_protein_dataset, dummy_parquet_train_val_inputs
+):
+    train_cluster_path, valid_cluster_path = dummy_parquet_train_val_inputs
+    micro_batch_size = 2
+
+    # Initialize the data module.
+    data_module = ESMDataModule(
+        train_cluster_path=train_cluster_path,
+        train_database_path=dummy_protein_dataset,
+        valid_cluster_path=valid_cluster_path,
+        valid_database_path=dummy_protein_dataset,
+        global_batch_size=2,
+        micro_batch_size=micro_batch_size,
+        min_seq_length=36,
+        max_seq_length=36,
+        dataloader_type="cyclic",
+    )
+    assert data_module is not None
+
+    data_module.trainer = mock.Mock()
+    data_module.trainer.max_epochs = 1
+    data_module.trainer.max_steps = 10
+    data_module.trainer.val_check_interval = 2
+    data_module.trainer.limit_val_batches = None  # None to use the whole dataset
+    data_module.setup()
+
+    with (
+        mock.patch("megatron.core.parallel_state.get_data_parallel_rank", return_value=0),
+        mock.patch("megatron.core.parallel_state.get_data_parallel_world_size", return_value=1),
+    ):
+        train_dataloader = data_module.data_sampler.transform_dataloader(data_module.train_dataloader())
+
+    assert isinstance(train_dataloader.batch_sampler, MegatronPretrainingRandomSampler)
+
+    batch_hashes1 = [tensor_dict_hash(batch) for batch in train_dataloader]
+    batch_hashes2 = [tensor_dict_hash(batch) for batch in train_dataloader]
+
+    for batch1, batch2 in zip(batch_hashes1, batch_hashes2):
+        assert batch1 != batch2
