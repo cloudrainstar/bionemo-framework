@@ -56,10 +56,7 @@ class SingleCellDataset(Dataset):
         max_len (int, optional): The maximum length of the input sequence. Defaults to 1024.
 
     Attributes:
-        data_path (str): Path where the single cell files are stored.
-        h5ad_path: #TODO 
-        use_single_cell_collection: #TODO 
-        h5ad_dir: #TODO  
+        data_path (str): Path where the single cell files are stored in memmap format. 
         max_len (int): The maximum length of the input sequence.
         metadata (dict): Metadata loaded from `metadata.json`.
         gene_medians (dict): A dictionary containing median values for each gene. If None, a median of '1' is assumed for all genes.
@@ -87,8 +84,6 @@ class SingleCellDataset(Dataset):
         self,
         data_path: str,
         tokenizer: Any,
-        h5ad_path: Optional[str] = None,
-        use_single_cell_collection: bool = False,
         median_dict: Optional[dict] = None,
         max_len: int = 1024,
         mask_prob: float = 0.15,
@@ -104,7 +99,6 @@ class SingleCellDataset(Dataset):
 
 
         self.data_path = data_path
-        self.h5ad_path = h5ad_path
         self.max_len = max_len
         self.random_token_prob = random_token_prob
         self.mask_token_prob = mask_token_prob
@@ -114,15 +108,8 @@ class SingleCellDataset(Dataset):
         self.scdl = None
         # check if column indices are increasing for looking up genes. This is a way of spotting if the sc_memmap.py
         #  script produced properly strctured sparse files.
-        self.assert_increasing_columns = assert_increasing_columns
-        if use_single_cell_collection and h5ad_path: 
-            with tempfile.TemporaryDirectory() as temp_dir:
-                coll = SingleCellCollection(temp_dir)
-                coll.load_h5ad_multi(h5ad_path, max_workers=4, use_processes=False)
-                coll.flatten(data_path, destroy_on_copy=True)
-                self.scdl = SingleCellMemMapDataset(data_path) 
-        else: 
-            self.scdl = SingleCellMemMapDataset(data_path, h5ad_path) 
+       
+        self.scdl = SingleCellMemMapDataset(data_path) 
 
     
         # - metadata
@@ -220,7 +207,9 @@ class SingleCellDataset(Dataset):
     def __getitem__(self, idx: int) -> types.BertSample:  # noqa: D105
         rng = np.random.default_rng([self._seed, idx])
         """Performs a lookup and the required transformation for the model"""
-        values, feature_ids = self.scdl.get_row(idx, return_features=True, feature_vars=["feature_id"])
+        values, feature_ids_df = self.scdl.get_row(idx, return_features=True, feature_vars=["feature_id"])
+        feature_ids = feature_ids_df.values.tolist()
+        feature_ids = [f[0] for f in feature_ids]
         gene_data, col_idxs = values[0], values[1]
         # gene_data, col_idxs, feature_ids = self.lookup_cell_by_idx(idx) # needs to be the epoch_idx.idx  # replace with scdl.getrow() 
         return process_item(
@@ -287,8 +276,7 @@ def process_item(  # noqa: D417
     if gene_median is None:
         raise ValueError("gene_median must be provided for this tokenizer")
 
-    max_len = max_len - 1  # - minus 1 for [CLS] token
-
+    max_len = max_len - 1  # - minus 1 for [CLS] token   
     gene_names = [feature_ids[idx] for idx in gene_idxs]
     genes, tokens, medians = [], [], []
     for tok, gene in zip(gene_names, gene_data):
