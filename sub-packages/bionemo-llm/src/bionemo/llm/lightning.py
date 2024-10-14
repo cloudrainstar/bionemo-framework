@@ -147,8 +147,7 @@ class PassthroughLossReduction(MegatronLossReduction, Generic[DataT]):
         Returns:
             A tuple containing the loss tensor (dummy in this case) and the forward output (unmodified).
         """
-        dtype, device = get_dtype_device(forward_out)
-        return torch.zeros(1, device=device, dtype=dtype), forward_out
+        return torch.empty(1, 1), forward_out
 
     def reduce(self, forward_out: List[DataT]) -> DataT:
         """Collates list of model's outputs into a single output."""
@@ -281,8 +280,10 @@ class BionemoLightningModule(
         """In mcore the loss-function is part of the forward-pass when labels are provided."""
         return self.forward_step(batch)
 
-    def predict_step(self, batch, batch_idx: Optional[int] = None) -> Tensor:
+    def predict_step(self, batch, batch_idx: Optional[int] = None) -> Tensor | Dict:
         """Alias for forward_step."""
+        if not batch:
+            return {}
         return self.forward_step(batch)
 
     def training_loss_reduction(self) -> MegatronLossType:

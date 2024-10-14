@@ -250,6 +250,7 @@ class InMemoryPerTokenValueDataset(Dataset):
             "labels": labels,
             "loss_mask": loss_mask,
             "is_random": torch.zeros_like(tokenized_sequence, dtype=torch.int64),
+            "index": index,
         }
 
     def _tokenize_labels(self, labels_sequence: str) -> Tensor:
