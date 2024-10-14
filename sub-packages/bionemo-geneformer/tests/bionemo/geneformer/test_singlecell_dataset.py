@@ -29,7 +29,6 @@ import pathlib
 from unittest.mock import MagicMock
 
 import numpy as np
-import scanpy
 import torch
 
 from bionemo.core.utils import random_utils
@@ -111,6 +110,21 @@ def test_load_sc_h5ad(tmp_path, sc_test_h5ad):
     assert len(dataset) == 2689 
 
 #TODO: add a test for loading in a collated dataset
+
+def test_lookup_row_by_index(tmp_path, sc_test_data_directory): 
+    tokenizer = MagicMock()
+    dataset = SingleCellDataset(tmp_path / sc_test_data_directory, tokenizer)
+    values, feature_ids = dataset.scdl.get_row(0, return_features=True, feature_vars=["feature_id"])
+    gene_data, col_idxs = values[0], values[1]
+    assert  len(gene_data) == 1594
+    assert len(col_idxs) == 1594
+    assert len(feature_ids) == 60664
+
+    values, feature_ids = dataset.scdl.get_row(len(dataset) - 1, return_features=True, feature_vars=["feature_id"])
+    gene_data, col_idxs = values[0], values[1]
+    assert  len(gene_data) == 4930
+    assert len(col_idxs) == 4930
+    assert len(feature_ids) == 60664
 
 def test_dataset_process_item():
     tokenizer = MagicMock()

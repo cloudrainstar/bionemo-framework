@@ -89,7 +89,6 @@ class SingleCellDataset(Dataset):
         tokenizer: Any,
         h5ad_path: Optional[str] = None,
         use_single_cell_collection: bool = False,
-        h5ad_dir: Optional[str] = None, 
         median_dict: Optional[dict] = None,
         max_len: int = 1024,
         mask_prob: float = 0.15,
@@ -116,16 +115,15 @@ class SingleCellDataset(Dataset):
         # check if column indices are increasing for looking up genes. This is a way of spotting if the sc_memmap.py
         #  script produced properly strctured sparse files.
         self.assert_increasing_columns = assert_increasing_columns
-        if use_single_cell_collection and h5ad_dir: 
+        if use_single_cell_collection and h5ad_path: 
             with tempfile.TemporaryDirectory() as temp_dir:
                 coll = SingleCellCollection(temp_dir)
-                coll.load_h5ad_multi(h5ad_dir, max_workers=4, use_processes=False)
+                coll.load_h5ad_multi(h5ad_path, max_workers=4, use_processes=False)
                 coll.flatten(data_path, destroy_on_copy=True)
                 self.scdl = SingleCellMemMapDataset(data_path) 
         else: 
             self.scdl = SingleCellMemMapDataset(data_path, h5ad_path) 
 
-        path = Path(data_path)
     
         # - metadata
         # metadata = json.load(open(path / "metadata.json", "r"))
