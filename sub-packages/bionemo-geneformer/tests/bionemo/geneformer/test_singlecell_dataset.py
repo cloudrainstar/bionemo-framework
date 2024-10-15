@@ -146,6 +146,13 @@ def test_get_item(tmp_path, test_directory):
             logging.error("Preprocessing failed.")
     dataset0 = SingleCellDataset(sc_memmap_dataset_path0, tokenizer, median_dict=median_dict)  # type: ignore
     item = dataset0.__getitem__(0)
+    assert(all(item["text"]) == torch.tensor([0]))
+    assert(all(item["types"]) == torch.tensor([0]))
+    assert(item["attention_mask"][0] == torch.tensor([1]))
+    assert(item["labels"][0] == torch.tensor([-1]))
+    assert(item["loss_mask"][0] == torch.tensor([False]))
+    assert(all(item["is_random"]) == torch.tensor([0]))
+
 
 
 
