@@ -74,3 +74,11 @@ def test_input_directory() -> Path:
 
     return  _test_input_directory
 
+@pytest.fixture
+def test_directory() -> Path:
+    """Gets the path to the single cell directory with test data.
+
+    Returns:
+        A Path object that is the directory with test data.
+    """
+    return load("scdl/sample") / "scdl_data"

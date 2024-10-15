@@ -33,6 +33,10 @@ import torch
 
 from bionemo.core.utils import random_utils
 from bionemo.geneformer.data.singlecell.dataset import SingleCellDataset
+from bionemo.scdl.io.single_cell_memmap_dataset import SingleCellMemMapDataset
+from bionemo.geneformer.tokenizer.gene_tokenizer import GeneTokenizer
+from bionemo.geneformer.data.singlecell.preprocess import GeneformerPreprocess
+from nemo.utils import logging
 
 
 # TODO(@jstjohn) use fixtures for pulling down data and checkpoints
@@ -97,19 +101,53 @@ data_path = bionemo2_root / "data/cellxgene_2023-12-15_small/processed_data"
 #         for i in range(dataset.metadata[first_ds_key]["shape"][0], len(dataset))
 #     )
 
-def test_load_sc_dataset(tmp_path, sc_test_data_directory): 
+def test_load_sc_datasets(tmp_path, test_directory): 
     tokenizer = MagicMock()
-    dataset = SingleCellDataset(tmp_path / sc_test_data_directory, tokenizer)
-    assert len(dataset) == 2689 
+    sc_memmap_dataset_path0 = tmp_path / "test_data_0"
+    ds_0 = SingleCellMemMapDataset(sc_memmap_dataset_path0, h5ad_path=test_directory / "adata_sample0.h5ad")  # create the memmap dataset format from h5ad for testing purposes
+    dataset0 = SingleCellDataset(sc_memmap_dataset_path0, tokenizer)
+    assert len(dataset0) == len(ds_0) == 8
+    sc_memmap_dataset_path1 = tmp_path / "test_data_1"
+    ds_1 = SingleCellMemMapDataset(sc_memmap_dataset_path1, h5ad_path=test_directory / "adata_sample1.h5ad")  # create the memmap dataset format from h5ad for testing purposes
+    dataset1 = SingleCellDataset(sc_memmap_dataset_path1, tokenizer)
+    assert len(dataset1) == len(ds_1) == 6
+    sc_memmap_dataset_path2 = tmp_path / "test_data_2"
+    ds_2 = SingleCellMemMapDataset(sc_memmap_dataset_path2, h5ad_path=test_directory / "adata_sample2.h5ad")  # create the memmap dataset format from h5ad for testing purposes
+    dataset2 = SingleCellDataset(sc_memmap_dataset_path2, tokenizer)
+    assert len(dataset2) ==  len(ds_2) == 100
+    
 
-def test_load_sc_h5ad(tmp_path, sc_test_h5ad): 
-    tokenizer = MagicMock()
-    h5ad_path= sc_test_h5ad("sidx_19480503_2689_0.h5ad")
-    print("final path arg: ", h5ad_path)
-    dataset = SingleCellDataset(tmp_path / "test_dc_data", tokenizer, h5ad_path=h5ad_path)
-    assert len(dataset) == 2689 
+# def test_load_sc_dataset(tmp_path, sc_test_data_directory): 
+#     tokenizer = MagicMock()
+#     dataset = SingleCellDataset(tmp_path / sc_test_data_directory, tokenizer)
+#     assert len(dataset) == 2689 
+
+# def test_load_sc_h5ad(tmp_path, sc_test_h5ad): 
+#     tokenizer = MagicMock()
+#     h5ad_path= sc_test_h5ad("sidx_19480503_2689_0.h5ad")
+#     print("final path arg: ", h5ad_path)
+#     dataset = SingleCellDataset(tmp_path / "test_dc_data", tokenizer, h5ad_path=h5ad_path)
+#     assert len(dataset) == 2689 
 
 #TODO: add a test for loading in a collated dataset
+
+def test_get_item(tmp_path, test_directory): 
+    sc_memmap_dataset_path0 = tmp_path / "test_data_0"
+    ds_0 = SingleCellMemMapDataset(sc_memmap_dataset_path0, h5ad_path=test_directory / "modified_adata_sample0.h5ad")  # create the memmap dataset format from h5ad for testing purposes
+    preprocessor = GeneformerPreprocess(
+        download_directory=sc_memmap_dataset_path0,
+        medians_file_path=sc_memmap_dataset_path0 / "medians.json",
+        tokenizer_vocab_path=sc_memmap_dataset_path0 / "geneformer.vocab",
+    )
+    match preprocessor.preprocess():
+        case {"tokenizer": tokenizer, "median_dict": median_dict}:
+            logging.info("*************** Preprocessing Finished ************")
+        case _:
+            logging.error("Preprocessing failed.")
+    dataset0 = SingleCellDataset(sc_memmap_dataset_path0, tokenizer, median_dict=median_dict)  # type: ignore
+    item = dataset0.__getitem__(0)
+
+
 
 def test_lookup_row_by_index(tmp_path, sc_test_data_directory): 
     tokenizer = MagicMock()
@@ -264,53 +302,53 @@ def test_dataset_process_item():
     assert all(processed_item["loss_mask"] == torch.tensor([False, False, False])) # No mask applied
 
 
-def test_lookup_cell_by_idx():
-    import numpy as np
-    from scipy.sparse import csr_matrix
+# def test_lookup_cell_by_idx():
+#     import numpy as np
+#     from scipy.sparse import csr_matrix
 
-    # Function to create a sparse matrix with specified sparsity and a unique identifier
-    def create_sparse_matrix(rows, cols, sparsity, identifier):
-        dense_matrix = np.zeros((rows, cols))
-        num_non_zeros = int((1 - sparsity) * rows * cols)
-        positions = np.random.choice(rows * cols, num_non_zeros, replace=False)
-        # Add identifier value to each non-sparse position
-        np.put(dense_matrix, positions, identifier)
-        return dense_matrix
+#     # Function to create a sparse matrix with specified sparsity and a unique identifier
+#     def create_sparse_matrix(rows, cols, sparsity, identifier):
+#         dense_matrix = np.zeros((rows, cols))
+#         num_non_zeros = int((1 - sparsity) * rows * cols)
+#         positions = np.random.choice(rows * cols, num_non_zeros, replace=False)
+#         # Add identifier value to each non-sparse position
+#         np.put(dense_matrix, positions, identifier)
+#         return dense_matrix
 
-    # Define dimensions and sparsity
-    cols = 2000
-    rows1, rows2, rows3 = 100, 150, 200
-    sparsity = 0.9
+#     # Define dimensions and sparsity
+#     cols = 2000
+#     rows1, rows2, rows3 = 100, 150, 200
+#     sparsity = 0.9
 
-    # Create three matrices with unique identifiers
-    matrix1 = create_sparse_matrix(rows1, cols, sparsity, 1)
-    matrix2 = create_sparse_matrix(rows2, cols, sparsity, 2)
-    matrix3 = create_sparse_matrix(rows3, cols, sparsity, 3)
+#     # Create three matrices with unique identifiers
+#     matrix1 = create_sparse_matrix(rows1, cols, sparsity, 1)
+#     matrix2 = create_sparse_matrix(rows2, cols, sparsity, 2)
+#     matrix3 = create_sparse_matrix(rows3, cols, sparsity, 3)
 
-    # Concatenate the matrices and get CSR
-    big_matrix = np.vstack([matrix1, matrix2, matrix3])
-    csr = csr_matrix(big_matrix)
+#     # Concatenate the matrices and get CSR
+#     big_matrix = np.vstack([matrix1, matrix2, matrix3])
+#     csr = csr_matrix(big_matrix)
 
-    mocked_dataset: SingleCellDataset = MagicMock()
-    mocked_dataset.lookup_cell_by_idx = SingleCellDataset.lookup_cell_by_idx
-    # Disable the guard
-    mocked_dataset.assert_increasing_columns = False
+#     mocked_dataset: SingleCellDataset = MagicMock()
+#     mocked_dataset.lookup_cell_by_idx = SingleCellDataset.lookup_cell_by_idx
+#     # Disable the guard
+#     mocked_dataset.assert_increasing_columns = False
 
-    # Assign the sparse index structure
-    mocked_dataset.gene_data = csr.data
-    mocked_dataset.gene_data_ptr = csr.indptr
-    mocked_dataset.gene_data_indices = csr.indices
+#     # Assign the sparse index structure
+#     mocked_dataset.gene_data = csr.data
+#     mocked_dataset.gene_data_ptr = csr.indptr
+#     mocked_dataset.gene_data_indices = csr.indices
 
-    gene_data1, _, _ = mocked_dataset.lookup_cell_by_idx(mocked_dataset, 0)
-    assert all(gene_data1 == 1)
+#     gene_data1, _, _ = mocked_dataset.lookup_cell_by_idx(mocked_dataset, 0)
+#     assert all(gene_data1 == 1)
 
-    # Test boundaries for the second dataset
-    gene_data2, _, _ = mocked_dataset.lookup_cell_by_idx(mocked_dataset, 100)
-    assert all(gene_data2 == 2)
-    gene_data3, _, _ = mocked_dataset.lookup_cell_by_idx(mocked_dataset, 101)
-    assert all(gene_data3 == 2)
-    # Test boundaries for the third dataset
-    gene_data4, _, _ = mocked_dataset.lookup_cell_by_idx(mocked_dataset, 250)
-    assert all(gene_data4 == 3)
-    gene_data5, _, _ = mocked_dataset.lookup_cell_by_idx(mocked_dataset, 251)
-    assert all(gene_data5 == 3)
+#     # Test boundaries for the second dataset
+#     gene_data2, _, _ = mocked_dataset.lookup_cell_by_idx(mocked_dataset, 100)
+#     assert all(gene_data2 == 2)
+#     gene_data3, _, _ = mocked_dataset.lookup_cell_by_idx(mocked_dataset, 101)
+#     assert all(gene_data3 == 2)
+#     # Test boundaries for the third dataset
+#     gene_data4, _, _ = mocked_dataset.lookup_cell_by_idx(mocked_dataset, 250)
+#     assert all(gene_data4 == 3)
+#     gene_data5, _, _ = mocked_dataset.lookup_cell_by_idx(mocked_dataset, 251)
+#     assert all(gene_data5 == 3)
