@@ -38,13 +38,6 @@ from bionemo.geneformer.tokenizer.gene_tokenizer import GeneTokenizer
 from bionemo.geneformer.data.singlecell.preprocess import GeneformerPreprocess
 from nemo.utils import logging
 
-
-# TODO(@jstjohn) use fixtures for pulling down data and checkpoints
-test_script_dir = pathlib.Path(os.path.dirname(os.path.realpath(__file__)))
-bionemo2_root = pathlib.Path("/workspace/bionemo2")
-data_path = bionemo2_root / "data/cellxgene_2023-12-15_small/processed_data"
-
-
 def test_load_sc_datasets(tmp_path, test_directory): 
     tokenizer = MagicMock()
     sc_memmap_dataset_path0 = tmp_path / "test_data_0"
@@ -82,9 +75,6 @@ def test_get_item(tmp_path, test_directory):
     assert(item["labels"][0] == torch.tensor([-1]))
     assert(item["loss_mask"][0] == torch.tensor([False]))
     assert(all(item["is_random"]) == torch.tensor([0]))
-
-
-
 
 def test_lookup_row_by_index(tmp_path, sc_test_data_directory): 
     tokenizer = MagicMock()
