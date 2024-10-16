@@ -19,6 +19,7 @@ import json
 from typing import Optional
 
 from bionemo.geneformer.run.config_models import (
+    ExposedFineTuneSeqLenBioBertConfig,
     ExposedGeneformerPretrainConfig,
     GeneformerPretrainingDataConfig,
 )
@@ -44,7 +45,8 @@ def main():
         )
         parser.add_argument(
             "--resume-if-exists",
-            default=True,
+            default=False,
+            action="store_true",
             help="Resume training if a checkpoint exists that matches the current experiment configuration.",
         )
         return parser.parse_args()
@@ -61,10 +63,13 @@ def main():
             config_dict = json.load(f)
 
         # model/data_config_t is used to select the parser dynamically.
-        if model_config_t is None:
-            # our parser doesnt like literals that are already imported.
+        if model_config_t is None or model_config_t == "ExposedGeneformerPretrainConfig":
             model_config_t = ExposedGeneformerPretrainConfig
+        elif model_config_t == "ExposedFineTuneSeqLenBioBertConfig":
+            # Hardcoded path for those who do not know the full path
+            model_config_t = ExposedFineTuneSeqLenBioBertConfig
         elif isinstance(model_config_t, str):
+            # We assume we get a string to some importable config... e.g. in the sub-package jensen, 'bionemo.jensen.configs.MyConfig'
             model_config_t = string_to_class(model_config_t)
 
         if data_config_t is None:
@@ -76,7 +81,6 @@ def main():
 
     args = parse_args()
     config = load_config(args.config, args.model_config_t, args.data_config_t)
-    # New
     train(
         bionemo_exposed_model_config=config.bionemo_model_config,
         data_config=config.data_config,

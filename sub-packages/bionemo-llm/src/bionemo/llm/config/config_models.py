@@ -14,21 +14,19 @@
 # limitations under the License.
 
 
-from typing import Any, Callable, Dict, Generic, Literal, Optional, Type, TypeVar
 from abc import ABC, abstractmethod
-from pydantic import BaseModel, ValidationError, field_serializer, field_validator, model_validator
-from nemo.lightning import resume
-from nemo import lightning as nl
+from typing import Any, Callable, Dict, Generic, Literal, Optional, Type, TypeVar
+
 import pytorch_lightning as pl
 import torch
+from pydantic import BaseModel, ValidationError, field_serializer, field_validator, model_validator
 from torch.nn import functional as F
-from nemo.collections import llm
 
 from bionemo.core.utils import dtypes
-from bionemo.geneformer.api import GeneformerConfig
 from bionemo.llm.model.biobert.model import BioBertGenericConfig
 from bionemo.llm.model.biobert.transformer_specs import BiobertSpecOption
 from bionemo.llm.utils.logger_utils import WandbConfig
+
 
 ModelConfigT = TypeVar("ModelConfigT", bound=BioBertGenericConfig)
 DataModuleT = TypeVar("DataModuleT", bound=pl.LightningDataModule)
@@ -44,6 +42,8 @@ for key in CUSTOM_ACTIVATION_FNS:
 REVERSE_CUSTOM_ACTIVATION_FNS: Dict[Callable[[torch.Tensor, Any], torch.Tensor], str] = {
     v: k for k, v in CUSTOM_ACTIVATION_FNS.items()
 }
+
+
 class DataConfig(BaseModel, Generic[DataModuleT], ABC):
     """Base class for all data configurations.
 
@@ -59,6 +59,7 @@ class DataConfig(BaseModel, Generic[DataModuleT], ABC):
     def construct_data_module(self, global_batch_size: int) -> DataModuleT:
         """Construct the data module from the configuration. Cannot be defined generically."""
         ...
+
 
 class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
     """BioNeMo model configuration class, wraps TransformerConfig and friends.
@@ -81,9 +82,7 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
         # How did this all work yesterday even?
         # so we cant do it this way because we are kinda losing the magic of generics.
         #  ideally _the generics_ have all the methods we want implemented on them already.
-        # TODO (SKH)
         raise NotImplementedError
-        return GeneformerConfig
 
     def exposed_to_internal_bionemo_model_config(self) -> ModelConfigT:
         """Converts the exposed dataclass to the underlying Transformer config.
@@ -93,7 +92,6 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
 
         This is a good candidate for refactoring.
         """
-
         cls: Type[ModelConfigT] = self.model_class()
         model_dict = {}
         for attr in self.model_fields:
@@ -143,15 +141,16 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
     @field_validator("activation_func", mode="before")
     @classmethod
     def validate_activation_func(cls, activation_func: str) -> Callable:
-        """
-        Validates the activation function, assumes this function exists in torch.nn.functional. For custom
+        """Validates the activation function, assumes this function exists in torch.nn.functional. For custom
         activation functions, use the CUSTOM_ACTIVATION_FUNCTIONS dictionary in the module.
 
         This method validates the provided activation function string and returns
         a callable function based on the validation context using the provided validator in the base class.
+
         Args:
             activation_func (str): The activation function to be validated.
             context (ValidationInfo): The context for validation.
+
         Returns:
             Callable: A callable function after validation.
 
@@ -189,6 +188,7 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
     def serialize_dtypes(self, v: torch.dtype) -> dtypes.PrecisionTypes:
         return dtypes.dtype_to_precision[v]
 
+
 class ParallelConfig(BaseModel):
     tensor_model_parallel_size: int = 1
     pipeline_model_parallel_size: int = 1
@@ -207,6 +207,7 @@ class ParallelConfig(BaseModel):
             )
         return self
 
+
 class TrainingConfig(BaseModel):
     max_steps: int
     limit_val_batches: int
@@ -214,6 +215,7 @@ class TrainingConfig(BaseModel):
     # NOTE this matches whats used by nl.MegatronMixedPrecision which has a restricted set of precisions.
     precision: Literal["32", "bf16-mixed", "16-mixed"] = "bf16-mixed"
     accelerator: str = "gpu"
+
 
 class OptimizerSchedulerConfig(BaseModel):
     # TODO validators on optimizer, interval, and monitor.
@@ -223,6 +225,7 @@ class OptimizerSchedulerConfig(BaseModel):
     cosine_hold_frac: float = 0.05
     interval: str = "step"
     monitor: str = "val_loss"
+
 
 class ExperimentConfig(BaseModel):
     save_every_n_steps: int
@@ -235,13 +238,15 @@ class ExperimentConfig(BaseModel):
     save_top_k: int = 2
     create_tensorboard_logger: bool = False
 
+
 # DataConfig -> some config that can make a data module (see ABC definition.)
 DataConfigT = TypeVar("DataConfigT", bound=DataConfig)
 # ExposedModelConfig -> some config that can make a non-exposed model config (see ABC definition.)
 ExModelConfigT = TypeVar("ExModelConfigT", bound=ExposedModelConfig)
 
+
 class MainConfig(BaseModel, Generic[ExModelConfigT, DataConfigT]):
-    ''' Main configuration class for BioNeMo. All serialized configs that are a valid MainConfig should be Runnable.
+    """Main configuration class for BioNeMo. All serialized configs that are a valid MainConfig should be Runnable.
 
     This class is used to define the main configuration for BioNeMo. It defines the minimal pieces of configuration
     to execution a training job with the NeMo2 training api. It accepts two generic type parameters which users
@@ -256,7 +261,8 @@ class MainConfig(BaseModel, Generic[ExModelConfigT, DataConfigT]):
         optim_config: The optimizer/scheduler configuration for the model.
         experiment_config: The experiment configuration for the model.
         wandb_config: Optional, the wandb configuration for the model.
-    '''
+    """
+
     data_config: DataConfigT
     parallel_config: ParallelConfig
     training_config: TrainingConfig
