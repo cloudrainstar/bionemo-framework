@@ -53,7 +53,7 @@ class DataConfig(BaseModel, Generic[DataModuleT], ABC):
 
     micro_batch_size: int = 8
     result_dir: str = "./results"
-    seq_length: int = 128
+    num_dataset_workers: int = 0
 
     @abstractmethod
     def construct_data_module(self, global_batch_size: int) -> DataModuleT:

@@ -134,6 +134,7 @@ class GeneformerPretrainingDataConfig(DataConfig[SingleCellDataModule]):
 
 
 def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConfig) -> nl.Trainer:
+    # TODO: lift into llm?
     strategy = nl.MegatronStrategy(
         tensor_model_parallel_size=parallel_config.tensor_model_parallel_size,
         pipeline_model_parallel_size=parallel_config.pipeline_model_parallel_size,
@@ -190,6 +191,7 @@ def biobert_lightning_module(
     optim_config: OptimizerSchedulerConfig,
     num_steps: int,
 ) -> BioBertLightningModule:
+    # TODO Lift into llm?
     model = BioBertLightningModule(
         bionemo_model_config,
         tokenizer=tokenizer,
@@ -214,6 +216,7 @@ def biobert_lightning_module(
     return model
 
 def nemo_logger_factory(experiment_config: ExperimentConfig, wandb_config: Optional[WandbConfig]) -> nl.NeMoLogger:
+    # TODO lift into llm?
     checkpoint_callback = nl_callbacks.ModelCheckpoint(
         save_last=experiment_config.save_last_checkpoint,
         monitor=experiment_config.metric_to_monitor_for_checkpoints,

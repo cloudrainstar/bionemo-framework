@@ -149,7 +149,7 @@ def train(
 
     data: DataModuleT = data_config.construct_data_module(global_batch_size)
 
-    # TODO BioBertDataModule or BioBertTokenizer abstractions. We know all DataModuleT in this case have data.tokenizer,
+    # TODO BioBertDataModule or BioBertTokenizer abstractions. We know all DataModuleT in this case has data.tokenizer,
     # although this constraint is not documented.
     model: BioBertLightningModule = biobert_lightning_module(
         bionemo_model_config, tokenizer=data.tokenizer, optim_config=optim_config, num_steps=training_config.max_steps
