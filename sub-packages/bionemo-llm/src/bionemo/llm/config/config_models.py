@@ -15,7 +15,8 @@
 
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Generic, Literal, Optional, Type, TypeVar
+from dataclasses import field
+from typing import Any, Callable, Dict, Generic, List, Literal, Optional, Type, TypeVar
 
 import pytorch_lightning as pl
 import torch
@@ -54,11 +55,21 @@ class DataConfig(BaseModel, Generic[DataModuleT], ABC):
     micro_batch_size: int = 8
     result_dir: str = "./results"
     num_dataset_workers: int = 0
+    seq_length: int = 128
 
     @abstractmethod
     def construct_data_module(self, global_batch_size: int) -> DataModuleT:
         """Construct the data module from the configuration. Cannot be defined generically."""
         ...
+
+    def model_validator(self, global_cfg: "MainConfig") -> "MainConfig":
+        ''' Use custom implementation of this method to define the things inside global_config. 
+
+        The following expression will always be true:
+
+        global_cfg.data_config == self 
+        '''
+        return global_cfg
 
 
 class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
@@ -72,6 +83,14 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
 
     """
 
+    # Restores weights from a pretrained checkpoint
+    initial_ckpt_path: Optional[str] = None
+    # Does not attempt to load keys with these prefixes (useful if you attached extra parameters and still want to load a set of weights)
+    initial_ckpt_skip_keys_with_these_prefixes: List[str] = field(default_factory=list)
+
+    # TODO validator on num_attention_heads, ffn_hidden_size, and hidden_size as these have knowable constraints.
+
+
     # Pydantic stuff to allow arbitrary types + validators + serializers
     class Config:
         arbitrary_types_allowed = True
@@ -83,6 +102,15 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
         # so we cant do it this way because we are kinda losing the magic of generics.
         #  ideally _the generics_ have all the methods we want implemented on them already.
         raise NotImplementedError
+
+    def model_validator(self, global_cfg: "MainConfig") -> "MainConfig":
+        ''' Use custom implementation of this method to define the things inside global_config. 
+
+        The following expression will always be true:
+
+        global_cfg.bionemo_model_config == self 
+        '''
+        return global_cfg
 
     def exposed_to_internal_bionemo_model_config(self) -> ModelConfigT:
         """Converts the exposed dataclass to the underlying Transformer config.
@@ -276,3 +304,11 @@ class MainConfig(BaseModel, Generic[ExModelConfigT, DataConfigT]):
         self.bionemo_model_config.seq_length = self.data_config.seq_length
         # What other global validators should we set here?
         return self
+    
+    @model_validator(mode="after")
+    def run_bionemo_model_config_model_validators(self) -> "MainConfig":
+        return self.bionemo_model_config.model_validator(self)
+    
+    @model_validator(mode="after")
+    def run_data_config_modeL_validators(self) -> "MainConfig":
+        return self.data_config.model_validator(self)

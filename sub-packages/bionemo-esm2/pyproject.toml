@@ -11,6 +11,10 @@ authors = [{ name = "BioNeMo Team", email = "bionemofeedback@nvidia.com" }]
 dynamic = ["version"]
 dependencies = ['bionemo-core', 'bionemo-llm']
 
+[project.scripts]
+bionemo-esm2-train= "bionemo.esm2.run.main:main"
+bionemo-esm2-recipe= "bionemo.esm2.run.recipes:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["bionemo.*"]

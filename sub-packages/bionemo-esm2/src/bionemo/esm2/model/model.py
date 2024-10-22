@@ -261,6 +261,10 @@ class ESM2GenericConfig(BioBertGenericConfig[ESM2ModelT]):
         return_only_hidden_states: Whether to return only hidden states.
         loss_reduction_class: Loss reduction class for the model. Default to BERTMLMLossWithReduction.
     """
+    # ESM specific fields (these are repeated below)
+    use_esm_attention: bool = False  # Skip ESM2 custom attention for TE acceleration. Still passes golden value test.
+    token_dropout: bool = True
+    normalize_attention_scores: bool = False
 
     # When overriding fields in a dataclass _always_ declare types: https://github.com/python/cpython/issues/123269
     model_cls: Type[ESM2Model] = ESM2Model
