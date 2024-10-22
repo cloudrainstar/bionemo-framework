@@ -16,7 +16,6 @@
 import os
 import tempfile
 from pathlib import Path
-import tempfile
 
 import anndata as ad
 import numpy as np

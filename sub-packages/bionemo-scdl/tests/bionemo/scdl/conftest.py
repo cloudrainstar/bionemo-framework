@@ -18,7 +18,6 @@ import shutil
 from pathlib import Path
 
 import pytest
-import shutil
 
 from bionemo.testing.data.load import load
 
