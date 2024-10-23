@@ -21,3 +21,9 @@
   sha256: ab038b184de52e53ff7bcea5e01d97d55944c507db88c0495bdf9e5e9e0303a4 # pragma: allowlist secret
   owner: John St John <jstjohn@nvidia.com>
   description: Golden values for geneformer QA model.
+
+- tag: testdata-memmap-format
+  pbss: "s3://bionemo-ci/test-data/singlecell/singlecell_mmap_test_data.tar.gz"
+  sha256: c9570a4c99d9bf74b2540386464c47bce361debea3b7e1aaaba46334e3f8cbcb # pragma: allowlist secret
+  owner:  Savitha Srinivasan <savithas@nvidia.com>
+  description: Test data for single cell models in SCDL Memmap format.
