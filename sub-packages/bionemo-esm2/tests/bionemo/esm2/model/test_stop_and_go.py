@@ -129,7 +129,7 @@ class ESM2StopAndGoTest(stop_and_go.StopAndGoHarness):
             val_check_interval=self.val_check_interval,
             log_every_n_steps=self.val_check_interval,
             num_nodes=1,
-            callbacks=self.get_callbacks(mode=mode, metrics=metrics),
+            callbacks=self.get_callbacks(mode=mode),
             plugins=nl.MegatronMixedPrecision(precision=MODEL_PRECISION),
         )
         return trainer

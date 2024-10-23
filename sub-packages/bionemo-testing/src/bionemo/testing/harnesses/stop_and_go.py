@@ -18,6 +18,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Callable, Literal, Sequence, TypedDict
 
+import pytest
+
 import nemo.lightning as nl
 import pytorch_lightning as pl
 from nemo.collections import llm
@@ -46,6 +48,7 @@ class MetricsDict(TypedDict):
 
     global_step: MetricsFn
     learning_rate: MetricsFn
+    consumed_samples: MetricsFn
 
 
 def get_learning_rate(trainer: pl.Trainer, model: pl.LightningModule) -> Any:
@@ -72,6 +75,30 @@ def get_global_step(trainer: pl.Trainer, model: pl.LightningModule) -> Any:
         Any: The global step of the model.
     """
     return trainer.global_step
+
+def get_trainer_consumed_samples(trainer: pl.Trainer, model: pl.LightningModule) -> Any:
+    """Returns the global step of the model.
+
+    Args:
+        trainer (pl.Trainer): The PyTorch Lightning trainer.
+        model (pl.LightningModule): The PyTorch Lightning model.
+
+    Returns:
+        Any: The global step of the model.
+    """
+    return trainer.train_dataloader.batch_sampler.consumed_samples
+
+def get_val_consumed_samples(trainer: pl.Trainer, model: pl.LightningModule) -> Any:
+    """Returns the global step of the model.
+
+    Args:
+        trainer (pl.Trainer): The PyTorch Lightning trainer.
+        model (pl.LightningModule): The PyTorch Lightning model.
+
+    Returns:
+        Any: The global step of the model.
+    """
+    return trainer.val_dataloaders.batch_sampler.consumed_samples
 
 
 class StopAndGoHarness(ABC):
@@ -180,7 +207,12 @@ class StopAndGoHarness(ABC):
         Returns:
             dict: A dictionary of default metrics that can be used in the StopAndGoHarness.
         """
-        return {"global_step": get_global_step, "learning_rate": get_learning_rate}
+        return {
+            "global_step": get_global_step,
+            "learning_rate": get_learning_rate,
+            "train_consumed_samples": get_trainer_consumed_samples,
+            "val_consumed_samples": get_val_consumed_samples,
+        }
 
     def get_callbacks(self, mode: Literal["stop", "go"]) -> list[pl.Callback]:
         """Returns a list of callbacks based on the specified mode. Base implemention provides reasonable defaults.
@@ -188,7 +220,7 @@ class StopAndGoHarness(ABC):
         To extend this method, call the super and append to the callbacks, depending on which mode you are in:
 
         ```python
-        callbacks = super().get_callbacks(mode, metrics)
+        callbacks = super().get_callbacks(mode)
         callbacks.append(MyCustomCallback())
         return callbacks
         ```
@@ -215,12 +247,13 @@ class StopAndGoHarness(ABC):
                     save_top_k=2,
                     every_n_train_steps=self.val_check_interval,
                     always_save_context=True,
-                    try_restore_best_ckpt=False,
                 ),
             ]
         elif mode == "go":
             # we must setup the integrity callback.
             callbacks = [
+                # NOTE this testing checkpoint integrity callback looks in the checkpoint and verifies that the metrics
+                #  there all match what is present in the current metadata.
                 testing_callbacks.TestCheckpointIntegrityCallback(
                     metadata_path=self.metadata_dir, metrics_getter=self.metrics_getter
                 ),
@@ -230,7 +263,6 @@ class StopAndGoHarness(ABC):
                     save_top_k=2,
                     every_n_train_steps=self.val_check_interval,
                     always_save_context=True,
-                    try_restore_best_ckpt=False,
                 ),
             ]
         else:
@@ -288,5 +320,6 @@ class StopAndGoHarness(ABC):
     # Finally, execution is a simple stop => go.
     def run_test(self):
         """Executes the stop => go process."""
-        self.stop()
+        with pytest.raises(testing_callbacks.StopAndGoException, match="Terminating early, checkpoint exists."):
+            self.stop()
         self.go()

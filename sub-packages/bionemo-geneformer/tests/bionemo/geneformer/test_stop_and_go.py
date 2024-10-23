@@ -117,11 +117,13 @@ def geneformer_datamodule(tokenizer, seq_length, median_dict, devices, tensor_mo
 class GeneformerStopAndGoTest(stop_and_go.StopAndGoHarness):
     def __init__(
         self,
+        tmpdir,
         val_check_interval=2,
         exp_name="geneformer_stop_and_go",
     ):
         extra_metrics_dict = {"val_loss": compute_biobert_loss_singlegpu}
         super().__init__(
+            root_dir=tmpdir,
             extra_metrics_dict=extra_metrics_dict,
             val_check_interval=val_check_interval,
             exp_name=exp_name,
@@ -191,11 +193,11 @@ class GeneformerStopAndGoTest(stop_and_go.StopAndGoHarness):
             val_check_interval=self.val_check_interval,
             log_every_n_steps=self.val_check_interval,
             num_nodes=1,
-            callbacks=self.get_callbacks(mode=mode, metrics=metrics),
+            callbacks=self.get_callbacks(mode=mode),
             plugins=nl.MegatronMixedPrecision(precision=MODEL_PRECISION),
         )
         return trainer
 
 
-def test_geneformer_example():
-    GeneformerStopAndGoTest()
+def test_geneformer_example(tmpdir):
+    GeneformerStopAndGoTest(tmpdir).run_test()
