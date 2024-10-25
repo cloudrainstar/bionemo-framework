@@ -1059,7 +1059,6 @@ def test_finetune_geneformer_with_peft(
             peft=peft,
         )
         weights_ckpt = simple_ft_checkpoint / "weights"
-        print("Starting asserstions)")
         assert weights_ckpt.exists()
         assert weights_ckpt.is_dir()
         assert io.is_distributed_ckpt(weights_ckpt)
