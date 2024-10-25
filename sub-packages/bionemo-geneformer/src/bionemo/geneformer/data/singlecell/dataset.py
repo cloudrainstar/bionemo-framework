@@ -84,8 +84,7 @@ class SingleCellDataset(Dataset):
         mask_token_prob: float = 0.8,
         random_token_prob: float = 0.1,
         prepend_cls_token: bool = True,
-        assert_increasing_columns: bool = True,
-        keep_metadata: bool = False,
+        bypass_tokenizer_vocab: bool = False,
         seed: int = np.random.SeedSequence().entropy,  # type: ignore
     ):
         super().__init__()
@@ -100,6 +99,7 @@ class SingleCellDataset(Dataset):
         self.scdl = SingleCellMemMapDataset(data_path)
         self.gene_medians = median_dict
         self.tokenizer = tokenizer
+        self.bypass_tokenizer_vocab = bypass_tokenizer_vocab
 
     def __len__(self):  # noqa: D105
         return len(self.scdl)
@@ -129,6 +129,7 @@ class SingleCellDataset(Dataset):
             mask_prob=self.mask_prob,
             random_token_prob=self.random_token_prob,
             prepend_cls_token=self.prepend_cls_token,
+            bypass_tokenizer_vocab=self.bypass_tokenizer_vocab,
         )
 
 
@@ -146,6 +147,7 @@ def process_item(  # noqa: D417
     target_sum: int = 10000,
     normalize: bool = True,
     prepend_cls_token: bool = True,
+    bypass_tokenizer_vocab: bool = False,
 ) -> types.BertSample:
     """Process a single item in the dataset.
 
@@ -191,6 +193,8 @@ def process_item(  # noqa: D417
             if normalize:
                 med = gene_median.get(tok, 1)  # If not in the dictionary we default to no normalization (1)
                 medians.append(med)
+        elif not bypass_tokenizer_vocab:
+            raise ValueError("Provided gene id " + str(gene) + " not in tokenizer vocab.")
 
     genes = np.asarray(genes)
     token_ids = np.asarray(tokens)

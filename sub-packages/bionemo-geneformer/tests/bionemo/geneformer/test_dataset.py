@@ -26,6 +26,7 @@
 
 from unittest.mock import MagicMock
 
+import anndata as ad
 import numpy as np
 import pytest
 import torch
@@ -57,6 +58,52 @@ def test_load_sc_datasets(tmp_path, test_directory_feat_ids):
     )  # create the memmap dataset format from h5ad for testing purposes
     dataset2 = SingleCellDataset(sc_memmap_dataset_path2, tokenizer)
     assert len(dataset2) == len(ds_2) == 100
+
+
+def test_gene_not_in_tok_vocab(tmp_path, test_directory_feat_ids):
+    sc_memmap_dataset_path0 = tmp_path / "test_data_0_sc_memmap"
+    sc_h5ad_dataset_path0 = tmp_path / "test_data_0.h5ad"
+
+    adata = ad.read_h5ad(test_directory_feat_ids / "modified_adata_sample0.h5ad")
+    synthetic_ids = [
+        "ENSG00000243485",
+        "ENSG00000186092",
+        "ENSG00000238009",
+        "ENSG00000239945",
+        "ENSG00000241860",
+        "ENSG00000241599",
+        "ENSG00000286448",
+        "ENSG00000236601",
+        "ENSG00000235146",
+        "ENSG00000229905",
+    ]
+    adata.var["feature_id"] = synthetic_ids
+    print(adata)
+    adata.write(sc_h5ad_dataset_path0)
+    SingleCellMemMapDataset(
+        sc_memmap_dataset_path0, h5ad_path=sc_h5ad_dataset_path0
+    )  # create the memmap dataset format from h5ad for testing purposes
+    preprocessor = GeneformerPreprocess(
+        download_directory=sc_memmap_dataset_path0,
+        medians_file_path=sc_memmap_dataset_path0 / "medians.json",
+        tokenizer_vocab_path=sc_memmap_dataset_path0 / "geneformer.vocab",
+    )
+    match preprocessor.preprocess():
+        case {"tokenizer": tokenizer, "median_dict": median_dict}:
+            logging.info("*************** Preprocessing Finished ************")
+        case _:
+            logging.error("Preprocessing failed.")
+
+    dataset0 = SingleCellDataset(sc_memmap_dataset_path0, tokenizer, median_dict=median_dict)  # type: ignore
+    with pytest.raises(ValueError) as error_info:
+        dataset0.__getitem__(3)
+    assert "not in tokenizer vocab." in str(error_info.value)
+    dataset0 = SingleCellDataset(
+        sc_memmap_dataset_path0, tokenizer, median_dict=median_dict, bypass_tokenizer_vocab=True
+    )  # type: ignore
+
+    item = dataset0.__getitem__(3)
+    assert np.array(item["text"].tolist()) == [0]
 
 
 def test_empty_gene_data_input(tmp_path, test_directory_feat_ids):
@@ -115,7 +162,7 @@ def test_get_item_synthetic(tmp_path, test_directory_feat_ids):
             logging.info("*************** Preprocessing Finished ************")
         case _:
             logging.error("Preprocessing failed.")
-    dataset0 = SingleCellDataset(sc_memmap_dataset_path0, tokenizer, median_dict=median_dict)  # type: ignore
+    dataset0 = SingleCellDataset(sc_memmap_dataset_path0, tokenizer, median_dict=median_dict, mask_token_prob=0)  # type: ignore
     item = dataset0.__getitem__(0)
     assert np.all(np.array(item["text"]) == np.array([0, 10]))
     assert np.all(np.array(item["types"]) == np.array([0, 0]))
@@ -127,9 +174,9 @@ def test_get_item_synthetic(tmp_path, test_directory_feat_ids):
 
 def test_get_item_cellx(tmp_path, cellx_small_directory):
     preprocessor = GeneformerPreprocess(
-        download_directory=tmp_path / cellx_small_directory / "train",
-        medians_file_path=tmp_path / cellx_small_directory / "train" / "medians.json",
-        tokenizer_vocab_path=tmp_path / cellx_small_directory / "train" / "geneformer.vocab",
+        download_directory=tmp_path / cellx_small_directory / "val",
+        medians_file_path=tmp_path / cellx_small_directory / "val" / "medians.json",
+        tokenizer_vocab_path=tmp_path / cellx_small_directory / "val" / "geneformer.vocab",
     )
     match preprocessor.preprocess():
         case {"tokenizer": tokenizer, "median_dict": median_dict}:
@@ -137,11 +184,227 @@ def test_get_item_cellx(tmp_path, cellx_small_directory):
         case _:
             logging.error("Preprocessing failed.")
     ds = SingleCellDataset(
-        tmp_path / cellx_small_directory / "train",
-        tokenizer,
-        median_dict=median_dict,
+        tmp_path / cellx_small_directory / "val",
+        tokenizer,  # type: ignore
+        median_dict=median_dict,  # type: ignore
+        mask_prob=0,
+        mask_token_prob=0,
+        random_token_prob=0,
+        bypass_tokenizer_vocab=True,
     )  # type: ignore
-    ds.__getitem__(800)
+    item = ds.__getitem__(2)
+    expected_output_first = np.array(
+        [
+            0,
+            20502,
+            15942,
+            8191,
+            2701,
+            16227,
+            8932,
+            14368,
+            5209,
+            11346,
+            10122,
+            8806,
+            530,
+            8016,
+            7788,
+            6755,
+            10695,
+            5767,
+            12231,
+            3813,
+            8639,
+            11447,
+            17704,
+            20034,
+            16715,
+            3141,
+            12632,
+            18986,
+            8715,
+            16351,
+            11897,
+            3672,
+            3364,
+            2453,
+            3833,
+            6925,
+            12089,
+            6396,
+            257,
+            3951,
+            14400,
+            9758,
+            6860,
+            6267,
+            467,
+            11899,
+            5070,
+            8870,
+            3974,
+            3084,
+            10804,
+            2187,
+            2346,
+            17722,
+            11845,
+            11551,
+            16387,
+            12822,
+            18577,
+            10201,
+            1955,
+            2744,
+            10991,
+            11911,
+            7822,
+            20491,
+            1078,
+            2552,
+            12177,
+            6716,
+            9503,
+            10404,
+            12220,
+            8298,
+            8471,
+            4092,
+            6885,
+            2386,
+            16454,
+            5641,
+            8417,
+            12754,
+            18000,
+            154,
+            15484,
+            8458,
+            2964,
+            4217,
+            469,
+            3058,
+            19800,
+            5816,
+            8309,
+            17681,
+            16909,
+            9566,
+            18037,
+            17578,
+            1634,
+            11592,
+        ]
+    )
+    expected_output_last = np.array(
+        [
+            4502,
+            1145,
+            12212,
+            3667,
+            14669,
+            811,
+            8670,
+            2291,
+            1986,
+            10551,
+            4544,
+            15361,
+            7906,
+            12532,
+            4719,
+            1336,
+            12062,
+            16414,
+            3438,
+            12258,
+            10295,
+            3008,
+            14606,
+            19632,
+            12418,
+            12655,
+            12185,
+            235,
+            12018,
+            7505,
+            11927,
+            653,
+            887,
+            12533,
+            1686,
+            7289,
+            103,
+            17298,
+            5611,
+            20504,
+            6552,
+            8305,
+            1436,
+            4883,
+            5578,
+            708,
+            20343,
+            4390,
+            6241,
+            2563,
+            16300,
+            20888,
+            1873,
+            10956,
+            4491,
+            9515,
+            2403,
+            6269,
+            14978,
+            4828,
+            12412,
+            16728,
+            9665,
+            5084,
+            3781,
+            6255,
+            8568,
+            14059,
+            6564,
+            1629,
+            758,
+            14814,
+            9749,
+            15807,
+            17317,
+            6657,
+            3829,
+            7196,
+            7329,
+            2347,
+            4812,
+            1052,
+            3615,
+            13011,
+            12175,
+            10948,
+            611,
+            13008,
+            8255,
+            13747,
+            8519,
+            4764,
+            13814,
+            10324,
+            14631,
+            6182,
+            7248,
+            16740,
+            6386,
+            11411,
+        ]
+    )
+    assert all(np.array(item["text"][:100]) == expected_output_first)
+    assert all(np.array(item["text"][-100:]) == expected_output_last)
+    assert np.array(item["labels"])[0] == -1
+    assert np.all(np.array(item["labels"][1:]) == -100)
 
 
 def test_dataset_process_item():
