@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bionemo-molmim"
+readme = "README.md"
+description = "BioNeMo MolMIM"
+authors = [{ name = "BioNeMo Team", email = "bionemofeedback@nvidia.com" }]
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dynamic = ["version"]
+dependencies = [
+    # bionemo sub-packages
+    'bionemo-core',
+    'bionemo-llm',
+    # external
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["bionemo.*"]
+namespaces = true
+exclude = ["test*."]
+
+[tool.uv]
+cache-keys = [{ git = true }]
