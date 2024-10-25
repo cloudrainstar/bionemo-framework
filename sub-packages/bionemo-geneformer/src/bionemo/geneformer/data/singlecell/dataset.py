@@ -38,16 +38,16 @@ class SingleCellDataset(Dataset):
     updates will contain more comprehensive workflows for generating a Sparse Memmap from scRNA-seq.
 
     Args:
-        data_path (str): Path where the single cell files are stored. It should contain the following files:
-            - `metadata.json`: Path containing feature subset associated with each dataset.
-            - `features.csv`: Feature subset associated with each sample.
+        data_path (str): Path where the single cell files are stored in SingleCell Memmap format. It should contain the following files:
+            - `metadata.json`: Path containing the number of rows int he dataset.
             - Gene expression matrix stored in CSR format as `numpy.memmap`:
-                - `gene_expression_data.npy`: Gene expression values.
-                - `gene_expression_ind.npy`: Gene indices associated with gene values.
-                - `gene_expression_ptr.npy`: Column indices for each sample.
+                - `data.npy`: Non-zero gene expression values.
+                - `col_ptr.npy`: Indices of the corresponding genes for each entry in data.npy.
+                - `row_ptr.npy`: Column index pointers for each cell sample.
         tokenizer: The tokenizer to use for tokenizing the input data.
         median_dict (dict, optional): A dictionary containing median values for each gene. Defaults to None.
         max_len (int, optional): The maximum length of the input sequence. Defaults to 1024.
+        bypass_tokenizer_vocab (bool, optional): Allows you to bypass enforcing that all gene ensemble IDs in the dataset are in the tokenizer vocab. Defaults to False.
 
     Attributes:
         data_path (str): Path where the single cell files are stored in single cell memmap format.
@@ -106,7 +106,6 @@ class SingleCellDataset(Dataset):
 
     def __getitem__(self, idx: int) -> types.BertSample:  # noqa: D105
         rng = np.random.default_rng([self._seed, idx])
-        """Performs a lookup and the required transformation for the model"""
         values, feature_ids_df = self.scdl.get_row(idx, return_features=True, feature_vars=["feature_id"])
         gene_data, col_idxs = values[0], values[1]
         gene_data = gene_data.astype(np.int64)
