@@ -78,7 +78,6 @@ def test_gene_not_in_tok_vocab(tmp_path, test_directory_feat_ids):
         "ENSG00000229905",
     ]
     adata.var["feature_id"] = synthetic_ids
-    print(adata)
     adata.write(sc_h5ad_dataset_path0)
     SingleCellMemMapDataset(
         sc_memmap_dataset_path0, h5ad_path=sc_h5ad_dataset_path0
@@ -108,7 +107,6 @@ def test_gene_not_in_tok_vocab(tmp_path, test_directory_feat_ids):
 
 def test_empty_gene_data_input(tmp_path, test_directory_feat_ids):
     sc_memmap_dataset_path0 = tmp_path / "test_data_0"
-    print("Path: ", test_directory_feat_ids)
     SingleCellMemMapDataset(
         sc_memmap_dataset_path0, h5ad_path=test_directory_feat_ids / "modified_adata_sample0.h5ad"
     )  # create the memmap dataset format from h5ad for testing purposes
