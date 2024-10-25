@@ -59,32 +59,6 @@ def test_load_sc_datasets(tmp_path, test_directory_feat_ids):
     assert len(dataset2) == len(ds_2) == 100
 
 
-def test_get_item(tmp_path, test_directory_feat_ids):
-    sc_memmap_dataset_path0 = tmp_path / "test_data_0"
-    print("Path: ", test_directory_feat_ids)
-    SingleCellMemMapDataset(
-        sc_memmap_dataset_path0, h5ad_path=test_directory_feat_ids / "modified_adata_sample0.h5ad"
-    )  # create the memmap dataset format from h5ad for testing purposes
-    preprocessor = GeneformerPreprocess(
-        download_directory=sc_memmap_dataset_path0,
-        medians_file_path=sc_memmap_dataset_path0 / "medians.json",
-        tokenizer_vocab_path=sc_memmap_dataset_path0 / "geneformer.vocab",
-    )
-    match preprocessor.preprocess():
-        case {"tokenizer": tokenizer, "median_dict": median_dict}:
-            logging.info("*************** Preprocessing Finished ************")
-        case _:
-            logging.error("Preprocessing failed.")
-    dataset0 = SingleCellDataset(sc_memmap_dataset_path0, tokenizer, median_dict=median_dict)  # type: ignore
-    item = dataset0.__getitem__(0)
-    assert np.all(np.array(item["text"]) == np.array([0, 10]))
-    assert np.all(np.array(item["types"]) == np.array([0, 0]))
-    assert np.all(np.array(item["attention_mask"]) == np.array([1, 1]))
-    assert np.all(np.array(item["labels"]) == np.array([-1, -100]))
-    assert np.all(np.array(item["loss_mask"]) == np.array([False, False]))
-    assert np.all(np.array(item["is_random"]) == np.array([0, 0]))
-
-
 def test_empty_gene_data_input(tmp_path, test_directory_feat_ids):
     sc_memmap_dataset_path0 = tmp_path / "test_data_0"
     print("Path: ", test_directory_feat_ids)
@@ -124,6 +98,50 @@ def test_lookup_row(tmp_path, cellx_small_directory):
     assert len(gene_data) == 1147
     assert len(col_idxs) == 1147
     assert len(feature_ids) == 60664
+
+
+def test_get_item_synthetic(tmp_path, test_directory_feat_ids):
+    sc_memmap_dataset_path0 = tmp_path / "test_data_0"
+    SingleCellMemMapDataset(
+        sc_memmap_dataset_path0, h5ad_path=test_directory_feat_ids / "modified_adata_sample0.h5ad"
+    )  # create the memmap dataset format from h5ad for testing purposes
+    preprocessor = GeneformerPreprocess(
+        download_directory=sc_memmap_dataset_path0,
+        medians_file_path=sc_memmap_dataset_path0 / "medians.json",
+        tokenizer_vocab_path=sc_memmap_dataset_path0 / "geneformer.vocab",
+    )
+    match preprocessor.preprocess():
+        case {"tokenizer": tokenizer, "median_dict": median_dict}:
+            logging.info("*************** Preprocessing Finished ************")
+        case _:
+            logging.error("Preprocessing failed.")
+    dataset0 = SingleCellDataset(sc_memmap_dataset_path0, tokenizer, median_dict=median_dict)  # type: ignore
+    item = dataset0.__getitem__(0)
+    assert np.all(np.array(item["text"]) == np.array([0, 10]))
+    assert np.all(np.array(item["types"]) == np.array([0, 0]))
+    assert np.all(np.array(item["attention_mask"]) == np.array([1, 1]))
+    assert np.all(np.array(item["labels"]) == np.array([-1, -100]))
+    assert np.all(np.array(item["loss_mask"]) == np.array([False, False]))
+    assert np.all(np.array(item["is_random"]) == np.array([0, 0]))
+
+
+def test_get_item_cellx(tmp_path, cellx_small_directory):
+    preprocessor = GeneformerPreprocess(
+        download_directory=tmp_path / cellx_small_directory / "train",
+        medians_file_path=tmp_path / cellx_small_directory / "train" / "medians.json",
+        tokenizer_vocab_path=tmp_path / cellx_small_directory / "train" / "geneformer.vocab",
+    )
+    match preprocessor.preprocess():
+        case {"tokenizer": tokenizer, "median_dict": median_dict}:
+            logging.info("*************** Preprocessing Finished ************")
+        case _:
+            logging.error("Preprocessing failed.")
+    ds = SingleCellDataset(
+        tmp_path / cellx_small_directory / "train",
+        tokenizer,
+        median_dict=median_dict,
+    )  # type: ignore
+    ds.__getitem__(800)
 
 
 def test_dataset_process_item():
