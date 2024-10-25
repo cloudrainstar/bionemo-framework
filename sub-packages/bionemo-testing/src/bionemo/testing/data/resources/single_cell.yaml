@@ -23,7 +23,7 @@
   description: Golden values for geneformer QA model.
 
 - tag: testdata-memmap-format
-  pbss: "s3://bionemo-ci/test-data/singlecell/singlecell_mmap_test_data.tar.gz"
-  sha256: c9570a4c99d9bf74b2540386464c47bce361debea3b7e1aaaba46334e3f8cbcb # pragma: allowlist secret
+  pbss: "s3://bionemo-ci/test-data/singlecell/ordered_singlecell_mmap_test_data.tar.gz"
+  sha256: d1d3da1c831877100e55b326e4588ffe305638a06c77415468344bd63ea3657c # pragma: allowlist secret
   owner:  Savitha Srinivasan <savithas@nvidia.com>
   description: Test data for single cell models in SCDL Memmap format.

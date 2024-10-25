@@ -108,13 +108,15 @@ class SingleCellDataset(Dataset):
         rng = np.random.default_rng([self._seed, idx])
         """Performs a lookup and the required transformation for the model"""
         values, feature_ids_df = self.scdl.get_row(idx, return_features=True, feature_vars=["feature_id"])
-        if len(values) == 0:
+        gene_data, col_idxs = values[0], values[1]
+        gene_data = gene_data.astype(np.int64)
+        col_idxs = col_idxs.astype(np.int64)
+        if len(gene_data) == 0:
             raise ValueError(
                 "SingleCellMemap data provided is invalid; the gene expression data parsed for the specified index is empty."
             )
         feature_ids = feature_ids_df.values.tolist()
         feature_ids = [f[0] for f in feature_ids]
-        gene_data, col_idxs = values[0], values[1]
         return process_item(
             gene_data,
             col_idxs,
