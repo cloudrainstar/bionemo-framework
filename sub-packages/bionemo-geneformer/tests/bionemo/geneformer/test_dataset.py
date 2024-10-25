@@ -160,7 +160,14 @@ def test_get_item_synthetic(tmp_path, test_directory_feat_ids):
             logging.info("*************** Preprocessing Finished ************")
         case _:
             logging.error("Preprocessing failed.")
-    dataset0 = SingleCellDataset(sc_memmap_dataset_path0, tokenizer, median_dict=median_dict, mask_token_prob=0)  # type: ignore
+    dataset0 = SingleCellDataset(
+        sc_memmap_dataset_path0,
+        tokenizer,
+        median_dict=median_dict,
+        mask_token_prob=0,
+        mask_prob=0,
+        random_token_prob=0,
+    )  # type: ignore
     item = dataset0.__getitem__(0)
     assert np.all(np.array(item["text"]) == np.array([0, 10]))
     assert np.all(np.array(item["types"]) == np.array([0, 0]))
