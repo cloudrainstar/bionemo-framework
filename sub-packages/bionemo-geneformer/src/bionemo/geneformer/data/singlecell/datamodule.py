@@ -80,6 +80,7 @@ class SingleCellDataModule(pl.LightningDataModule):
         num_workers: int = 10,  # TODO can this be automatically set?
         persistent_workers: bool = True,
         pin_memory: bool = True,
+        bypass_tokenizer_vocab: bool = False,
     ) -> None:
         super().__init__()
         self.data_path_train = train_dataset_path
@@ -107,6 +108,7 @@ class SingleCellDataModule(pl.LightningDataModule):
             mask_token_prob=self.mask_token_prob,
             random_token_prob=self.random_token_prob,
             seed=random_utils.get_seed_from_rng(rng),
+            bypass_tokenizer_vocab=bypass_tokenizer_vocab,
         )
         self._val_dataset_ori = SingleCellDataset(
             self.data_path_val,
@@ -117,6 +119,7 @@ class SingleCellDataModule(pl.LightningDataModule):
             mask_token_prob=self.mask_token_prob,
             random_token_prob=self.random_token_prob,
             seed=random_utils.get_seed_from_rng(rng),
+            bypass_tokenizer_vocab=bypass_tokenizer_vocab,
         )
         self._test_dataset_ori = SingleCellDataset(
             self.data_path_test,
@@ -127,6 +130,7 @@ class SingleCellDataModule(pl.LightningDataModule):
             mask_token_prob=self.mask_token_prob,
             random_token_prob=self.random_token_prob,
             seed=random_utils.get_seed_from_rng(rng),
+            bypass_tokenizer_vocab=bypass_tokenizer_vocab,
         )
 
         # This is needed here, or you need to specify it in the megatron adapter thing TODO name?
