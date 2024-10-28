@@ -32,6 +32,7 @@ RUN apt-get update \
   ffmpeg \
   git \
   curl \
+  cmake \
   pre-commit \
   sudo \
   && rm -rf /var/lib/apt/lists/*
@@ -42,6 +43,12 @@ RUN apt-get install -y gnupg
 # tag matches. If not, update the tag in the following line.
 RUN CAUSAL_CONV1D_FORCE_BUILD=TRUE pip --disable-pip-version-check --no-cache-dir install \
   git+https://github.com/Dao-AILab/causal-conv1d.git@v1.2.0.post2
+
+# Manually build triton (mamba dependency) - no existing ARM build
+RUN git clone https://github.com/triton-lang/triton.git && \
+    cd triton && \
+    pip install ninja cmake wheel pybind11 && \
+    pip install -e python
 
 # Mamba dependancy installation
 RUN pip --disable-pip-version-check --no-cache-dir install \
@@ -91,13 +98,28 @@ WORKDIR /workspace/bionemo2
 COPY ./3rdparty /workspace/bionemo2/3rdparty
 COPY ./sub-packages /workspace/bionemo2/sub-packages
 
+# install libnvcuvid and build decord
+COPY ./internal/libraries/*.so /usr/local/cuda/lib64/
+RUN apt-get update && \
+    apt-get install -y build-essential python3-dev python3-setuptools make cmake && \
+    apt-get install -y ffmpeg libavcodec-dev libavfilter-dev libavformat-dev libavutil-dev && \
+    git clone --recursive https://github.com/dmlc/decord && \
+    cd decord && \
+    mkdir build && cd build && \
+    cmake .. -DUSE_CUDA=ON -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc -DCMAKE_BUILD_TYPE=Release && \
+    make && \
+    cd ../python && \
+    pip install .
+
+# RUN pip install py-cpuinfo tensorstore==0.1.45
+
 # Note, we need to mount the .git folder here so that setuptools-scm is able to fetch git tag for version.
 RUN --mount=type=bind,source=./.git,target=./.git \
   --mount=type=bind,source=./requirements-test.txt,target=/requirements-test.txt \
   --mount=type=bind,source=./requirements-cve.txt,target=/requirements-cve.txt \
   <<EOF
 set -eo pipefail
-uv pip install --no-build-isolation \
+pip install --no-build-isolation \
   ./3rdparty/* \
   ./sub-packages/bionemo-* \
   -r /requirements-cve.txt \
