@@ -150,6 +150,49 @@ def geneformer10m_finetune_config(
     return geneformer_config
 
 
+def geneformer_tiny_config(
+    seq_length: int = 2048,
+    precision: PrecisionTypes = "bf16-mixed",
+    nemo1_init_path: Optional[str] = None,
+    initial_ckpt_path: Optional[str] = None,
+    biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_with_transformer_engine_spec,
+) -> ExposedGeneformerPretrainConfig:
+    geneformer_config = ExposedGeneformerPretrainConfig(
+        num_layers=2,
+        hidden_size=32,
+        ffn_hidden_size=4 * 32,
+        num_attention_heads=2,
+        seq_length=seq_length,
+        fp32_residual_connection=False,
+        hidden_dropout=0.02,
+        init_method_std=0.02,
+        kv_channels=None,
+        apply_query_key_layer_scaling=False,
+        make_vocab_size_divisible_by=128,
+        masked_softmax_fusion=True,
+        fp16_lm_cross_entropy=False,
+        params_dtype=precision,
+        pipeline_dtype=precision,
+        autocast_dtype=precision,
+        gradient_accumulation_fusion=False,
+        layernorm_zero_centered_gamma=False,
+        layernorm_epsilon=1.0e-12,
+        activation_func="gelu",
+        qk_layernorm=False,
+        apply_residual_connection_post_layernorm=False,
+        bias_activation_fusion=True,
+        bias_dropout_fusion=True,
+        get_attention_mask_from_fusion=False,
+        attention_dropout=0.1,
+        share_embeddings_and_output_weights=True,
+        enable_autocast=False,
+        biobert_spec_option=biobert_spec_option,
+        nemo1_ckpt_path=nemo1_init_path,
+        initial_ckpt_path=initial_ckpt_path,
+    )
+    return geneformer_config
+
+
 def geneformer10M_pretraining_config(
     seq_length: int = 2048,
     precision: PrecisionTypes = "bf16-mixed",
@@ -252,7 +295,7 @@ def finetune_test_recipe(args) -> MainConfig[ExposedFineTuneSeqLenBioBertConfig,
     )
 
 
-def pretrain_test_recipe(args) -> MainConfig[ExposedGeneformerPretrainConfig, GeneformerPretrainingDataConfig]:
+def pretrain_tiny_test_recipe(args) -> MainConfig[ExposedGeneformerPretrainConfig, GeneformerPretrainingDataConfig]:
     data_path = args.data_path
     result_dir = args.result_dir
 
@@ -280,9 +323,12 @@ def pretrain_test_recipe(args) -> MainConfig[ExposedGeneformerPretrainConfig, Ge
     )
 
     optim_config = OptimizerSchedulerConfig()
-    geneformer_config = geneformer10M_pretraining_config(
+    geneformer_config = geneformer_tiny_config(
         seq_length=data_config.seq_length, initial_ckpt_path=args.initial_ckpt_path
     )
+    # geneformer_config = geneformer10M_pretraining_config(
+    #    seq_length=data_config.seq_length, initial_ckpt_path=args.initial_ckpt_path
+    # )
 
     return MainConfig(
         data_config=data_config,
@@ -399,7 +445,7 @@ def main():
     args = parse_args()
 
     if args.recipe == "test":
-        config = pretrain_test_recipe(args)
+        config = pretrain_tiny_test_recipe(args)
     elif args.recipe == "10m-pretrain":
         config = geneformer10m_pretrain_recipe(args)
     elif args.recipe == "106m-pretrain":

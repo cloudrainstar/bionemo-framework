@@ -14,6 +14,7 @@
 # limitations under the License.
 
 
+import pathlib
 from abc import ABC, abstractmethod
 from dataclasses import field
 from typing import Any, Callable, Dict, Generic, List, Literal, Optional, Type, TypeVar
@@ -53,7 +54,7 @@ class DataConfig(BaseModel, Generic[DataModuleT], ABC):
     """
 
     micro_batch_size: int = 8
-    result_dir: str = "./results"
+    result_dir: str | pathlib.Path = "./results"
     num_dataset_workers: int = 0
     seq_length: int = 128
 
@@ -63,12 +64,12 @@ class DataConfig(BaseModel, Generic[DataModuleT], ABC):
         ...
 
     def model_validator(self, global_cfg: "MainConfig") -> "MainConfig":
-        ''' Use custom implementation of this method to define the things inside global_config. 
+        """Use custom implementation of this method to define the things inside global_config.
 
         The following expression will always be true:
 
-        global_cfg.data_config == self 
-        '''
+        global_cfg.data_config == self
+        """
         return global_cfg
 
 
@@ -90,7 +91,6 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
 
     # TODO validator on num_attention_heads, ffn_hidden_size, and hidden_size as these have knowable constraints.
 
-
     # Pydantic stuff to allow arbitrary types + validators + serializers
     class Config:
         arbitrary_types_allowed = True
@@ -104,12 +104,12 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
         raise NotImplementedError
 
     def model_validator(self, global_cfg: "MainConfig") -> "MainConfig":
-        ''' Use custom implementation of this method to define the things inside global_config. 
+        """Use custom implementation of this method to define the things inside global_config.
 
         The following expression will always be true:
 
-        global_cfg.bionemo_model_config == self 
-        '''
+        global_cfg.bionemo_model_config == self
+        """
         return global_cfg
 
     def exposed_to_internal_bionemo_model_config(self) -> ModelConfigT:
@@ -257,7 +257,7 @@ class OptimizerSchedulerConfig(BaseModel):
 
 class ExperimentConfig(BaseModel):
     save_every_n_steps: int
-    result_dir: str
+    result_dir: str | pathlib.Path
     experiment_name: str
     restore_from_checkpoint_path: Optional[str]
     wandb_config: Optional[WandbConfig] = None
@@ -304,11 +304,11 @@ class MainConfig(BaseModel, Generic[ExModelConfigT, DataConfigT]):
         self.bionemo_model_config.seq_length = self.data_config.seq_length
         # What other global validators should we set here?
         return self
-    
+
     @model_validator(mode="after")
     def run_bionemo_model_config_model_validators(self) -> "MainConfig":
         return self.bionemo_model_config.model_validator(self)
-    
+
     @model_validator(mode="after")
-    def run_data_config_modeL_validators(self) -> "MainConfig":
+    def run_data_config_model_validators(self) -> "MainConfig":
         return self.data_config.model_validator(self)

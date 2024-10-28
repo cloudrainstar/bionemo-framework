@@ -57,7 +57,10 @@ def test_pretrain_cli_from_ckpt(tmpdir):
     )
     # Now do pretrain
     if result.returncode != 0:
-        raise Exception(f"Pretrain script failed:\n{cmd_str=}\n{result.stdout=}\n{result.stderr=}")
+        print(f"{cmd_str=}")
+        print(f"{result.stdout=}")
+        print(f"{result.stderr=}")
+        raise Exception(f"Pretrain recipe failed:\n{cmd_str=}\n{result.stdout=}\n{result.stderr=}")
 
     cmd_str = f"""bionemo-geneformer-train --conf {config}""".strip()
     env = dict(**os.environ)  # a local copy of the environment
@@ -97,7 +100,10 @@ def test_pretrain_cli(tmpdir):
     )
     # Now do pretrain
     if result.returncode != 0:
-        raise Exception(f"Pretrain script failed:\n{cmd_str=}\n{result.stdout=}\n{result.stderr=}")
+        print(f"{cmd_str=}")
+        print(f"{result.stdout=}")
+        print(f"{result.stderr=}")
+        raise Exception(f"Pretrain recipe failed:\n{cmd_str=}\n{result.stdout=}\n{result.stderr=}")
 
     cmd_str = f"""bionemo-geneformer-train --conf {config}""".strip()
     env = dict(**os.environ)  # a local copy of the environment
@@ -143,7 +149,10 @@ def test_finetune_cli(tmpdir):
     )
     # Now do pretrain
     if result.returncode != 0:
-        raise Exception(f"Pretrain script failed:\n{cmd_str=}\n{result.stdout=}\n{result.stderr=}")
+        print(f"{cmd_str=}")
+        print(f"{result.stdout=}")
+        print(f"{result.stderr=}")
+        raise Exception(f"Pretrain recipe failed:\n{cmd_str=}\n{result.stdout=}\n{result.stderr=}")
 
     # TODO gotta set the right config options here.
     # TODO set the parsing flag
