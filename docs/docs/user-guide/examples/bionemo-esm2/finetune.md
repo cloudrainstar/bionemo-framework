@@ -1,24 +1,23 @@
 # ESM2 Fine-Tuning
 
-This notebook serves as a demo for implementing ESM2 Fine-tuning module, running a regression example and using the model for inference.
+This readme serves as a demo for implementing ESM2 Fine-tuning module, running a regression example and using the model for inference.
 
-The ESM2 model is a transformer-based protein language model that has achieved state-of-the-art results in various protein-related tasks. The task head plays a crucial role in fine-tuning for a downstream task. As a part of transfer learning, a pre-trained model is often utilized to learn generic features from a large-scale dataset. However, these features might not be directly applicable to the specific task at hand. By incorporating a task head, which consists of learnable parameters, the model can adapt and specialize to the target task. The task head serves as a flexible and adaptable component that learns task-specific representations by leveraging the pre-trained features as a foundation. Through fine-tuning, the task head enables the model to learn and extract task-specific patterns, improving performance and addressing the nuances of the downstream task. It acts as a critical bridge between the pre-trained model and the specific task, enabling efficient and effective transfer of knowledge.
+The ESM2 model is a transformer-based protein language model that has achieved state-of-the-art results in various protein-related tasks. When fine-tuning ESM2, the task head plays a crucial role. A task head refers to the additional layer or set of layers added on top of a pre-trained model, like the ESM2 transformer-based protein language model, to adapt it for a specific downstream task. As a part of transfer learning, a pre-trained model is often utilized to learn generic features from a large-scale dataset. However, these features might not be directly applicable to the specific task at hand. By incorporating a task head, which consists of learnable parameters, the model can adapt and specialize to the target task. The task head serves as a flexible and adaptable component that learns task-specific representations by leveraging the pre-trained features as a foundation. Through fine-tuning, the task head enables the model to learn and extract task-specific patterns, improving performance and addressing the nuances of the downstream task. It acts as a critical bridge between the pre-trained model and the specific task, enabling efficient and effective transfer of knowledge.
 
 
 # Setup and Assumptions
 
-In this tutorial, we will demonstrate how to create a fine-tune module, train a regression task head, and use the fine-tuned model for inference. To successfully accomplish this we need to define some key classes:
+In this tutorial, we will demonstrate how to create a fine-tune module, train a regression task head, and use the fine-tuned model for inference.
 
-1. Loss reduction method (compute the supervised fine-tuning loss)
-2. Fine-tune model head (downstream task head model)
-3. Fine-tune model (ESM2 + task head)
-4. Fine-tune config (configures Fine-tune model and loss)
-5. Dataset
+All commands should be executed inside the BioNeMo docker container, which has all ESM2 dependencies pre-installed. This tutorial assumes that a copy of the BioNeMo framework repo exists on workstation or server and has been mounted inside the container at `/workspace/bionemo2`. (**Note**: This `WORKDIR` may be `/workspaces/bionemo-framework` if you are using the VSCode Dev Container.) For more information on how to build or pull the BioNeMo2 container, refer to the [Access and Startup](../../getting-started/access-startup.md).
 
-This tutorial assumes that a copy of the BioNeMo framework repo exists on workstation or server and has been mounted inside the container at `/workspaces/bionemo-fw-ea`.
+To successfully accomplish this we need to define some key classes:
 
-All commands should be executed inside the BioNeMo docker container.
-
+1. Loss Reduction Method - To compute the supervised fine-tuning loss.
+2. Fine-Tuned Model Head - Downstream task head model.
+3. Fine-Tuned Model - Model that combines ESM2 with the task head model.
+4. Fine-Tuning Config - Configures the fine-tuning model and loss to use in the training and inference framework.
+5. Dataset - Training and inference datasets for ESM2.
 
 ## 1 - Loss Reduction Class
 
@@ -40,7 +39,7 @@ class RegressorLossReduction(BERTMLMLossWithReduction):
         return losses.mean()
 ```
 
-## 2 - Fine-tune Model Head
+## 2 - Fine-Tuned Model Head
 
 An MLP class for sequence-level regression. This class inherits `MegatronModule` and uses the fine-tune config (`TransformerConfig`) to configure the regression head for the fine-tuned ESM2 model.
 
@@ -59,7 +58,7 @@ class MegatronMLPHead(MegatronModule):
         ...
 ```
 
-## 3 - Fine-tune Model
+## 3 - Fine-Tuned Model
 
 A fine-tuned ESM2 model class for token classification tasks. This class inherits from the `ESM2Model` class and adds the custom regression head `MegatronMLPHead` the we created in the previous step. Optionally one can freeze all or parts of the encoder by parsing through the model parameters in the model constructor.
 
@@ -83,7 +82,7 @@ class ESM2FineTuneSeqModel(ESM2Model):
         return regression_output
 ```
 
-## 4 - Fine-tune Config
+## 4 - Fine-Tuning Config
 
 A `dataclass` that configures the fine-tuned ESM2 model. In this example `ESM2FineTuneSeqConfig` inherits from `ESM2GenericConfig` and adds custom arguments to setup the fine-tuned model. The `configure_model()` method of this `dataclass` is called within the `Lightning` module to call the model constructor with the `dataclass` arguments.
 
@@ -115,7 +114,7 @@ class ESM2FineTuneSeqConfig(ESM2GenericConfig[ESM2FineTuneSeqModel], iom.IOMixin
 
 ## 5 - Dataset
 
-We will use a sample dataset for demonstration purposes. Create a dataset class by extending from ```torch.utils.data.Dataset```. For the purposes of this demo, we'll assume dataset consists of protein sequences with a target value of `len(sequence) / 100.0` as their labels.
+We will use a sample dataset for demonstration purposes. Create a dataset class by extending from ```torch.utils.data.Dataset```. For the purposes of this demo, we'll assume dataset consists of small set of protein sequences with a target value of `len(sequence) / 100.0` as their labels.
 
 ```python
 data = [
@@ -136,9 +135,22 @@ class InMemorySingleValueDataset(Dataset):
     ):
 ```
 
-To coordinate the creation of training, validation and testing datasets from your data, we need to use a `datamodule` class. To do this we can directly use or extend the ```ESM2FineTuneDataModule``` class (located at ``` bionemo.esm2.model.finetune.datamodule.ESM2FineTuneDataModule```) which defines helpful abstract methods that use your dataset class.
+For any arbitrary data file formats, user can process the data into a list of tuples containing (sequence, label) and use this dataset class. Or override the dataset class to load their custom data files.
 
-# Fine-tuning the regressor
+To coordinate the creation of training, validation and testing datasets from your data, we need to use a `datamodule` class. To do this we can directly use or extend the ```ESM2FineTuneDataModule``` class (located at ```bionemo.esm2.model.finetune.datamodule.ESM2FineTuneDataModule```) which defines helpful abstract methods that use your dataset class.
+
+```python
+dataset = InMemorySingleValueDataset(data)
+data_module = ESM2FineTuneDataModule(
+    train_dataset=train_dataset,
+    valid_dataset=valid_dataset
+    micro_batch_size=4,   # size of a batch to be processed in a device
+    global_batch_size=8,  # size of batch across all devices. Should be multiple of micro_batch_size
+)
+```
+
+# Fine-Tuning the Regressor Task Head for ESM2
+
 Now we can put these five requirements together to fine-tune a regressor task head starting from a pre-trained ESM2 model (`pretrain_ckpt_path`). We can take advantage of a simple training loop in ```bionemo.esm2.model.fnetune.train``` and use the ```train_model()`` function to start the fine-tuning process in the following.
 
 ```python
@@ -162,39 +174,66 @@ data = [(seq, len(seq)/100.0) for seq in artificial_sequence_data]
 dataset = InMemorySingleValueDataset(data)
 data_module = ESM2FineTuneDataModule(train_dataset=dataset, valid_dataset=dataset)
 
-experiment_tempdir = tempfile.TemporaryDirectory()
-experiment_dir = Path(experiment_tempdir.name)
-experiment_name = 'finetune_regressor'
-n_steps_train = 50
+with tempfile.TemporaryDirectory() as experiment_tempdir_name:
+    experiment_dir = Path(experiment_tempdir_name)
+    experiment_name = "finetune_regressor"
+    n_steps_train = 50
+    seed = 42
 
-pretrain_ckpt_path = '/data/esm2_650M'
-config = ESM2FineTuneSeqConfig(initial_ckpt_path=str(pretrain_ckpt_path))
+    config = ESM2FineTuneSeqConfig(
+        # initial_ckpt_path=str(pretrain_ckpt_path)
+    )
 
-checkpoint, metrics, trainer = train_model(
-    experiment_name=experiment_name,
-    experiment_dir=experiment_dir,  # new checkpoint will land in a subdir of this
-    config=config,  # same config as before since we are just continuing training
-    data_module=data_module,
-    n_steps_train=n_steps_train,
-)
+    checkpoint, metrics, trainer = train_model(
+        experiment_name=experiment_name,
+        experiment_dir=experiment_dir,  # new checkpoint will land in a subdir of this
+        config=config,  # same config as before since we are just continuing training
+        data_module=data_module,
+        n_steps_train=n_steps_train,
+    )
 ```
 
 This example is fully implemented in ```bionemo.esm2.model.finetune.train``` and can be executed by:
 ```bash
-python /workspaces/bionemo-fw-ea/sub-packages/bionemo-esm2/src/bionemo/esm2/model/finetune/train.py
+python /workspace/bionemo2/sub-packages/bionemo-esm2/src/bionemo/esm2/model/finetune/train.py
 ```
+## Notes
+1. The above example is fine-tuning a randomly initialized ESM2 model for demonstration purposes. In order to fine-tune a pre-trained ESM2 model, please download the ESM2 650M checkpoint from NGC resources using the following bash command
+    ```bash
+    download_bionemo_data esm2/650m:2.0 --source ngc
+    ```
+    and pass the output path (e.g. `.../.cache/bionemo/975d29ee980fcb08c97401bbdfdcf8ce-esm2_650M_nemo2.tar.gz.untar`) as an argument into `initial_ckpt_path` while setting the config object:
+    ```python
+    config = ESM2FineTuneSeqConfig(
+        initial_ckpt_path=str(pretrain_ckpt_path)
+    )
+    ```
+2. Due to Megatron limitations, the log produced by the training run iterates on steps/iterations and not epochs. Therefore, `Training epoch` counter stays at value zero while `iteration` and `global_ste`p increase during the course of training (example in the following).
+    ```bash
+    Training epoch 0, iteration <x/max_steps> | ... | global_step: <x> | reduced_train_loss: ... | val_loss: ...
+    ```
+    to achieve the same epoch-based effect while training, please choose the number of training steps (`n_steps_train`) so that:
+    ```bash
+    n_steps_train * global_batch_size = len(dataset) * desired_num_epochs
+    ```
+3. We are using a small dataset of artificial sequences as our fine-tuning data in this example. You may experience over-fitting and observe no change in the validation metrics.
 
-# Inference using the fine-tuned model
-Once we have a checkpoint we can create a config object by pointing the path in `initial_ckpt_path` and use that for inference. Since we need to load all the parameters from this checkpoint (and don't skip the head) we reset the `nitial_ckpt_skip_keys_with_these_prefixe` in this config. Now we can use the ````bionemo.esm2.model.fnetune.train.infer``` to run inference on prediction dataset.
+# Fine-Tuned ESM2 Model Inference
+Once we have a checkpoint we can create a config object by pointing the path in `initial_ckpt_path` and use that for inference. Since we need to load all the parameters from this checkpoint (and don't skip the head) we reset the `nitial_ckpt_skip_keys_with_these_prefixes` in this config. Now we can use the ```bionemo.esm2.model.fnetune.train.infer``` to run inference on prediction dataset.
 
 ```python
-dataset = InMemorySingleValueDataset(data)
-data_module = ESM2FineTuneDataModule(predict_dataset=dataset)
-
 config = ESM2FineTuneSeqConfig(
     initial_ckpt_path = finetuned_checkpoint,
     initial_ckpt_skip_keys_with_these_prefixes: List[str] = field(default_factory=list)
 )
-
-results = infer_model(config, data_module)
 ```
+
+This example is implemented in ```bionemo.esm2.model.finetune.infer``` and can be executed by:
+
+```bash
+python /workspace/bionemo2/sub-packages/bionemo-esm2/src/bionemo/esm2/model/finetune/infer.py
+```
+
+## Notes
+1. For demonstration purposes, executing the above command will infer a randomly initialized `ESM2FineTuneSeqModel` unless `initial_ckpt_path` is specified and set to an already trained model.
+2. If a fine-tuned checkpoint is provided as (`initial_ckpt_path`) the `initial_ckpt_skip_keys_with_these_prefixes` should reset to `field(default_factory=list)` and avoid skipping any parameters.

@@ -1,4 +1,39 @@
 # Release Notes
+
+
+## BioNeMo Framework v2.0
+
+### New Features:
+* ESM2 implementation
+  * State of the art training performance and equivalent accuracy to the reference implementation
+  * 650M, and 3B scale checkpoints available which mirror the reference model
+  * Flexible fine-tuning examples that can be copied and modified to accomplish a wide variety of downstream tasks
+* First version of our NeMo v2 based reference implementation which re-imagines bionemo as a repository of megatron models, dataloaders, and training recipes which make use of NeMo v2 for training loops.
+  * Modular design and permissible Apache 2 OSS licenses enables the import and use of our framework in proprietary applications.
+  * NeMo2 training abstractions allows the user to focus on the model implementation while the training strategy handles distribution and model parallelism.
+* Documentation and documentation build system for BioNeMo 2.
+
+###  Known Issues:
+* PEFT support is not yet fully functional.
+* Partial implementation of Geneformer is present, use at your own risk. It will be optimized and officially released in the future.
+* Command line interface is currently based on one-off training recipes and scripts. We are working on a configuration based approach that will be released in the future.
+* Fine-tuning workflow is implemented for BERT based architectures and could be adapted for others, but it requires you to inherit from the biobert base model config. You can follow similar patterns in the short term to load weights from an old checkpoint partially into a new model, however in the future we will have a more direct API which is easier to follow.
+* Slow memory leak occurs during ESM-2 pretraining, which can cause OOM during long pretraining runs. Training with a
+  microbatch size of 48 on 40 A100s raised an out-of-memory error after 5,800 training steps.
+  * Possible workarounds include calling `gc.collect(); torch.cuda.empty_cache()` at every ~1,000 steps, which appears
+    to reclaim the consumed memory; or training with a lower microbatch size and re-starting training from a saved
+    checkpoint periodically.
+
+## BioNeMo Framework v1.9
+
+### New Features
+* [Documentation] Updated, executable ESM-2nv notebooks demonstrating: Data preprocessing and model training with custom datasets, Fine-tuning on FLIP data, Inference on OAS sequences, Pre-training from scratch and continuing training
+* [Documentation] New notebook demonstrating Zero-Shot Protein Design Using ESM-2nv. Thank you to @awlange from A-Alpha Bio for contributing the original version of this recipe!
+
+### Bug fixes and Improvements
+* [Geneformer] Fixed bug in preprocessing due to a relocation of dependent artifacts.
+* [Geneformer] Fixes bug in finetuning to use the newer preprocessing constructor.
+
 ## BioNeMo Framework v1.8
 ### New Features
 * [Documentation] Updated, executable MolMIM notebooks demonstrating: Training on custom data, Inference and downstream prediction, ZINC15 dataset preprocesing, and CMA-ES optimization
@@ -71,7 +106,9 @@
 ### Bug fixes and Improvements
 * NeMo upgraded to v1.22 ([see NeMo release notes](https://github.com/NVIDIA/NeMo/releases)),
 * PyTorch Lightning upgraded to 2.0.7
-* [NGC CLI](https://org.ngc.nvidia.com/setup/installers/cli) has been removed from the release container. If users download models from inside the container (via e.g. `download_artifacts.py` or `launch.sh download`), the NGC CLI will be auto-installed to pull the models from NGC.
+* [NGC CLI](https://org.ngc.nvidia.com/setup/installers/cli) has been removed from the release container. If users
+    download models from inside the container (e.g. using `bionemo_data_download` or via running specific unit tests),
+    the NGC CLI will be auto-installed to pull the models from NGC.
 
 ### Known Issues
 * BioNeMo Framework v24.03 container is vulnerable to [GHSA-whh8-fjgc-qp73](https://github.com/advisories/GHSA-whh8-fjgc-qp73) in onnx 1.14.0. Users are advised not to open untrusted onnx files with this image. Restrict your mount point to minimize directory traversal impact.

@@ -1,4 +1,4 @@
-## Introduction
+# Code Review
 
 This document describes the process and etiquette for code review in the
 BioNeMo repo. You should read this document if you are a developer
@@ -27,7 +27,7 @@ most issues with the change should be caught and addressed.
 
 Proceed to the next step after you've addressed your team's comments and
 have received an approval. There is no actual requirement in
-gitlab to receive your team-based approval - it's
+gitlab to receive your team-based approval - it is
 simply best practice.
 
 ### 2. Owner Review
@@ -155,7 +155,7 @@ Before becoming an approver, study this document so that you are completely fami
 responsibilities of reviewers and approvers. Additionally, make sure that you are intimately
 familiar with our coding style guides and best practices:
 
-- [CONTRIBUTING](CONTRIBUTING.md)
+- [Contributing](contributing.md)
   - In addition, make sure that you understand and can apply all elements of the
     [Google Python style guide](https://google.github.io/styleguide/pyguide.html), which we adhere
     to for all Python code
@@ -206,7 +206,7 @@ a fruitful interaction across the team members.
   to keep working on.
 
 - Follow code styling and rules stated in the project's documents
-  (e.g., [CONTRIBUTING.md](CONTRIBUTING.md), of which the [Google Python
+  (for example, [contributing.md](contributing.md), of which the [Google Python
   Style Guide](https://google.github.io/styleguide/pyguide.html) is a subet) as these define the
   look and feel of the code which defines the most fundamentals of how the code should be
   developed and allows reviewers to focus on the most important aspects of a new piece of code.
