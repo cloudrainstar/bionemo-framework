@@ -32,6 +32,7 @@ import pytest
 import torch
 from nemo.utils import logging
 
+from bionemo.core.data.multi_epoch_dataset import EpochIndex
 from bionemo.core.utils import random_utils
 from bionemo.geneformer.data.singlecell.dataset import SingleCellDataset
 from bionemo.geneformer.data.singlecell.preprocess import GeneformerPreprocess
@@ -94,14 +95,18 @@ def test_gene_not_in_tok_vocab(tmp_path, test_directory_feat_ids):
             logging.error("Preprocessing failed.")
 
     dataset0 = SingleCellDataset(sc_memmap_dataset_path0, tokenizer, median_dict=median_dict)  # type: ignore
+    index = EpochIndex(epoch=0, idx=3)
     with pytest.raises(ValueError) as error_info:
-        dataset0.__getitem__(3)
+        dataset0.__getitem__(index)
     assert "not in tokenizer vocab." in str(error_info.value)
     dataset0 = SingleCellDataset(
-        sc_memmap_dataset_path0, tokenizer, median_dict=median_dict, bypass_tokenizer_vocab=True
+        sc_memmap_dataset_path0,
+        tokenizer,
+        median_dict=median_dict,
+        bypass_tokenizer_vocab=True,  # type: ignore
     )  # type: ignore
 
-    item = dataset0.__getitem__(3)
+    item = dataset0.__getitem__(index)
     assert np.array(item["text"].tolist()) == [0]
 
 
@@ -121,8 +126,9 @@ def test_empty_gene_data_input(tmp_path, test_directory_feat_ids):
         case _:
             logging.error("Preprocessing failed.")
     dataset0 = SingleCellDataset(sc_memmap_dataset_path0, tokenizer, median_dict=median_dict)  # type: ignore
+    index = EpochIndex(epoch=0, idx=1)
     with pytest.raises(ValueError) as error_info:
-        dataset0.__getitem__(1)
+        dataset0.__getitem__(index)
     assert (
         "SingleCellMemap data provided is invalid; the gene expression data parsed for the specified index is empty."
         == str(error_info.value)
@@ -168,7 +174,8 @@ def test_get_item_synthetic(tmp_path, test_directory_feat_ids):
         mask_prob=0,
         random_token_prob=0,
     )  # type: ignore
-    item = dataset0.__getitem__(0)
+    index = EpochIndex(epoch=0, idx=0)
+    item = dataset0.__getitem__(index)
     assert np.all(np.array(item["text"]) == np.array([0, 10]))
     assert np.all(np.array(item["types"]) == np.array([0, 0]))
     assert np.all(np.array(item["attention_mask"]) == np.array([1, 1]))
@@ -197,7 +204,8 @@ def test_get_item_cellx(tmp_path, cellx_small_directory):
         random_token_prob=0,
         bypass_tokenizer_vocab=True,
     )  # type: ignore
-    item = ds.__getitem__(2)
+    index = EpochIndex(epoch=0, idx=2)
+    item = ds.__getitem__(index)
     expected_output_first = np.array(
         [
             0,
