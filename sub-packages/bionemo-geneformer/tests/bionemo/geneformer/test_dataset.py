@@ -37,6 +37,7 @@ from bionemo.core.utils import random_utils
 from bionemo.geneformer.data.singlecell.dataset import SingleCellDataset
 from bionemo.geneformer.data.singlecell.preprocess import GeneformerPreprocess
 from bionemo.scdl.io.single_cell_memmap_dataset import SingleCellMemMapDataset
+from bionemo.testing.megatron_dataset_compatibility import assert_dataset_elements_not_equal
 
 
 def test_load_sc_datasets(tmp_path, test_directory_feat_ids):
@@ -182,6 +183,31 @@ def test_get_item_synthetic(tmp_path, test_directory_feat_ids):
     assert np.all(np.array(item["labels"]) == np.array([-1, -100]))
     assert np.all(np.array(item["loss_mask"]) == np.array([False, False]))
     assert np.all(np.array(item["is_random"]) == np.array([0, 0]))
+
+
+def test_GeneformerDataset_changes_with_epoch(tmp_path, cellx_small_directory):
+    preprocessor = GeneformerPreprocess(
+        download_directory=tmp_path / cellx_small_directory / "val",
+        medians_file_path=tmp_path / cellx_small_directory / "val" / "medians.json",
+        tokenizer_vocab_path=tmp_path / cellx_small_directory / "val" / "geneformer.vocab",
+    )
+    match preprocessor.preprocess():
+        case {"tokenizer": tokenizer, "median_dict": median_dict}:
+            logging.info("*************** Preprocessing Finished ************")
+        case _:
+            logging.error("Preprocessing failed.")
+    genformer_ds = SingleCellDataset(
+        tmp_path / cellx_small_directory / "val",
+        tokenizer,  # type: ignore
+        median_dict=median_dict,  # type: ignore
+        bypass_tokenizer_vocab=True,
+    )  # type: ignore
+
+    index_0 = EpochIndex(epoch=0, idx=0)
+    index_1 = EpochIndex(epoch=1, idx=0)
+
+    # Tests megatron validity (subsequent calls to the same index produce the same result) and epoch non-determinism
+    assert_dataset_elements_not_equal(genformer_ds, index_0, index_1)
 
 
 def test_get_item_cellx(tmp_path, cellx_small_directory):
