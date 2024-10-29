@@ -20,6 +20,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from bionemo.core.data.multi_epoch_dataset import EpochIndex
 from bionemo.core.utils import random_utils
 from bionemo.geneformer.data.singlecell.utils import sample_or_truncate
 from bionemo.geneformer.tokenizer.gene_tokenizer import GeneTokenizer
@@ -104,9 +105,9 @@ class SingleCellDataset(Dataset):
     def __len__(self):  # noqa: D105
         return len(self.scdl)
 
-    def __getitem__(self, idx: int) -> types.BertSample:  # noqa: D105
-        rng = np.random.default_rng([self._seed, idx])
-        values, feature_ids_df = self.scdl.get_row(idx, return_features=True, feature_vars=["feature_id"])
+    def __getitem__(self, index: EpochIndex) -> types.BertSample:  # noqa: D105
+        rng = np.random.default_rng([self._seed, index.epoch, index.idx])
+        values, feature_ids_df = self.scdl.get_row(index.idx, return_features=True, feature_vars=["feature_id"])
         gene_data, col_idxs = values[0], values[1]
         gene_data = gene_data.astype(np.int64)
         col_idxs = col_idxs.astype(np.int64)
