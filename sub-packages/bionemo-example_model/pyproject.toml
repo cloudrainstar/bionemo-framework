@@ -35,3 +35,6 @@ version = { file = "VERSION" }
 
 [tool.uv]
 cache-keys = [{ git = true }]
+
+[project.scripts]
+bionemo-bug-2 = "bionemo.example_model.hello_world_entry:main"
