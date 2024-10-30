@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from typing import Sequence
 
 import pytorch_lightning as pl
@@ -82,10 +81,6 @@ if __name__ == "__main__":
 
     data_module = ESM2FineTuneDataModule(predict_dataset=dataset, global_batch_size=8, micro_batch_size=8)
 
-    # To download a pre-trained ESM2 model that works with this inference script, run the following command...
-    # $ download_bionemo_data esm2/650m:2.0 --source ngc
-    # ... and pass the output path (e.g. `.../.cache/bionemo/975d29ee980fcb08c97401bbdfdcf8ce-esm2_650M_nemo2.tar.gz.untar`)
-    # as an argument into `initial_ckpt_path` below!
     config = ESM2FineTuneSeqConfig(
         # initial_ckpt_path = finetuned_checkpoint,  # supply the finetuned checkpoint path
         # initial_ckpt_skip_keys_with_these_prefixes: List[str] = field(default_factory=list)   # reset to avoid skipping the head params
