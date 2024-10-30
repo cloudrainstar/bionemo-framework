@@ -36,7 +36,10 @@ from torch import Tensor
 
 __all__: Sequence[str] = ("ESM2DotProductAttention", "ESM2TEDotProductAttention")
 
-from megatron.core.extensions.transformer_engine import _te_version
+from megatron.core.utils import get_te_version
+
+
+_te_version = get_te_version()
 
 
 class ESM2TEDotProductAttention(TEDotProductAttention):
