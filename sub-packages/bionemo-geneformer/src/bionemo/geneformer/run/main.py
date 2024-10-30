@@ -23,7 +23,7 @@ from bionemo.geneformer.run.config_models import (
     ExposedGeneformerPretrainConfig,
     GeneformerPretrainingDataConfig,
 )
-from bionemo.llm.config.config_models import MainConfig
+from bionemo.llm.run.config_models import MainConfig
 from bionemo.llm.train import train
 
 

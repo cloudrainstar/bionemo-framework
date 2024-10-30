@@ -41,11 +41,11 @@ def test_pretrain_cli_from_ckpt(tmpdir):
     result_dir = Path(tmpdir.mkdir("results"))
 
     open_port = find_free_network_port()
-    config = "/workspaces/bionemo-fw-ea/test_config.json"
-    # Invoke with blocking
+    # NOTE: if this test is ever failing, you may want to put the config somewhere easily accessible.
+    config = f"{result_dir}/test_config.json"
+    # Invoke with blocking, continue when finished (and the json config is generated)
     checkpoint_path: Path = load("geneformer/10M_240530:2.0")
     cmd_str = f"""bionemo-geneformer-recipe --dest {config} --recipe test --data-path {data_path} --result-dir {result_dir} --initial-ckpt-path {checkpoint_path}""".strip()
-    # continue when finished
     env = dict(**os.environ)  # a local copy of the environment
     env["MASTER_PORT"] = str(open_port)
     cmd = shlex.split(cmd_str)
@@ -55,11 +55,7 @@ def test_pretrain_cli_from_ckpt(tmpdir):
         env=env,
         capture_output=True,
     )
-    # Now do pretrain
     if result.returncode != 0:
-        print(f"{cmd_str=}")
-        print(f"{result.stdout=}")
-        print(f"{result.stderr=}")
         raise Exception(f"Pretrain recipe failed:\n{cmd_str=}\n{result.stdout=}\n{result.stderr=}")
 
     cmd_str = f"""bionemo-geneformer-train --conf {config}""".strip()
@@ -74,8 +70,10 @@ def test_pretrain_cli_from_ckpt(tmpdir):
         capture_output=True,
     )
     if result.returncode != 0:
+        # More helpful failure
         raise Exception(f"Pretrain script failed:\n{cmd_str=}\n{result.stdout=}\n{result.stderr=}")
-    # NOTE this looks a lot like a magic value. But we also could do json.loads(config)['experiment_config']['experiment_name']
+
+    # Must match the experiment directory configured.
     assert (result_dir / "test-experiment").exists(), "Could not find test experiment directory."
 
 
@@ -85,7 +83,7 @@ def test_pretrain_cli(tmpdir):
     result_dir = Path(tmpdir.mkdir("results"))
 
     open_port = find_free_network_port()
-    config = "test_config.json"
+    config = f"{result_dir}/test_config.json"
     # Invoke with blocking
     cmd_str = f"""bionemo-geneformer-recipe --dest {config} --recipe test --data-path {data_path} --result-dir {result_dir}""".strip()
     # continue when finished
@@ -100,9 +98,6 @@ def test_pretrain_cli(tmpdir):
     )
     # Now do pretrain
     if result.returncode != 0:
-        print(f"{cmd_str=}")
-        print(f"{result.stdout=}")
-        print(f"{result.stderr=}")
         raise Exception(f"Pretrain recipe failed:\n{cmd_str=}\n{result.stdout=}\n{result.stderr=}")
 
     cmd_str = f"""bionemo-geneformer-train --conf {config}""".strip()
@@ -130,8 +125,7 @@ def test_finetune_cli(tmpdir):
 
     open_port = find_free_network_port()
 
-    # TODO use relative path when the test is working.
-    config = "test_config.json"
+    config = f"{result_dir}/test_config.json"
 
     # TODO add initial path
     cmd_str = f"""bionemo-geneformer-recipe --dest {config} --recipe test-finetune --data-path {data_path} --result-dir {result_dir} --initial-ckpt-path {checkpoint_path}""".strip()
@@ -149,28 +143,20 @@ def test_finetune_cli(tmpdir):
     )
     # Now do pretrain
     if result.returncode != 0:
-        print(f"{cmd_str=}")
-        print(f"{result.stdout=}")
-        print(f"{result.stderr=}")
         raise Exception(f"Pretrain recipe failed:\n{cmd_str=}\n{result.stdout=}\n{result.stderr=}")
 
-    # TODO gotta set the right config options here.
-    # TODO set the parsing flag
     cmd_str = f"""bionemo-geneformer-train --conf {config} """.strip()
     env = dict(**os.environ)  # a local copy of the environment
     open_port = find_free_network_port()
     env["MASTER_PORT"] = str(open_port)
     cmd = shlex.split(cmd_str)
-    print("starting the training invocation of evil")
     result = subprocess.run(
         cmd,
         cwd=tmpdir,
         env=env,
-        # capture_output=True,
         stdout=sys.stdout,
         stderr=sys.stderr,
     )
     if result.returncode != 0:
         raise Exception(f"Pretrain script failed:\n{cmd_str=}\n{result.stdout=}\n{result.stderr=}")
-    # NOTE this looks a lot like a magic value. But we also could do json.loads(config)['experiment_config']['experiment_name']
     assert (result_dir / "test-experiment").exists(), "Could not find test experiment directory."

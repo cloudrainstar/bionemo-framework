@@ -29,7 +29,7 @@ from nemo.utils import logging
 from pytorch_lightning.callbacks import LearningRateMonitor, RichModelSummary
 from tokenizers import Tokenizer
 
-from bionemo.llm.config.config_models import (
+from bionemo.llm.run.config_models import (
     DataConfig,
     DataModuleT,
     ExperimentConfig,
@@ -39,7 +39,7 @@ from bionemo.llm.config.config_models import (
     TrainingConfig,
 )
 from bionemo.llm.model.biobert.lightning import BioBertLightningModule
-from bionemo.llm.model.biobert.model import BioBertGenericConfig
+from bionemo.llm.model.biobert.model import BioBertConfig 
 from bionemo.llm.utils.datamodule_utils import infer_global_batch_size
 from bionemo.llm.utils.logger_utils import WandbConfig, setup_nemo_lightning_logger
 
@@ -92,7 +92,7 @@ def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConf
 
 
 def biobert_lightning_module(
-    bionemo_model_config: BioBertGenericConfig,
+    bionemo_model_config: BioBertConfig,
     tokenizer: Tokenizer,
     optim_config: OptimizerSchedulerConfig,
     num_steps: int,

@@ -25,7 +25,7 @@ from bionemo.geneformer.run.config_models import (
     ExposedGeneformerPretrainConfig,
     GeneformerPretrainingDataConfig,
 )
-from bionemo.llm.config.config_models import (
+from bionemo.llm.run.config_models import (
     ExperimentConfig,
     MainConfig,
     OptimizerSchedulerConfig,
@@ -261,7 +261,7 @@ def finetune_test_recipe(args) -> MainConfig[ExposedFineTuneSeqLenBioBertConfig,
         tensor_model_parallel_size=1, pipeline_model_parallel_size=1, num_devices=1, accumulate_grad_batches=2
     )
     training_config = TrainingConfig(
-        max_steps=55, limit_val_batches=2, val_check_interval=10, precision="bf16-mixed", accelerator="gpu"
+        max_steps=10, limit_val_batches=2, val_check_interval=2, precision="bf16-mixed", accelerator="gpu"
     )
     data_config = GeneformerPretrainingDataConfig(
         seq_length=128,
@@ -303,7 +303,7 @@ def pretrain_tiny_test_recipe(args) -> MainConfig[ExposedGeneformerPretrainConfi
         tensor_model_parallel_size=1, pipeline_model_parallel_size=1, num_devices=1, accumulate_grad_batches=2
     )
     training_config = TrainingConfig(
-        max_steps=55, limit_val_batches=2, val_check_interval=10, precision="bf16-mixed", accelerator="gpu"
+        max_steps=10, limit_val_batches=2, val_check_interval=2, precision="bf16-mixed", accelerator="gpu"
     )
     data_config = GeneformerPretrainingDataConfig(
         seq_length=128,
@@ -326,9 +326,6 @@ def pretrain_tiny_test_recipe(args) -> MainConfig[ExposedGeneformerPretrainConfi
     geneformer_config = geneformer_tiny_config(
         seq_length=data_config.seq_length, initial_ckpt_path=args.initial_ckpt_path
     )
-    # geneformer_config = geneformer10M_pretraining_config(
-    #    seq_length=data_config.seq_length, initial_ckpt_path=args.initial_ckpt_path
-    # )
 
     return MainConfig(
         data_config=data_config,
@@ -346,7 +343,6 @@ def geneformer10m_pretrain_recipe(
     data_config: GeneformerPretrainingDataConfig = geneformer_data_recipe(data_dir=args.data_dir)
     parallel_config = simple_parallel_recipe()
     training_config = default_trainer_config_recipe()
-    # bionemo_model_config = geneformer_finetuning_regression_head_recipe()
     bionemo_model_config = geneformer10M_pretraining_config(initial_ckpt_path=args.initial_ckpt_path)
     optim_config = default_adam_optimizer_with_cosine_annealing_recipe()
     experiment_config = experiment_config_recipe()
@@ -449,7 +445,6 @@ def main():
     elif args.recipe == "10m-pretrain":
         config = geneformer10m_pretrain_recipe(args)
     elif args.recipe == "106m-pretrain":
-        # config = geneformer106m_pretrain_recipe(args)
         raise NotImplementedError("106M pretraining recipe not implemented.")
     elif args.recipe == "test-finetune":
         config = finetune_test_recipe(args)

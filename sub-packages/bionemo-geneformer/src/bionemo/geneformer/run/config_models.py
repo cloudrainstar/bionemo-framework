@@ -13,22 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: LicenseRef-Apache2
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import math
 import pathlib
 from dataclasses import dataclass, field
@@ -47,7 +31,7 @@ from bionemo.geneformer.api import GeneformerConfig
 from bionemo.geneformer.data.singlecell.datamodule import SingleCellDataModule
 from bionemo.geneformer.data.singlecell.preprocess import GeneformerPreprocess
 from bionemo.geneformer.model.finetune_token_regressor import FineTuneSeqLenBioBertConfig
-from bionemo.llm.config.config_models import (
+from bionemo.llm.run.config_models import (
     DataConfig,
     ExperimentConfig,
     ExposedModelConfig,
@@ -56,7 +40,7 @@ from bionemo.llm.config.config_models import (
     TrainingConfig,
 )
 from bionemo.llm.model.biobert.lightning import BioBertLightningModule
-from bionemo.llm.model.biobert.model import BioBertGenericConfig
+from bionemo.llm.model.biobert.model import BioBertConfig
 from bionemo.llm.utils.logger_utils import WandbConfig, setup_nemo_lightning_logger
 
 
@@ -92,8 +76,7 @@ class GeneformerPretrainingDataConfig(DataConfig[SingleCellDataModule]):
         return self.data_dir + "/test"
 
     def geneformer_preprocess(self) -> GeneformerDataArtifacts:
-        """Geneformer datamodule expects certain artifacts to be present in the data directory.
-
+        """Geneformer datamodule expects certain artifacts to be present in the data directory. 
         This method uses a legacy 'preprocessor' from BioNeMo 1 to acquire the associated artifacts.
         """
         preprocessor = GeneformerPreprocess(
@@ -128,33 +111,6 @@ class GeneformerPretrainingDataConfig(DataConfig[SingleCellDataModule]):
         return data
 
 
-def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConfig) -> nl.Trainer:
-    # TODO: lift into llm?
-    strategy = nl.MegatronStrategy(
-        tensor_model_parallel_size=parallel_config.tensor_model_parallel_size,
-        pipeline_model_parallel_size=parallel_config.pipeline_model_parallel_size,
-        ddp="megatron",
-        find_unused_parameters=True,
-        ckpt_include_optimizer=True,
-    )
-
-    trainer = nl.Trainer(
-        devices=parallel_config.num_devices,
-        max_steps=training_config.max_steps,
-        accelerator=training_config.accelerator,
-        strategy=strategy,
-        limit_val_batches=training_config.limit_val_batches,
-        val_check_interval=training_config.val_check_interval,
-        num_nodes=parallel_config.num_nodes,
-        callbacks=[
-            RichModelSummary(max_depth=4),
-            LearningRateMonitor(),
-        ],
-        plugins=nl.MegatronMixedPrecision(precision=training_config.precision),
-    )
-    return trainer
-
-
 class ExposedGeneformerPretrainConfig(ExposedModelConfig[GeneformerConfig]):
     # Custom parameters for FineTuning
     initial_ckpt_path: Optional[str] = None
@@ -182,38 +138,8 @@ class ExposedFineTuneSeqLenBioBertConfig(ExposedModelConfig[FineTuneSeqLenBioBer
         return FineTuneSeqLenBioBertConfig
 
 
-def biobert_lightning_module(
-    bionemo_model_config: BioBertGenericConfig,
-    tokenizer: Tokenizer,
-    optim_config: OptimizerSchedulerConfig,
-    num_steps: int,
-) -> BioBertLightningModule:
-    # TODO Lift into llm?
-    model = BioBertLightningModule(
-        bionemo_model_config,
-        tokenizer=tokenizer,
-        optimizer=MegatronOptimizerModule(
-            config=OptimizerConfig(
-                lr=optim_config.lr,
-                optimizer=optim_config.optimizer,
-                use_distributed_optimizer=True,
-                fp16=bionemo_model_config.fp16,
-                bf16=bionemo_model_config.bf16,
-            ),
-            lr_scheduler=CosineAnnealingScheduler(
-                max_steps=num_steps,
-                min_lr=optim_config.lr / 100,
-                warmup_steps=int(math.ceil(num_steps * optim_config.cosine_rampup_frac)),
-                interval=optim_config.interval,
-                monitor=optim_config.monitor,
-                constant_steps=int(math.ceil(num_steps * optim_config.cosine_hold_frac)),
-            ),
-        ),
-    )
-    return model
-
-
 def nemo_logger_factory(experiment_config: ExperimentConfig, wandb_config: Optional[WandbConfig]) -> nl.NeMoLogger:
+    raise Exception
     # TODO lift into llm?
     checkpoint_callback = nl_callbacks.ModelCheckpoint(
         save_last=experiment_config.save_last_checkpoint,
