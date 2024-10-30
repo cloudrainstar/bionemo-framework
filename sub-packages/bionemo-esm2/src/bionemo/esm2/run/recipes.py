@@ -23,7 +23,7 @@ from nemo.utils import logging
 
 from bionemo.core.utils.dtypes import PrecisionTypes
 from bionemo.esm2.run.config_models import ESM2DataConfig, ExposedESM2PretrainConfig
-from bionemo.llm.config.config_models import (
+from bionemo.llm.run.config_models import (
     ExperimentConfig,
     MainConfig,
     OptimizerSchedulerConfig,
