@@ -19,7 +19,7 @@ import json
 from typing import Optional
 
 from bionemo.esm2.run.config_models import ESM2DataConfig, ExposedESM2PretrainConfig
-from bionemo.llm.config.config_models import MainConfig
+from bionemo.llm.run.config_models import MainConfig
 from bionemo.llm.train import train
 
 

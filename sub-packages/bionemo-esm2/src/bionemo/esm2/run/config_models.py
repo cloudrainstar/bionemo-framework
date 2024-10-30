@@ -27,7 +27,7 @@ from bionemo.esm2.data.dataset import RandomMaskStrategy
 from bionemo.esm2.data.tokenizer import get_tokenizer
 from bionemo.esm2.model.attention import ESM2DotProductAttention, ESM2TEDotProductAttention
 from bionemo.esm2.model.model import ESM2Config
-from bionemo.llm.config.config_models import (
+from bionemo.llm.run.config_models import (
     DataConfig,
     ExposedModelConfig,
     MainConfig,
