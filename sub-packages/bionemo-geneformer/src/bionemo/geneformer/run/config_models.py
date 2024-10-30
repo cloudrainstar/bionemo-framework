@@ -13,18 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math
 import pathlib
 from dataclasses import dataclass, field
 from typing import List, Optional, Type
 
-from megatron.core.optimizer import OptimizerConfig
 from nemo import lightning as nl
 from nemo.lightning.pytorch import callbacks as nl_callbacks
-from nemo.lightning.pytorch.optim import MegatronOptimizerModule
-from nemo.lightning.pytorch.optim.lr_scheduler import CosineAnnealingScheduler
 from nemo.utils import logging
-from pytorch_lightning.callbacks import LearningRateMonitor, RichModelSummary
 from tokenizers import Tokenizer
 
 from bionemo.geneformer.api import GeneformerConfig
@@ -35,12 +30,7 @@ from bionemo.llm.run.config_models import (
     DataConfig,
     ExperimentConfig,
     ExposedModelConfig,
-    OptimizerSchedulerConfig,
-    ParallelConfig,
-    TrainingConfig,
 )
-from bionemo.llm.model.biobert.lightning import BioBertLightningModule
-from bionemo.llm.model.biobert.model import BioBertConfig
 from bionemo.llm.utils.logger_utils import WandbConfig, setup_nemo_lightning_logger
 
 
@@ -76,7 +66,7 @@ class GeneformerPretrainingDataConfig(DataConfig[SingleCellDataModule]):
         return self.data_dir + "/test"
 
     def geneformer_preprocess(self) -> GeneformerDataArtifacts:
-        """Geneformer datamodule expects certain artifacts to be present in the data directory. 
+        """Geneformer datamodule expects certain artifacts to be present in the data directory.
         This method uses a legacy 'preprocessor' from BioNeMo 1 to acquire the associated artifacts.
         """
         preprocessor = GeneformerPreprocess(

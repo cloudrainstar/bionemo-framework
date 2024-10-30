@@ -25,6 +25,7 @@ from bionemo.geneformer.run.config_models import (
     ExposedGeneformerPretrainConfig,
     GeneformerPretrainingDataConfig,
 )
+from bionemo.llm.model.biobert.transformer_specs import BiobertSpecOption
 from bionemo.llm.run.config_models import (
     ExperimentConfig,
     MainConfig,
@@ -32,7 +33,6 @@ from bionemo.llm.run.config_models import (
     ParallelConfig,
     TrainingConfig,
 )
-from bionemo.llm.model.biobert.transformer_specs import BiobertSpecOption
 from bionemo.llm.utils.logger_utils import WandbConfig
 
 
