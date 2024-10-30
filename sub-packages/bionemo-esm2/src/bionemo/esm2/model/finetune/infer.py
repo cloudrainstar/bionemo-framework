@@ -15,7 +15,6 @@
 
 from typing import Sequence
 
-import pytorch_lightning as pl
 from nemo import lightning as nl
 from torch import Tensor
 
@@ -23,6 +22,7 @@ from bionemo.esm2.api import ESM2GenericConfig
 from bionemo.esm2.data.tokenizer import BioNeMoESMTokenizer, get_tokenizer
 from bionemo.esm2.model.finetune.datamodule import ESM2FineTuneDataModule
 from bionemo.esm2.model.finetune.finetune_regressor import ESM2FineTuneSeqConfig, InMemorySingleValueDataset
+from bionemo.llm.data.datamodule import MegatronDataModule
 from bionemo.llm.model.biobert.lightning import biobert_lightning_module
 
 
@@ -31,7 +31,7 @@ __all__: Sequence[str] = ("infer_model",)
 
 def infer_model(
     config: ESM2GenericConfig,
-    data_module: pl.LightningDataModule,
+    data_module: MegatronDataModule,
     tokenizer: BioNeMoESMTokenizer = get_tokenizer(),
 ) -> list[Tensor]:
     """Infers a BioNeMo ESM2 model using PyTorch Lightning.

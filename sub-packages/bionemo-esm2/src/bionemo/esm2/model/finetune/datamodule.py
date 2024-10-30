@@ -178,7 +178,8 @@ class ESM2FineTuneDataModule(MegatronDataModule):
         assert self._tokenizer.pad_token_id is not None, "Tokenizer must have a pad token id."
 
         return WrappedDataLoader(
-            dataset,
+            mode=mode,
+            dataset=dataset,
             num_workers=self._num_workers,
             pin_memory=self._pin_memory,
             persistent_workers=self._persistent_workers,
