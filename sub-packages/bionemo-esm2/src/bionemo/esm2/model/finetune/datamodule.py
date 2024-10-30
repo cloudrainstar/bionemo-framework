@@ -15,10 +15,9 @@
 
 
 import functools
+from typing import Literal
 
-import pytorch_lightning as pl
-import torch
-import torch.utils.data
+from nemo.lightning.data import WrappedDataLoader
 from nemo.lightning.pytorch.plugins import MegatronDataSampler
 from nemo.utils import logging
 from pytorch_lightning.utilities.types import EVAL_DATALOADERS, TRAIN_DATALOADERS
@@ -28,10 +27,14 @@ from bionemo.esm2.data import tokenizer
 from bionemo.esm2.model.finetune.finetune_regressor import InMemorySingleValueDataset
 from bionemo.esm2.model.finetune.finetune_token_classifier import InMemoryPerTokenValueDataset
 from bionemo.llm.data import collate
+from bionemo.llm.data.datamodule import MegatronDataModule
 from bionemo.llm.utils.datamodule_utils import infer_num_samples
 
 
-class ESM2FineTuneDataModule(pl.LightningDataModule):
+Mode = Literal["train", "validation", "test", "predict"]
+
+
+class ESM2FineTuneDataModule(MegatronDataModule):
     """A PyTorch Lightning DataModule for fine-tuning ESM2 models.
 
     This DataModule is designed to handle the data preparation and loading for fine-tuning ESM2 models.
@@ -106,7 +109,6 @@ class ESM2FineTuneDataModule(pl.LightningDataModule):
             dataloader_type="single",  # `MegatronPretrainingRandomSampler` from "cyclic" is failing.
             rampup_batch_size=rampup_batch_size,
             output_log=predict_dataset is None,  # logging does not work with predict step
-            drop_last=predict_dataset is None,  # infer partial batches during inference
         )
 
     def setup(self, stage: str) -> None:
@@ -164,10 +166,18 @@ class ESM2FineTuneDataModule(pl.LightningDataModule):
             seed=self._seed,
         )
 
-    def _create_dataloader(self, dataset, **kwargs) -> torch.utils.data.DataLoader:
+    def _create_dataloader(self, dataset, mode: Mode, **kwargs) -> WrappedDataLoader:
+        """Create dataloader for train, validation, and test stages.
+
+        Args:
+            dataset: The dataset to create the dataloader for.
+            mode: Stage of training, which is used to determined if consumed_samples in MegatronPretrainingSampler should be initialized to 0 (validation/test), or be set to the previous value from state_dict in case of checkpoint resumption (train).
+            **kwargs: Additional arguments to pass to the dataloader.
+        """
+        self.update_init_global_step()
         assert self._tokenizer.pad_token_id is not None, "Tokenizer must have a pad token id."
 
-        return torch.utils.data.DataLoader(
+        return WrappedDataLoader(
             dataset,
             num_workers=self._num_workers,
             pin_memory=self._pin_memory,
@@ -184,17 +194,17 @@ class ESM2FineTuneDataModule(pl.LightningDataModule):
     def train_dataloader(self) -> TRAIN_DATALOADERS:
         """Returns the dataloader for training data."""
         assert self._train_ds is not None, "train_dataset is not provided to ESM2FineTuneDataModule"
-        return self._create_dataloader(self._train_ds)
+        return self._create_dataloader(self._train_ds, mode="train")
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
         """Returns the dataloader for validation data."""
         assert self._valid_ds is not None, "valid_dataset is not provided to ESM2FineTuneDataModule"
-        return self._create_dataloader(self._valid_ds)
+        return self._create_dataloader(self._valid_ds, mode="validation")
 
     def predict_dataloader(self) -> EVAL_DATALOADERS:
         """Returns the dataloader for prediction data."""
         assert self.predict_dataset is not None, "predict_dataset is not provided to ESM2FineTuneDataModule"
-        return self._create_dataloader(self.predict_dataset)
+        return self._create_dataloader(self.predict_dataset, mode="predict")
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
         """Raises a not implemented error."""
