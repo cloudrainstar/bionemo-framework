@@ -111,8 +111,8 @@ RUN apt-get update && \
     cd ../python && \
     pip install .
 
-# TODO testing manual install of tensorstore
-RUN pip install setuptools_scm
+RUN pip install --upgrade pip
+RUN pip install setuptools_scm py-cpuinfo
 
 # Note, we need to mount the .git folder here so that setuptools-scm is able to fetch git tag for version.
 RUN --mount=type=bind,source=./.git,target=./.git \
@@ -120,7 +120,7 @@ RUN --mount=type=bind,source=./.git,target=./.git \
   --mount=type=bind,source=./requirements-cve.txt,target=/requirements-cve.txt \
   <<EOF
 set -eo pipefail
-pip install --no-build-isolation \
+uv pip install --no-build-isolation \
   ./3rdparty/* \
   ./sub-packages/bionemo-* \
   -r /requirements-cve.txt \
