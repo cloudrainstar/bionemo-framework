@@ -34,7 +34,6 @@ from nemo.lightning.pytorch.optim import MegatronOptimizerModule
 from nemo.lightning.pytorch.optim.lr_scheduler import CosineAnnealingScheduler
 from nemo.utils import logging
 from pytorch_lightning.callbacks import LearningRateMonitor, RichModelSummary
-from torch.nn import functional as F
 
 from bionemo.core.utils.dtypes import PrecisionTypes, get_autocast_dtype
 from bionemo.geneformer.api import FineTuneSeqLenBioBertConfig, GeneformerConfig
@@ -83,8 +82,9 @@ def main(
     save_last_checkpoint: bool = True,
     metric_to_monitor_for_checkpoints: str = "val_loss",
     save_top_k: int = 2,
-    save_every_n_steps: int = 100,
     config_class: Type[BioBertConfig] = GeneformerConfig,
+    bypass_tokenizer_vocab: bool = False,
+    log_every_n_steps: int = 50,
     # TODO add datamodule class, and ability to change data step to get full support for pretraining workflows
 ) -> None:
     """Train a Geneformer model on single cell data.
@@ -118,6 +118,7 @@ def main(
         create_tensorboard_logger (bool): create the tensorboard logger
         restore_from_checkpoint_path (path): If set, restores the model from the directory passed in. Expects the
             checkpoint to be created by using the ModelCheckpoint class and always_save_context=True.
+        log_every_n_steps (int): log at this interval.
     """
     # Create the result directory if it does not exist.
     result_dir.mkdir(parents=True, exist_ok=True)
@@ -145,6 +146,7 @@ def main(
         ddp="megatron",
         find_unused_parameters=True,
         ckpt_include_optimizer=True,
+        progress_interval=log_every_n_steps,
     )
 
     # for wandb integration
@@ -170,6 +172,7 @@ def main(
         strategy=strategy,
         limit_val_batches=limit_val_batches,  # This controls upsampling and downsampling
         val_check_interval=val_check_interval,  # TODO(@jstjohn) Checkpoint saving is currently broken, fix and change this.
+        log_every_n_steps=log_every_n_steps,
         num_nodes=num_nodes,
         callbacks=[
             PerplexityLoggingCallback(log_train=False, log_val=True),  # TODO(@sichu) fix this
@@ -205,36 +208,18 @@ def main(
         persistent_workers=num_dataset_workers > 0,
         pin_memory=False,
         num_workers=num_dataset_workers,
+        bypass_tokenizer_vocab=bypass_tokenizer_vocab,
     )
     geneformer_config = config_class(
+        # TODO let users set different num layers/model shapes here to support bigger/smaller architectures
         num_layers=6,
         hidden_size=256,
         ffn_hidden_size=512,
         num_attention_heads=4,
         seq_length=seq_length,
-        fp32_residual_connection=False,  # TODO(@jstjohn) check this
-        hidden_dropout=0.02,
-        init_method_std=0.02,
-        kv_channels=None,
-        apply_query_key_layer_scaling=False,
-        make_vocab_size_divisible_by=128,
-        masked_softmax_fusion=True,  # TODO(@jstjohn) check this
-        fp16_lm_cross_entropy=False,
         params_dtype=get_autocast_dtype(precision),
         pipeline_dtype=get_autocast_dtype(precision),
         autocast_dtype=get_autocast_dtype(precision),  # setting this speeds things up a lot
-        gradient_accumulation_fusion=False,  # THIS BREAKS STUFF, leave False
-        layernorm_zero_centered_gamma=False,  # TODO(@jstjohn) check this
-        layernorm_epsilon=1.0e-12,
-        activation_func=F.gelu,  # TODO(@jstjohn) check this
-        qk_layernorm=False,  # TODO(@jstjohn) check this
-        apply_residual_connection_post_layernorm=False,  # False is new default, True was BERT pub.
-        bias_activation_fusion=True,  # TODO(@jstjohn) check this
-        bias_dropout_fusion=True,  # TODO(@jstjohn) check this
-        get_attention_mask_from_fusion=False,
-        attention_dropout=0.1,
-        share_embeddings_and_output_weights=True,
-        enable_autocast=False,  # This has to be set to True if we use the mixed precision plugin
         biobert_spec_option=biobert_spec_option,
         nemo1_ckpt_path=str(nemo1_init_path) if nemo1_init_path is not None else None,
         # handle checkpoint resumption here rather than auto-resume so this supports fine-tuning capabilities
@@ -272,7 +257,7 @@ def main(
         save_last=save_last_checkpoint,
         monitor=metric_to_monitor_for_checkpoints,  # "val_loss",
         save_top_k=save_top_k,
-        every_n_train_steps=save_every_n_steps,
+        every_n_train_steps=val_check_interval,
         always_save_context=True,  # Enables the .nemo file-like checkpointing where all IOMixins are under SerDe
     )
 
@@ -400,6 +385,13 @@ parser.add_argument(
     help="Number of steps to use for training. Default is 10000.",
 )
 parser.add_argument(
+    "--log-every-n-steps",
+    type=int,
+    required=False,
+    default=50,
+    help="Number of steps between logging. Default is 50.",
+)
+parser.add_argument(
     "--seq-length",
     type=int,
     required=False,
@@ -474,6 +466,13 @@ parser.add_argument(
     default=None,
     help="Path to the checkpoint directory to restore from. Will override `--resume-if-exists` when set.",
 )
+parser.add_argument(
+    "--bypass-tokenizer-vocab",
+    type=Path,
+    required=False,
+    default=False,
+    help="Bypass whether the SingleCellDataLoaderhrows an error when a gene ensemble id is not in the tokenizer vocab. Defaults to False (so the error is thrown by default).",
+)
 
 # TODO consider whether nemo.run or some other method can simplify this config class lookup.
 config_class_options: Dict[str, Type[BioBertConfig]] = {
@@ -539,5 +538,6 @@ if __name__ == "__main__":
         save_last_checkpoint=args.save_last_checkpoint,
         metric_to_monitor_for_checkpoints=args.metric_to_monitor_for_checkpoints,
         save_top_k=args.save_top_k,
-        save_every_n_steps=args.val_check_interval,
+        log_every_n_steps=args.log_every_n_steps,
+        bypass_tokenizer_vocab=args.bypass_tokenizer_vocab,
     )
