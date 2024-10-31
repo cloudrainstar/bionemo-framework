@@ -63,10 +63,15 @@ USE_NIGHTLY_CACHE=false
 ALLOW_INSECURE_DOCKER_BUILDER=true
 
 LABELS_ARGS=""
-EXTRA_ARGS="--network host"
+EXTRA_ARGS=""
 CACHE_ARGS=""
 DEFAULT_BRANCH_NAME="main"
-DEFAULT_DOCKERFILE_PATH="Dockerfile"
+ARCH=$(uname -m)
+if [[ "$ARCH" == "arm64" || "$ARCH" == "aarch64" ]]; then
+    DEFAULT_DOCKERFILE_PATH="Dockerfile.arm"
+else
+    DEFAULT_DOCKERFILE_PATH="Dockerfile"
+fi
 
 # Parse command-line options
 while [[ "$#" -gt 0 ]]; do
