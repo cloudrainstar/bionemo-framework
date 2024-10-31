@@ -111,7 +111,8 @@ RUN apt-get update && \
     cd ../python && \
     pip install .
 
-# RUN pip install py-cpuinfo tensorstore==0.1.45
+# TODO testing manual install of tensorstore
+RUN pip install setuptools_scm
 
 # Note, we need to mount the .git folder here so that setuptools-scm is able to fetch git tag for version.
 RUN --mount=type=bind,source=./.git,target=./.git \
