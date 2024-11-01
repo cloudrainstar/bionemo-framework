@@ -53,6 +53,7 @@ class ESM2TEDotProductAttention(TEDotProductAttention):
         softmax_scale: float = 1.0,
         k_channels: int | None = None,
         v_channels: int | None = None,
+        cp_comm_type: str = "p2p",
     ):
         """Initialize ESM2TEDotProductAttention."""
         self.config = config
@@ -92,6 +93,11 @@ class ESM2TEDotProductAttention(TEDotProductAttention):
             extra_kwargs["cp_group"] = get_context_parallel_group(check_initialized=False)
             extra_kwargs["cp_global_ranks"] = get_context_parallel_global_ranks(check_initialized=False)
             extra_kwargs["cp_stream"] = TEDotProductAttention.cp_stream
+            if is_te_min_version("1.10.0"):
+                if cp_comm_type is None:
+                    extra_kwargs["cp_comm_type"] = "p2p"
+                else:
+                    extra_kwargs["cp_comm_type"] = cp_comm_type
         else:
             assert (
                 self.config.context_parallel_size == 1
