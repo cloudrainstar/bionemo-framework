@@ -262,8 +262,7 @@ Similar to ESM-2, you can download the dataset and checkpoint through our utilit
 ```bash
 TEST_DATA_DIR=$(download_bionemo_data single_cell/testdata-20240506 --source $MY_DATA_SOURCE); \
 GENEFORMER_10M_CKPT=$(download_bionemo_data geneformer/10M_240530:2.0 --source $MY_DATA_SOURCE); \
-python  \
-    scripts/singlecell/geneformer/train.py     \
+train_geneformer     \
     --data-dir ${TEST_DATA_DIR}/cellxgene_2023-12-15_small/processed_data    \
     --result-dir ./results     \
     --restore-from-checkpoint-path ${GENEFORMER_10M_CKPT} \
@@ -282,14 +281,13 @@ To fine-tune, you just need to specify a different combination of model and loss
 `--training-model-config-class` to the newly created model-config-class.
 
 While no CLI option currently exists to hot swap in different data modules and processing functions _now_, you could
-copy the `scripts/singlecell/geneformer/train.py` and modify the DataModule class that gets initialized.
+copy the `sub-projects/bionemo-geneformer/geneformer/scripts/train_geneformer.py` and modify the DataModule class that gets initialized.
 
 Simple fine-tuning example (**NOTE**: please change `--restore-from-checkpoint-path` to be the checkpoint directory path that was output last
 by the previous train run)
 ```bash
 TEST_DATA_DIR=$(download_bionemo_data single_cell/testdata-20240506 --source $MY_DATA_SOURCE); \
-python  \
-    scripts/singlecell/geneformer/train.py     \
+train_geneformer     \
     --data-dir ${TEST_DATA_DIR}/cellxgene_2023-12-15_small/processed_data    \
     --result-dir ./results     \
     --experiment-name test_finettune_experiment     \
@@ -365,6 +363,17 @@ pip install -r dev-requirements.txt --user
 python ./scripts/license_check.py --modify --replace --license-header ./license_header -c sub-packages/ -c docs/ -c scripts/ -c ci/ -c internal/
 ```
 
+## Updating the secrets baseline file
+
+If false-positives are raised by the [detect-secrets](https://github.com/Yelp/detect-secrets) pre-commit hook, they can
+be added to the baseline files by running the following commands:
+
+```bash
+detect-secrets scan --baseline .secrets.baseline --exclude-files '(.*\.ipynb|.*\.baseline)$'
+detect-secrets scan --baseline .secrets-nb.baseline --exclude-files '^.(?!.*\.ipynb)' --exclude-lines '"(hash|id|image/\w+)":.*'
+```
+
+The resulting altered baseline files should then be committed.
 
 # UV-based python packaging
 
