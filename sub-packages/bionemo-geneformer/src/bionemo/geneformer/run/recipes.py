@@ -37,28 +37,33 @@ from bionemo.llm.utils.logger_utils import WandbConfig
 
 
 def geneformer_base_parallel_config() -> ParallelConfig:
-    '''Base parallel config for Geneformer'''
+    """Base parallel config for Geneformer"""
     return ParallelConfig(
         tensor_model_parallel_size=1,
         pipeline_model_parallel_size=1,
         accumulate_grad_batches=1,
-        ddp='megatron',
+        ddp="megatron",
         num_devices=1,
         num_nodes=1,
     )
 
+
 def geneformer_base_optimizer_scheduler_config() -> OptimizerSchedulerConfig:
-    '''Base optimizer scheduler config for Geneformer'''
-    return OptimizerSchedulerConfig(lr=1e-3) # Matches bionemo1
+    """Base optimizer scheduler config for Geneformer"""
+    return OptimizerSchedulerConfig(lr=1e-3)  # Matches bionemo1
+
 
 def geneformer_base_training_config() -> TrainingConfig:
-    '''Base training config for Geneformer'''
-    return TrainingConfig(max_steps=400000, limit_val_batches=8, val_check_interval=100, precision='bf16-mixed') # matches bionemo1
+    """Base training config for Geneformer"""
+    return TrainingConfig(
+        max_steps=400000, limit_val_batches=8, val_check_interval=100, precision="bf16-mixed"
+    )  # matches bionemo1
 
 
 def geneformer_data_recipe(data_dir) -> GeneformerPretrainingDataConfig:
     """Recipe that produces the base geneformer small data configuration."""
     return GeneformerPretrainingDataConfig(data_dir=data_dir)
+
 
 # 10m definitions
 def geneformer_10m_model_config(
@@ -68,7 +73,7 @@ def geneformer_10m_model_config(
     initial_ckpt_path: Optional[str] = None,
     biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_with_transformer_engine_spec,
 ) -> ExposedGeneformerPretrainConfig:
-    '''Geneformer 10m model config settings'''
+    """Geneformer 10m model config settings"""
     geneformer_config = ExposedGeneformerPretrainConfig(
         num_layers=6,
         hidden_size=256,
@@ -104,63 +109,69 @@ def geneformer_10m_model_config(
     )
     return geneformer_config
 
+
 def geneformer_10m_experiment_config(result_dir) -> ExperimentConfig:
-    '''Experiment config for Geneformer 10m'''
+    """Experiment config for Geneformer 10m"""
     return ExperimentConfig(
         save_every_n_steps=100,
         result_dir=result_dir,
         experiment_name="geneformer-10m",
-        restore_from_checkpoint_path=None
+        restore_from_checkpoint_path=None,
     )
 
+
 def geneformer_10m_wandb_config() -> WandbConfig:
-    '''Wandb config for Geneformer 10m'''
+    """Wandb config for Geneformer 10m"""
     wandb_config = WandbConfig(
-        entity='geneformer-10m_pretraining',
-        project='geneformer-10m_pretraining',
-        group='geneformer-10m',
-        tags=['geneformer-10m'],
+        entity="geneformer-10m_pretraining",
+        project="geneformer-10m_pretraining",
+        group="geneformer-10m",
+        tags=["geneformer-10m"],
         offline=True,
         anonymous=True,
-        id='1',
+        id="1",
         log_model=False,
     )
     return wandb_config
 
+
 # 106m definition, model, experiment, wandb, parallel
 def geneformer_106m_parallel_config() -> ParallelConfig:
-    '''Base parallel config for Geneformer'''
+    """Base parallel config for Geneformer"""
     return ParallelConfig(
         tensor_model_parallel_size=1,
         pipeline_model_parallel_size=1,
         accumulate_grad_batches=1,
-        ddp='megatron',
+        ddp="megatron",
         num_devices=8,
         num_nodes=1,
     )
 
+
 def geneformer_106m_experiment_config(result_dir) -> ExperimentConfig:
-    '''Experiment config for Geneformer 106m'''
+    """Experiment config for Geneformer 106m"""
     return ExperimentConfig(
         save_every_n_steps=100,
         result_dir=result_dir,
         experiment_name="geneformer-106m",
-        restore_from_checkpoint_path=None
+        restore_from_checkpoint_path=None,
     )
 
+
 def geneformer_106m_wandb_config() -> WandbConfig:
-    '''Wandb config for Geneformer 106m'''
+    """Wandb config for Geneformer 106m"""
     wandb_config = WandbConfig(
-        entity='geneformer-106m_pretraining',
-        project='geneformer-106m_pretraining',
-        group='geneformer-106m',
-        tags=['geneformer-106m'],
+        entity="geneformer-106m_pretraining",
+        project="geneformer-106m_pretraining",
+        group="geneformer-106m",
+        tags=["geneformer-106m"],
         offline=True,
         anonymous=True,
-        id='1',
+        id="1",
         log_model=False,
     )
     return wandb_config
+
 
 def geneformer_106m_model_config(
     seq_length: int = 2048,
@@ -169,7 +180,7 @@ def geneformer_106m_model_config(
     initial_ckpt_path: Optional[str] = None,
     biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_with_transformer_engine_spec,
 ) -> ExposedGeneformerPretrainConfig:
-    '''Geneformer 106m model config settings'''
+    """Geneformer 106m model config settings"""
     geneformer_config = ExposedGeneformerPretrainConfig(
         num_layers=12,
         hidden_size=768,
@@ -212,7 +223,7 @@ def simple_parallel_recipe(
     num_devices: int = 1,
     accumulate_grad_batches: int = 1,
 ) -> ParallelConfig:
-    '''Simple parallel config for Geneformer, only used in testing.'''
+    """Simple parallel config for Geneformer, only used in testing."""
     assert (
         num_devices >= tensor_model_parallel_size * pipeline_model_parallel_size
     ), "devices must be divisible by tensor_model_parallel_size * pipeline_model_parallel_size"
@@ -230,7 +241,7 @@ def geneformer_finetuning_regression_head_recipe(
     initial_ckpt_path: Optional[str] = None,
     initial_ckpt_skip_keys_with_these_prefixes: Optional[List[str]] = None,
 ) -> ExposedFineTuneSeqLenBioBertConfig:
-    '''Recipe for finetuning a regression head on the masked tokens.'''
+    """Recipe for finetuning a regression head on the masked tokens."""
     partial_finetuning_config = partial(
         ExposedFineTuneSeqLenBioBertConfig,
         params_dtype=precision,
@@ -251,7 +262,7 @@ def geneformer_finetuning_regression_head_recipe(
 
 
 def default_trainer_config_recipe() -> TrainingConfig:
-    '''Default trainer config for Geneformer'''
+    """Default trainer config for Geneformer"""
     return TrainingConfig(max_steps=55000, limit_val_batches=2, val_check_interval=100)
 
 
@@ -262,7 +273,7 @@ def geneformer_10m_finetune_config(
     initial_ckpt_path: Optional[str] = None,
     biobert_spec_option=BiobertSpecOption.bert_layer_with_transformer_engine_spec,
 ) -> ExposedFineTuneSeqLenBioBertConfig:
-    '''Geneformer 10m finetuning config settings'''
+    """Geneformer 10m finetuning config settings"""
     geneformer_config = ExposedFineTuneSeqLenBioBertConfig(
         num_layers=6,
         hidden_size=256,
@@ -306,7 +317,7 @@ def geneformer_tiny_config(
     initial_ckpt_path: Optional[str] = None,
     biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_with_transformer_engine_spec,
 ) -> ExposedGeneformerPretrainConfig:
-    '''Geneformer tiny model config settings, used in testing.'''
+    """Geneformer tiny model config settings, used in testing."""
     geneformer_config = ExposedGeneformerPretrainConfig(
         num_layers=2,
         hidden_size=32,
@@ -344,12 +355,12 @@ def geneformer_tiny_config(
 
 
 def default_adam_optimizer_with_cosine_annealing_recipe() -> OptimizerSchedulerConfig:
-    '''Default optimizer scheduler config for Geneformer. See OptimizerSchedulerConfig for defaults.'''
+    """Default optimizer scheduler config for Geneformer. See OptimizerSchedulerConfig for defaults."""
     return OptimizerSchedulerConfig()
 
 
 def experiment_config_recipe() -> ExperimentConfig:
-    '''Default experiment config for Geneformer. Used in testing. '''
+    """Default experiment config for Geneformer. Used in testing."""
     return ExperimentConfig(
         save_every_n_steps=100,
         result_dir="./results",
@@ -363,7 +374,7 @@ def experiment_config_recipe() -> ExperimentConfig:
 
 
 def finetune_test_recipe(args) -> MainConfig[ExposedFineTuneSeqLenBioBertConfig, GeneformerPretrainingDataConfig]:
-    '''Recipe for finetuning a regression head on the masked tokens.'''
+    """Recipe for finetuning a regression head on the masked tokens."""
     data_path = args.data_path
     result_dir = args.result_dir
 
@@ -406,7 +417,7 @@ def finetune_test_recipe(args) -> MainConfig[ExposedFineTuneSeqLenBioBertConfig,
 
 
 def pretrain_tiny_test_recipe(args) -> MainConfig[ExposedGeneformerPretrainConfig, GeneformerPretrainingDataConfig]:
-    '''Recipe for pretraining a tiny model. Used in testing.'''
+    """Recipe for pretraining a tiny model. Used in testing."""
     data_path = args.data_path
     result_dir = args.result_dir
 
@@ -451,7 +462,7 @@ def pretrain_tiny_test_recipe(args) -> MainConfig[ExposedGeneformerPretrainConfi
 def geneformer_10m_pretrain_recipe(
     args,
 ) -> MainConfig[ExposedGeneformerPretrainConfig, GeneformerPretrainingDataConfig]:
-    '''Recipe for pretraining the 10m model.'''
+    """Recipe for pretraining the 10m model."""
     data_config: GeneformerPretrainingDataConfig = geneformer_data_recipe(data_dir=args.data_path)
     parallel_config = simple_parallel_recipe()
     training_config = geneformer_base_training_config()
@@ -470,10 +481,11 @@ def geneformer_10m_pretrain_recipe(
     )
     return main_config
 
+
 def geneformer_106m_pretrain_recipe(
     args,
 ) -> MainConfig[ExposedGeneformerPretrainConfig, GeneformerPretrainingDataConfig]:
-    '''Recipe for pretraining the 106m model. Uses 8 GPUs for data parallelism'''
+    """Recipe for pretraining the 106m model. Uses 8 GPUs for data parallelism"""
     data_config: GeneformerPretrainingDataConfig = geneformer_data_recipe(data_dir=args.data_path)
     parallel_config = geneformer_106m_parallel_config()
     training_config = geneformer_base_training_config()
@@ -493,11 +505,10 @@ def geneformer_106m_pretrain_recipe(
     return main_config
 
 
-
 def geneformer_10m_finetune_recipe(
     args,
 ) -> MainConfig[ExposedFineTuneSeqLenBioBertConfig, GeneformerPretrainingDataConfig]:
-    '''Recipe for finetuning the 10m model on a token regression head. Used as an example and for testing. '''
+    """Recipe for finetuning the 10m model on a token regression head. Used as an example and for testing."""
     data_config: GeneformerPretrainingDataConfig = geneformer_data_recipe(data_dir=args.data_path)
     parallel_config = simple_parallel_recipe()
     training_config = default_trainer_config_recipe()

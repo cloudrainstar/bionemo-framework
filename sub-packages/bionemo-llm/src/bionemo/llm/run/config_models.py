@@ -93,7 +93,7 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
         arbitrary_types_allowed = True
 
     def model_class(self) -> Type[ModelConfigT]:
-        '''Returns the underlying model class that this config wraps.'''
+        """Returns the underlying model class that this config wraps."""
         raise NotImplementedError
 
     def model_validator(self, global_cfg: "MainConfig") -> "MainConfig":
@@ -190,8 +190,7 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
 
     @field_serializer("activation_func")
     def serialize_activation_func(self, v: Callable[[torch.Tensor, Any], torch.Tensor]) -> str:
-        """
-        Serializes a given activation function to its corresponding string representation.
+        """Serializes a given activation function to its corresponding string representation.
 
         By default, all activation functions from `torch.nn.functional` are serialized to their name. User defined
         activation functions should also be defined here with a custom mapping in CUSTOM_ACTIVATION_FNS defined at the
@@ -207,7 +206,6 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
         Raises:
             ValueError: If the activation function is not supported.
         """
-
         func_name = v.__name__
         func = getattr(torch.nn.functional, func_name, None)
         if func is not None:
@@ -220,12 +218,12 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
     @field_validator("params_dtype", "pipeline_dtype", "autocast_dtype", mode="before")
     @classmethod
     def precision_validator(cls, v: dtypes.PrecisionTypes) -> torch.dtype:
-        '''Validates the precision type and returns the corresponding torch dtype.'''
+        """Validates the precision type and returns the corresponding torch dtype."""
         return dtypes.get_autocast_dtype(v)
 
     @field_serializer("params_dtype", "pipeline_dtype", "autocast_dtype")
     def serialize_dtypes(self, v: torch.dtype) -> dtypes.PrecisionTypes:
-        '''Serializes the torch dtype to the corresponding precision type.'''
+        """Serializes the torch dtype to the corresponding precision type."""
         return dtypes.dtype_to_precision[v]
 
 
@@ -240,7 +238,7 @@ class ParallelConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_devices(self):
-        '''Validates the number of devices based on the tensor and pipeline model parallel sizes.'''
+        """Validates the number of devices based on the tensor and pipeline model parallel sizes."""
         if self.num_devices < self.tensor_model_parallel_size * self.pipeline_model_parallel_size:
             raise ValidationError(
                 "devices must be divisible by tensor_model_parallel_size * pipeline_model_parallel_size"
@@ -249,8 +247,8 @@ class ParallelConfig(BaseModel):
 
 
 class TrainingConfig(BaseModel):
-    """
-    TrainingConfig is a configuration class for training models.
+    """TrainingConfig is a configuration class for training models.
+
     Attributes:
         max_steps (int): The maximum number of training steps.
         limit_val_batches (int | float): The number of validation batches to use. Can be a fraction or a count.
@@ -260,15 +258,15 @@ class TrainingConfig(BaseModel):
     """
 
     max_steps: int
-    limit_val_batches: int | float # Because this can be a fraction or a count...
+    limit_val_batches: int | float  # Because this can be a fraction or a count...
     val_check_interval: int
     precision: Literal["32", "bf16-mixed", "16-mixed"] = "bf16-mixed"
     accelerator: str = "gpu"
 
 
 class OptimizerSchedulerConfig(BaseModel):
-    """
-    Configuration for the optimizer and learning rate scheduler.
+    """Configuration for the optimizer and learning rate scheduler.
+
     Attributes:
         lr (float): Learning rate for the optimizer. Default is 1e-4.
         optimizer (str): Type of optimizer to use. Default is "adam".
@@ -287,8 +285,8 @@ class OptimizerSchedulerConfig(BaseModel):
 
 
 class ExperimentConfig(BaseModel):
-    """
-    Configuration class for setting up and managing experiment parameters.
+    """Configuration class for setting up and managing experiment parameters.
+
     Attributes:
         save_every_n_steps (int): Number of steps between saving checkpoints.
         result_dir (str | pathlib.Path): Directory where results will be saved.
@@ -351,16 +349,16 @@ class MainConfig(BaseModel, Generic[ExModelConfigT, DataConfigT]):
 
     @model_validator(mode="after")
     def validate_master_config(self) -> "MainConfig":
-        '''Validates the master configuration object.'''
+        """Validates the master configuration object."""
         self.bionemo_model_config.seq_length = self.data_config.seq_length
         return self
 
     @model_validator(mode="after")
     def run_bionemo_model_config_model_validators(self) -> "MainConfig":
-        '''Runs the model validators on the bionemo_model_config.'''
+        """Runs the model validators on the bionemo_model_config."""
         return self.bionemo_model_config.model_validator(self)
 
     @model_validator(mode="after")
     def run_data_config_model_validators(self) -> "MainConfig":
-        '''Runs the model validators on the data_config.'''
+        """Runs the model validators on the data_config."""
         return self.data_config.model_validator(self)

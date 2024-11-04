@@ -27,17 +27,16 @@ from bionemo.esm2.data.dataset import RandomMaskStrategy
 from bionemo.esm2.data.tokenizer import get_tokenizer
 from bionemo.esm2.model.attention import ESM2DotProductAttention, ESM2TEDotProductAttention
 from bionemo.esm2.model.model import ESM2Config
+from bionemo.llm.model.biobert.model import BiobertSpecOption
 from bionemo.llm.run.config_models import (
     DataConfig,
     ExposedModelConfig,
     MainConfig,
 )
-from bionemo.llm.model.biobert.model import BiobertSpecOption
 
 
 class ESM2DataConfig(DataConfig[ESMDataModule]):
-    """
-    ESM2DataConfig is a configuration class for setting up the pre-training data module for ESM2.
+    """ESM2DataConfig is a configuration class for setting up the pre-training data module for ESM2.
 
     The ESM2DataModule implements the cluster oriented sampling method defined in the ESM2 publication.
 
@@ -71,7 +70,7 @@ class ESM2DataConfig(DataConfig[ESMDataModule]):
     num_dataset_workers: int = 0
 
     def construct_data_module(self, global_batch_size: int) -> ESMDataModule:
-        '''Constructs and returns an ESMDataModule instance with the provided global batch size.'''
+        """Constructs and returns an ESMDataModule instance with the provided global batch size."""
         tokenizer = get_tokenizer()
         data = ESMDataModule(
             train_cluster_path=self.train_cluster_path,
@@ -91,8 +90,7 @@ class ESM2DataConfig(DataConfig[ESMDataModule]):
 
 class ExposedESM2PretrainConfig(ExposedModelConfig[ESM2Config]):
     class ExposedESM2PretrainConfig:
-        """
-        Configuration class for ESM2 pretraining with select exposed parameters.
+        """Configuration class for ESM2 pretraining with select exposed parameters.
 
         See the inherited ExposedModelConfig for attributes and methods from the base class. Use this class either
         as a template or extension for custom configurations. Importantly, these kinds of classes should do two things,
@@ -120,7 +118,7 @@ class ExposedESM2PretrainConfig(ExposedModelConfig[ESM2Config]):
                 Returns the model class associated with this configuration.
         """
 
-    use_esm_attention: bool = False # Skip ESM2 custom attention for TE acceleration. Still passes golden value test.
+    use_esm_attention: bool = False  # Skip ESM2 custom attention for TE acceleration. Still passes golden value test.
     token_dropout: bool = True
     normalize_attention_scores: bool = False
     variable_seq_lengths: bool = False
@@ -129,7 +127,7 @@ class ExposedESM2PretrainConfig(ExposedModelConfig[ESM2Config]):
     @field_validator("biobert_spec_option", mode="after")
     @classmethod
     def restrict_biobert_spec_to_esm2(cls, biobert_spec_option: BiobertSpecOption) -> BiobertSpecOption:
-        '''Validates the BiobertSpecOption to ensure it is compatible with ESM2. by restricting it to the specs compatable with ESM2'''
+        """Validates the BiobertSpecOption to ensure it is compatible with ESM2. by restricting it to the specs compatable with ESM2"""
         if biobert_spec_option in (
             BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec,
             BiobertSpecOption.esm2_bert_layer_local_spec,
@@ -142,14 +140,14 @@ class ExposedESM2PretrainConfig(ExposedModelConfig[ESM2Config]):
 
     @field_serializer("core_attention_override")
     def serialize_core_attention_override(self, value: Optional[Type[torch.nn.Module]]) -> Optional[str]:
-        '''Serializes the core attention override module to a string.'''
+        """Serializes the core attention override module to a string."""
         if value is None:
             return None
         return f"{value.__module__}.{value.__name__}"
 
     @field_validator("core_attention_override", mode="before")
     def validate_core_attention_override(cls, value):
-        '''Validates the core attention override module, ensuring it is a subclass of torch.nn.Module.'''
+        """Validates the core attention override module, ensuring it is a subclass of torch.nn.Module."""
         if value is None:
             return None
         if isinstance(value, str):
@@ -166,7 +164,7 @@ class ExposedESM2PretrainConfig(ExposedModelConfig[ESM2Config]):
 
     @model_validator(mode="after")
     def validate_and_set_attention_and_scaling(self):
-        '''Validates and sets the attention and scaling parameters based on the biobert_spec_option.''' 
+        """Validates and sets the attention and scaling parameters based on the biobert_spec_option."""
         logging.info(
             "Mutating apply_query_key_layer_scaling and core_attention_override based on biobert_spec_option.."
         )
@@ -183,14 +181,14 @@ class ExposedESM2PretrainConfig(ExposedModelConfig[ESM2Config]):
         return self
 
     def model_validator(self, global_cfg: MainConfig) -> MainConfig:
-        '''Validates the global configuration, ensuring compatibility with ESM2DataConfig and parallel settings.
-        
+        """Validates the global configuration, ensuring compatibility with ESM2DataConfig and parallel settings.
+
         The global validator acts on the MainConfig, this couples together the ESM2DataConfig with ESM2PretrainingConfig.
         Additionally, it provides validation for sequence length and parallelism settings.
 
         Args:
-            global_cfg (MainConfig): The global configuration object. 
-        '''
+            global_cfg (MainConfig): The global configuration object.
+        """
         global_cfg = super().model_validator(global_cfg)
         # Need to ensure that at the least we have access to min_seq_length and max_seq_length
         if not isinstance(global_cfg.data_config, ESM2DataConfig):
@@ -208,5 +206,5 @@ class ExposedESM2PretrainConfig(ExposedModelConfig[ESM2Config]):
         return global_cfg
 
     def model_class(self) -> Type[ESM2Config]:
-        '''Returns the model class associated with this configuration.'''
+        """Returns the model class associated with this configuration."""
         return ESM2Config

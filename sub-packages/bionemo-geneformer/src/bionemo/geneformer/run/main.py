@@ -18,7 +18,6 @@ import argparse
 import json
 from typing import Optional
 
-
 from bionemo.geneformer.run.config_models import (
     ExposedFineTuneSeqLenBioBertConfig,
     ExposedGeneformerPretrainConfig,

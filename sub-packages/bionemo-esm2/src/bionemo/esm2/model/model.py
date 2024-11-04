@@ -266,6 +266,7 @@ class ESM2GenericConfig(BioBertConfig[ESM2ModelT, MegatronLossType]):
         return_only_hidden_states: Whether to return only hidden states.
         loss_reduction_class: Loss reduction class for the model. Default to BERTMLMLossWithReduction.
     """
+
     # ESM specific fields (these are repeated below)
     use_esm_attention: bool = False  # Skip ESM2 custom attention for TE acceleration. Still passes golden value test.
     token_dropout: bool = True

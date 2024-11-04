@@ -200,7 +200,7 @@ python  \
 
 ##### Running with Pydantic configs
 
-Alternatively, we provide a validated and serialized configuration file entrypoint for executing the same workflow. Recipes 
+Alternatively, we provide a validated and serialized configuration file entrypoint for executing the same workflow. Recipes
 are available for 8m, 650m, and 3b ESM2 models.
 
 ```bash
@@ -221,13 +221,13 @@ bionemo-esm2-recipe \
 > NOTE: To pretrain from an existing checkpoint, simply pass in the path --initial-ckpt-path to the recipe command. This will populate the JSON with the correct field to ensure pretraining is initialized from an existing checkpoint.
 
 To submit a training job with the passed config, first update the json file with any additional execution parameters
-of your choosing: number of devices, workers, steps, etc. Second, invoke our training entrypoint. To do this, we need 
+of your choosing: number of devices, workers, steps, etc. Second, invoke our training entrypoint. To do this, we need
 three things:
 
 - Configuration file, the JSON produced by the previous step
-- Model config type, in this case the pretraining config. This will validate the arguments in the config JSON against 
+- Model config type, in this case the pretraining config. This will validate the arguments in the config JSON against
     those required for pretraining. Alternatively, things like fine-tuning with custom task heads may be specified here.
-    This allows for mixing/matching Data Modules with various tasks. 
+    This allows for mixing/matching Data Modules with various tasks.
 - Data Config type, this specifies how to parse, validate, and prepare the DataModule. This may change depending on task,
 for example, pretraining ESM2 uses a protein cluster oriented sampling method. In the case of inference or fine-tuning
 a pretrained model, a simple fasta file may be sufficient. There is a one-to-one relationship between DataConfig types
@@ -306,7 +306,7 @@ python  \
 ```
 
 ##### Running with Pydantic configs
-Alternatively, we provide a validated and serialized configuration file entrypoint for executing the same workflow. Recipes 
+Alternatively, we provide a validated and serialized configuration file entrypoint for executing the same workflow. Recipes
 are available for 10m, and 106m geneformer models. Additionally we provide an example recipe of finetuning, where the objective
 is to 'regress' on token IDs rather than the traditional masked language model approach. In practice, you will likely
 need to implement your own DataModule, DataConfig, and Finetuning model. You can use the same overall approach, but with
@@ -326,13 +326,13 @@ bionemo-geneformer-recipe \
 > NOTE: To pretrain from an existing checkpoint, simply pass in the path --initial-ckpt-path to the recipe command. This will populate the JSON with the correct field to ensure pretraining is initialized from an existing checkpoint.
 
 To submit a training job with the passed config, first update the json file with any additional execution parameters
-of your choosing: number of devices, workers, steps, etc. Second, invoke our training entrypoint. To do this, we need 
+of your choosing: number of devices, workers, steps, etc. Second, invoke our training entrypoint. To do this, we need
 three things:
 
 - Configuration file, the JSON produced by the previous step
-- Model config type, in this case the pretraining config. This will validate the arguments in the config JSON against 
+- Model config type, in this case the pretraining config. This will validate the arguments in the config JSON against
     those required for pretraining. Alternatively, things like fine-tuning with custom task heads may be specified here.
-    This allows for mixing/matching Data Modules with various tasks. 
+    This allows for mixing/matching Data Modules with various tasks.
 - Data Config type, this specifies how to parse, validate, and prepare the DataModule. This may change depending on task,
 for example, while fine-tuning you may want to use a custom Dataset/DataModule that includes PERTURB-seq. In this case,
 the default pretraining DataConfig and DataModule will be insufficient. See ESM2 for additional example usecases.

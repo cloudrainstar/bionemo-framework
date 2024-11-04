@@ -17,8 +17,6 @@ import pathlib
 from dataclasses import dataclass, field
 from typing import List, Optional, Type
 
-from nemo import lightning as nl
-from nemo.lightning.pytorch import callbacks as nl_callbacks
 from nemo.utils import logging
 from tokenizers import Tokenizer
 
@@ -28,10 +26,8 @@ from bionemo.geneformer.data.singlecell.preprocess import GeneformerPreprocess
 from bionemo.geneformer.model.finetune_token_regressor import FineTuneSeqLenBioBertConfig
 from bionemo.llm.run.config_models import (
     DataConfig,
-    ExperimentConfig,
     ExposedModelConfig,
 )
-from bionemo.llm.utils.logger_utils import WandbConfig, setup_nemo_lightning_logger
 
 
 @dataclass
@@ -43,8 +39,7 @@ class GeneformerDataArtifacts:
 
 
 class GeneformerPretrainingDataConfig(DataConfig[SingleCellDataModule]):
-    '''
-    Configuration class for Geneformer pretraining data. 
+    """Configuration class for Geneformer pretraining data.
 
     Expects train/test/val to be prior split by directory and processed by `sub-packages/bionemo-geneformer/src/bionemo/geneformer/data/singlecell/sc_memmap.py`.
 
@@ -65,7 +60,7 @@ class GeneformerPretrainingDataConfig(DataConfig[SingleCellDataModule]):
             Preprocesses the data using a legacy preprocessor from BioNeMo 1 and returns the necessary artifacts.
         construct_data_module(global_batch_size: int) -> SingleCellDataModule:
             Constructs and returns a SingleCellDataModule using the preprocessed data artifacts.
-    '''
+    """
 
     # Shadow two attributes from the parent for visibility.
     data_dir: str
@@ -105,7 +100,7 @@ class GeneformerPretrainingDataConfig(DataConfig[SingleCellDataModule]):
             raise ValueError("Preprocessing failed to create tokenizer and/or median dictionary.")
 
     def construct_data_module(self, global_batch_size: int) -> SingleCellDataModule:
-        ''' Downloads the requisite data artifacts and instantiates the DataModule. '''
+        """Downloads the requisite data artifacts and instantiates the DataModule."""
         geneformer_data_artifacts: GeneformerDataArtifacts = self.geneformer_preprocess()
         data = SingleCellDataModule(
             seq_length=self.seq_length,
@@ -125,12 +120,13 @@ class GeneformerPretrainingDataConfig(DataConfig[SingleCellDataModule]):
 
 
 class ExposedGeneformerPretrainConfig(ExposedModelConfig[GeneformerConfig]):
-    ''' Exposes custom parameters for pretraining and binds the class to GeneformerConfig.
+    """Exposes custom parameters for pretraining and binds the class to GeneformerConfig.
 
     Attributes:
         initial_ckpt_path (str): Path to a directory containing checkpoint files for initializing the model. This is only
         initial_ckpt_skip_keys_with_these_prefixes (List[str]): Skip any layer that contains this key during restoration. Useful for finetuning, set the names of the task heads so checkpoint restoration does not errorniously try to restore these.
-    '''
+    """
+
     # Custom parameters for FineTuning
     initial_ckpt_path: Optional[str] = None
     initial_ckpt_skip_keys_with_these_prefixes: List[str] = field(default_factory=list)
@@ -154,5 +150,5 @@ class ExposedFineTuneSeqLenBioBertConfig(ExposedModelConfig[FineTuneSeqLenBioBer
     initial_ckpt_skip_keys_with_these_prefixes: List[str] = field(default_factory=lambda: ["regression_head"])
 
     def model_class(self) -> Type[FineTuneSeqLenBioBertConfig]:
-        ''' binds the class to FineTuneSeqLenBioBertConfig '''
+        """Binds the class to FineTuneSeqLenBioBertConfig"""
         return FineTuneSeqLenBioBertConfig
