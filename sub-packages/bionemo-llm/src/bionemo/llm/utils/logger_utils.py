@@ -68,7 +68,7 @@ def setup_nemo_lightning_logger(
         name: The name of the experiment. Results go into `root_dir`/`name`
         root_dir: The root directory to create the `name` directory in for saving run results.
         initialize_tensorboard_logger: Whether to initialize the tensorboard logger.
-        wandb_kwargs: The kwargs for the wandb logger.
+        wandb_config: The remaining configuration options for the wandb logger.
         ckpt_callback: The checkpoint callback to use, must be a child of the pytorch lightning ModelCheckpoint callback.
             NOTE the type annotation in the underlying NeMoCheckpoint constructor is incorrect.
         **kwargs: The kwargs for the NeMoLogger.

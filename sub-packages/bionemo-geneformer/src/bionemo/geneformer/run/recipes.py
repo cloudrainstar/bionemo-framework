@@ -262,7 +262,7 @@ def geneformer_finetuning_regression_head_recipe(
 
 
 def default_trainer_config_recipe() -> TrainingConfig:
-    """Default trainer config for Geneformer"""
+    """Default trainer config for Geneformer."""
     return TrainingConfig(max_steps=55000, limit_val_batches=2, val_check_interval=100)
 
 
@@ -273,7 +273,7 @@ def geneformer_10m_finetune_config(
     initial_ckpt_path: Optional[str] = None,
     biobert_spec_option=BiobertSpecOption.bert_layer_with_transformer_engine_spec,
 ) -> ExposedFineTuneSeqLenBioBertConfig:
-    """Geneformer 10m finetuning config settings"""
+    """Geneformer 10m finetuning config settings."""
     geneformer_config = ExposedFineTuneSeqLenBioBertConfig(
         num_layers=6,
         hidden_size=256,
@@ -485,7 +485,7 @@ def geneformer_10m_pretrain_recipe(
 def geneformer_106m_pretrain_recipe(
     args,
 ) -> MainConfig[ExposedGeneformerPretrainConfig, GeneformerPretrainingDataConfig]:
-    """Recipe for pretraining the 106m model. Uses 8 GPUs for data parallelism"""
+    """Recipe for pretraining the 106m model. Uses 8 GPUs for data parallelism."""
     data_config: GeneformerPretrainingDataConfig = geneformer_data_recipe(data_dir=args.data_path)
     parallel_config = geneformer_106m_parallel_config()
     training_config = geneformer_base_training_config()
@@ -537,7 +537,7 @@ def geneformer_10m_finetune_recipe(
     return main_config
 
 
-def main():
+def main(): # noqa: D103
     def parse_args():
         parser = argparse.ArgumentParser(description="Create Geneformer configuration JSON.")
         parser.add_argument(

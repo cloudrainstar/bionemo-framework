@@ -45,6 +45,17 @@ from bionemo.llm.utils.logger_utils import WandbConfig, setup_nemo_lightning_log
 
 
 def nemo_logger_factory(experiment_config: ExperimentConfig, wandb_config: Optional[WandbConfig]) -> nl.NeMoLogger:
+    """
+    Creates and returns a NeMoLogger instance configured based on the provided experiment and wandb configurations.
+
+    Args:
+        experiment_config (ExperimentConfig): Configuration object containing experiment settings such as 
+            result directory, experiment name, checkpoint settings, and logger preferences.
+        wandb_config (Optional[WandbConfig]): Optional configuration object for Weights and Biases logging.
+    Returns:
+        nl.NeMoLogger: An instance of NeMoLogger configured with the specified settings.
+    """
+
     checkpoint_callback = nl_callbacks.ModelCheckpoint(
         save_last=experiment_config.save_last_checkpoint,
         monitor=experiment_config.metric_to_monitor_for_checkpoints,
@@ -64,6 +75,20 @@ def nemo_logger_factory(experiment_config: ExperimentConfig, wandb_config: Optio
 
 
 def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConfig, callbacks=None) -> nl.Trainer:
+    """
+    Set up the trainer for model training using the specified parallel and training configurations.
+
+    Args:
+        parallel_config (ParallelConfig): Configuration for parallelism, including tensor and pipeline model parallel sizes, 
+                                          number of devices, and number of nodes.
+        training_config (TrainingConfig): Configuration for training, including maximum steps, accelerator type, 
+                                          validation batch limit, validation check interval, and precision.
+        callbacks (list, optional): List of callback functions to be used during training. Defaults to None, 
+                                    in which case default callbacks (RichModelSummary and LearningRateMonitor) are used.
+    Returns:
+        nl.Trainer: Configured trainer object ready for model training.
+    """
+
     strategy = nl.MegatronStrategy(
         tensor_model_parallel_size=parallel_config.tensor_model_parallel_size,
         pipeline_model_parallel_size=parallel_config.pipeline_model_parallel_size,
@@ -97,6 +122,17 @@ def biobert_lightning_module(
     optim_config: OptimizerSchedulerConfig,
     num_steps: int,
 ) -> BioBertLightningModule:
+    """
+    Creates a BioBertLightningModule with the specified configuration, tokenizer, and optimizer settings.
+
+    Args:
+        bionemo_model_config (BioBertConfig): Configuration for the BioBert model.
+        tokenizer (Tokenizer): Tokenizer to be used with the model.
+        optim_config (OptimizerSchedulerConfig): Configuration for the optimizer and learning rate scheduler.
+        num_steps (int): Total number of training steps.
+    Returns:
+        BioBertLightningModule: An instance of BioBertLightningModule configured with the provided settings.
+    """
     model = BioBertLightningModule(
         bionemo_model_config,
         tokenizer=tokenizer,
@@ -129,8 +165,23 @@ def train(
     optim_config: OptimizerSchedulerConfig,
     experiment_config: ExperimentConfig,
     wandb_config: Optional[WandbConfig],
-    resume_if_exists: bool = True,
+    resume_if_exists: bool = True
 ):
+    """
+    Train a BioNemo model using the provided configurations. Uses the ExposedModelConfig and DataConfig as the primary
+    variants for this method.
+
+    Args:
+        bionemo_exposed_model_config (ExposedModelConfig): Configuration for the exposed BioNemo model.
+        data_config (DataConfig[DataModuleT]): Configuration for the data module.
+        parallel_config (ParallelConfig): Configuration for parallel training.
+        training_config (TrainingConfig): Configuration for training parameters.
+        optim_config (OptimizerSchedulerConfig): Configuration for the optimizer and scheduler.
+        experiment_config (ExperimentConfig): Configuration for the experiment.
+        wandb_config (Optional[WandbConfig]): Configuration for Weights and Biases logging.
+        resume_if_exists (bool, optional): Flag to resume training if a checkpoint exists. Defaults to True.
+    """
+    
     bionemo_model_config = bionemo_exposed_model_config.exposed_to_internal_bionemo_model_config()
     pathlib.Path(data_config.result_dir).mkdir(parents=True, exist_ok=True)
 

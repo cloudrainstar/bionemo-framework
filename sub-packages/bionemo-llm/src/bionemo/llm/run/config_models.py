@@ -89,7 +89,7 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
     initial_ckpt_skip_keys_with_these_prefixes: List[str] = field(default_factory=list)
 
     # Pydantic stuff to allow arbitrary types + validators + serializers
-    class Config:
+    class Config: # noqa: D106
         arbitrary_types_allowed = True
 
     def model_class(self) -> Type[ModelConfigT]:
@@ -161,11 +161,11 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
     @field_validator("activation_func", mode="before")
     @classmethod
     def validate_activation_func(cls, activation_func: str) -> Callable:
-        """Validates the activation function, assumes this function exists in torch.nn.functional. For custom
-        activation functions, use the CUSTOM_ACTIVATION_FUNCTIONS dictionary in the module.
-
-        This method validates the provided activation function string and returns
-        a callable function based on the validation context using the provided validator in the base class.
+        """Validates the activation function, assumes this function exists in torch.nn.functional. 
+        
+        For custom activation functions, use the CUSTOM_ACTIVATION_FUNCTIONS dictionary in the module. This method 
+        validates the provided activation function string and returns a callable function based on the validation 
+        context using the provided validator in the base class.
 
         Args:
             activation_func (str): The activation function to be validated.
@@ -228,6 +228,20 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
 
 
 class ParallelConfig(BaseModel):
+    """
+    ParallelConfig is a configuration class for setting up parallelism in model training.
+    Attributes:
+        tensor_model_parallel_size (int): The size of the tensor model parallelism. Default is 1.
+        pipeline_model_parallel_size (int): The size of the pipeline model parallelism. Default is 1.
+        accumulate_grad_batches (int): The number of batches to accumulate gradients over. Default is 1.
+        ddp (Literal["megatron"]): The distributed data parallel method to use. Default is "megatron".
+        remove_unused_parameters (bool): Whether to remove unused parameters. Default is True.
+        num_devices (int): The number of devices to use. Default is 1.
+        num_nodes (int): The number of nodes to use. Default is 1.
+    Methods:
+        validate_devices(): Validates the number of devices based on the tensor and pipeline model parallel sizes.
+    """
+
     tensor_model_parallel_size: int = 1
     pipeline_model_parallel_size: int = 1
     accumulate_grad_batches: int = 1
