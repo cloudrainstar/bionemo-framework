@@ -33,7 +33,7 @@ from bionemo.llm.utils.logger_utils import WandbConfig
 ModelConfigT = TypeVar("ModelConfigT", bound=BioBertConfig)
 DataModuleT = TypeVar("DataModuleT", bound=pl.LightningDataModule)
 
-# To register a custom activation function, add it to this dictionary to pass validation and allow serialization.
+# Activation functions not available in torch.nn.functional require custom serialization/validation. Add them here with a lookup key.
 CUSTOM_ACTIVATION_FNS: Dict[str, Callable[[torch.Tensor, Any], torch.Tensor]] = {}
 
 # DO NOT use keys that already exist in torch.nn.functional, as the torch.nn.functional functions are selected first.
@@ -81,7 +81,6 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
     underlying config (most commonly a BioBertGenericConfig, but could also be a TransformerConfig or something similar).
     Children should try to expose the minimal set of fields necessary for the user to configure the model while keeping
     the more esoteric configuration private to the underlying ModelConfigT.
-
     """
 
     # Restores weights from a pretrained checkpoint
@@ -89,18 +88,12 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
     # Does not attempt to load keys with these prefixes (useful if you attached extra parameters and still want to load a set of weights)
     initial_ckpt_skip_keys_with_these_prefixes: List[str] = field(default_factory=list)
 
-    # TODO validator on num_attention_heads, ffn_hidden_size, and hidden_size as these have knowable constraints.
-
     # Pydantic stuff to allow arbitrary types + validators + serializers
     class Config:
         arbitrary_types_allowed = True
 
-    """ Use this class to hide fields that are not serializable by Pydantic that we do not want to expose. """
-
     def model_class(self) -> Type[ModelConfigT]:
-        # How did this all work yesterday even?
-        # so we cant do it this way because we are kinda losing the magic of generics.
-        #  ideally _the generics_ have all the methods we want implemented on them already.
+        '''Returns the underlying model class that this config wraps.'''
         raise NotImplementedError
 
     def model_validator(self, global_cfg: "MainConfig") -> "MainConfig":
@@ -117,14 +110,13 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
 
         The underlying ModelConfigT may both be incomplete and unserializable. We use this transformation as a way to
         hide fields that are either not serializable by Pydantic or that we do not want to expose.
-
-        This is a good candidate for refactoring.
         """
         cls: Type[ModelConfigT] = self.model_class()
         model_dict = {}
         for attr in self.model_fields:
             if attr not in model_dict and attr in cls.__dataclass_fields__:
                 model_dict[attr] = getattr(self, attr)
+
         # Now set fp16 and bf16 based on the precision for the underlying TransformerConfig=>ParallelConfig
         #   the only constraint is that both must not be true.
         model_dict["bf16"] = self.pipeline_dtype == dtypes.precision_to_dtype["bf16-mixed"]
@@ -198,6 +190,24 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
 
     @field_serializer("activation_func")
     def serialize_activation_func(self, v: Callable[[torch.Tensor, Any], torch.Tensor]) -> str:
+        """
+        Serializes a given activation function to its corresponding string representation.
+
+        By default, all activation functions from `torch.nn.functional` are serialized to their name. User defined
+        activation functions should also be defined here with a custom mapping in CUSTOM_ACTIVATION_FNS defined at the
+        top of this file. This allows our Pydantic model to serialize and deserialize the activation function.
+
+        Args:
+            v (Callable[[torch.Tensor, Any], torch.Tensor]): The activation function to serialize.
+
+        Returns:
+            str: The name of the activation function if it is a standard PyTorch function,
+                 or the corresponding serialization key if it is a custom activation function.
+
+        Raises:
+            ValueError: If the activation function is not supported.
+        """
+
         func_name = v.__name__
         func = getattr(torch.nn.functional, func_name, None)
         if func is not None:
@@ -210,10 +220,12 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
     @field_validator("params_dtype", "pipeline_dtype", "autocast_dtype", mode="before")
     @classmethod
     def precision_validator(cls, v: dtypes.PrecisionTypes) -> torch.dtype:
+        '''Validates the precision type and returns the corresponding torch dtype.'''
         return dtypes.get_autocast_dtype(v)
 
     @field_serializer("params_dtype", "pipeline_dtype", "autocast_dtype")
     def serialize_dtypes(self, v: torch.dtype) -> dtypes.PrecisionTypes:
+        '''Serializes the torch dtype to the corresponding precision type.'''
         return dtypes.dtype_to_precision[v]
 
 
@@ -228,7 +240,7 @@ class ParallelConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_devices(self):
-        # I think we can do a 2x2 split on 2 gpus for pipeline/tensor model parallel
+        '''Validates the number of devices based on the tensor and pipeline model parallel sizes.'''
         if self.num_devices < self.tensor_model_parallel_size * self.pipeline_model_parallel_size:
             raise ValidationError(
                 "devices must be divisible by tensor_model_parallel_size * pipeline_model_parallel_size"
@@ -237,16 +249,35 @@ class ParallelConfig(BaseModel):
 
 
 class TrainingConfig(BaseModel):
+    """
+    TrainingConfig is a configuration class for training models.
+    Attributes:
+        max_steps (int): The maximum number of training steps.
+        limit_val_batches (int | float): The number of validation batches to use. Can be a fraction or a count.
+        val_check_interval (int): The interval (in steps) at which to check validation.
+        precision (Literal["32", "bf16-mixed", "16-mixed"], optional): The precision to use for training. Defaults to "bf16-mixed".
+        accelerator (str, optional): The type of accelerator to use for training. Defaults to "gpu".
+    """
+
     max_steps: int
-    limit_val_batches: int
+    limit_val_batches: int | float # Because this can be a fraction or a count...
     val_check_interval: int
-    # NOTE this matches whats used by nl.MegatronMixedPrecision which has a restricted set of precisions.
     precision: Literal["32", "bf16-mixed", "16-mixed"] = "bf16-mixed"
     accelerator: str = "gpu"
 
 
 class OptimizerSchedulerConfig(BaseModel):
-    # TODO validators on optimizer, interval, and monitor.
+    """
+    Configuration for the optimizer and learning rate scheduler.
+    Attributes:
+        lr (float): Learning rate for the optimizer. Default is 1e-4.
+        optimizer (str): Type of optimizer to use. Default is "adam".
+        cosine_rampup_frac (float): Fraction of total training steps for the cosine ramp-up phase. Default is 0.01.
+        cosine_hold_frac (float): Fraction of total training steps to hold the learning rate constant after ramp-up. Default is 0.05.
+        interval (str): Interval for updating the learning rate scheduler. Default is "step".
+        monitor (str): Metric to monitor for learning rate adjustments. Default is "val_loss".
+    """
+
     lr: float = 1e-4
     optimizer: str = "adam"
     cosine_rampup_frac: float = 0.01
@@ -256,11 +287,24 @@ class OptimizerSchedulerConfig(BaseModel):
 
 
 class ExperimentConfig(BaseModel):
+    """
+    Configuration class for setting up and managing experiment parameters.
+    Attributes:
+        save_every_n_steps (int): Number of steps between saving checkpoints.
+        result_dir (str | pathlib.Path): Directory where results will be saved.
+        experiment_name (str): Name of the experiment.
+        restore_from_checkpoint_path (Optional[str]): Path to restore from a checkpoint. Note: This does not invoke the checkpoint callback as expected.
+        save_last_checkpoint (bool): Flag to save the last checkpoint. Default is True.
+        metric_to_monitor_for_checkpoints (str): Metric to monitor for saving top-k checkpoints. Default is "reduced_train_loss".
+        save_top_k (int): Number of top checkpoints to save based on the monitored metric. Default is 2.
+        create_tensorboard_logger (bool): Flag to create a TensorBoard logger. Default is False.
+    """
+
     save_every_n_steps: int
     result_dir: str | pathlib.Path
     experiment_name: str
+    # NOTE: restore_from_checkpoint_path does not invoke the checkpoint callback in the way we'd like. Avoid using.
     restore_from_checkpoint_path: Optional[str]
-    wandb_config: Optional[WandbConfig] = None
     save_last_checkpoint: bool = True
     metric_to_monitor_for_checkpoints: str = "reduced_train_loss"
     save_top_k: int = 2
@@ -279,6 +323,12 @@ class MainConfig(BaseModel, Generic[ExModelConfigT, DataConfigT]):
     This class is used to define the main configuration for BioNeMo. It defines the minimal pieces of configuration
     to execution a training job with the NeMo2 training api. It accepts two generic type parameters which users
     must define in their own environment for execution.
+
+    Additionally, this class assumes that the configs for ExposedModelConfig and DataConfig may have custom validators
+    implemented that operate on the entire MainConfig. This prevents the need from type based conditionals inside this
+    class while still allowing for custom validation global logic to be implemented in the underlying classes. For example,
+    some models may want to restrict their Datamodules seq_length to a certain value.
+
 
     Args:
         data_config: Generic config type that contains instructions on instantiating the required DataModule.
@@ -301,14 +351,16 @@ class MainConfig(BaseModel, Generic[ExModelConfigT, DataConfigT]):
 
     @model_validator(mode="after")
     def validate_master_config(self) -> "MainConfig":
+        '''Validates the master configuration object.'''
         self.bionemo_model_config.seq_length = self.data_config.seq_length
-        # What other global validators should we set here?
         return self
 
     @model_validator(mode="after")
     def run_bionemo_model_config_model_validators(self) -> "MainConfig":
+        '''Runs the model validators on the bionemo_model_config.'''
         return self.bionemo_model_config.model_validator(self)
 
     @model_validator(mode="after")
     def run_data_config_model_validators(self) -> "MainConfig":
+        '''Runs the model validators on the data_config.'''
         return self.data_config.model_validator(self)

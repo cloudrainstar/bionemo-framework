@@ -91,10 +91,8 @@ def dummy_parquet_train_val_inputs(tmp_path):
 
 
 def test_pretrain_pydantic_cli(dummy_protein_dataset, dummy_parquet_train_val_inputs, tmpdir):
-    # result_dir = Path(tmpdir.mkdir("results"))
-    train_cluster_path, valid_cluster_path = dummy_parquet_train_val_inputs
-    # result_dir = Path("/tmp/results").mkdir(exist_ok=True)
     result_dir = tmpdir.mkdir("results")
+    train_cluster_path, valid_cluster_path = dummy_parquet_train_val_inputs
 
     open_port = find_free_network_port()
     config = f"{result_dir}/test_config.json"

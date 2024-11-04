@@ -14,6 +14,10 @@
 # limitations under the License.
 
 
+from typing import Type
+import torch
+from pydantic import BaseModel, field_serializer, field_validator
+
 import argparse
 import importlib
 from pathlib import Path
@@ -34,12 +38,228 @@ from bionemo.llm.model.biobert.transformer_specs import BiobertSpecOption
 from bionemo.llm.utils.logger_utils import WandbConfig
 
 
+def esm2_base_training_config() -> TrainingConfig:
+    '''Base training config for ESM2'''
+    return TrainingConfig(max_steps=500000, limit_val_batches=1.0, val_check_interval=1500, precision='bf16-mixed')
+
+
+def esm2_base_optimizer_scheduler_config() -> OptimizerSchedulerConfig:
+    '''Base optimizer scheduler config for ESM2'''
+    return OptimizerSchedulerConfig(
+        optimizer='adam',
+        lr=4e-4,
+        cosine_rampup_frac=.01,
+        cosine_hold_frac=.05,
+        interval='step',
+        monitor='val_loss',
+    )
+
+
+def esm2_base_parallel_config() -> ParallelConfig:
+    '''Base parallel config for ESM2'''
+    return ParallelConfig(
+        tensor_model_parallel_size=1,
+        pipeline_model_parallel_size=1,
+        accumulate_grad_batches=1,
+        ddp='megatron',
+        num_devices=1,
+        num_nodes=1,
+    )
+
+def esm2_8m_wandb_config() -> WandbConfig:
+    '''Wandb config for ESM2 8m'''
+    wandb_config = WandbConfig(
+        entity='esm2-8m_pretraining',
+        project='esm2-8m_pretraining',
+        group='esm2-8m',
+        tags=['esm2-8m'],
+        offline=True,
+        anonymous=True,
+        id='1',
+        log_model=False,
+    )
+    return wandb_config
+
+def esm2_8m_experiment_config(result_dir) -> ExperimentConfig:
+    '''Experiment config for ESM2 8m'''
+    return ExperimentConfig(
+        save_every_n_steps=50, # default set in previous script.
+        result_dir=result_dir,
+        experiment_name='esm2-8m', 
+        restore_from_checkpoint_path=None
+    )
+
+def esm2_8m_model_config(initial_ckpt_path=None) -> ExposedESM2PretrainConfig:
+    '''Model config for ESM2 8m'''
+    return ExposedESM2PretrainConfig(
+        num_layers=6,
+        hidden_size=320,
+        ffn_hidden_size=320 * 4,
+        num_attention_heads=20,
+        seq_length=1024,
+        biobert_spec_option=BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec,
+        initial_ckpt_path=initial_ckpt_path,
+        params_dtype='bf16-mixed',
+        pipeline_dtype='bf16-mixed',
+        autocast_dtype='bf16-mixed',
+    )
+
+
+def esm2_8m_recipe(args) -> MainConfig[ExposedESM2PretrainConfig, ESM2DataConfig]:
+    '''Recipe for ESM2 8m'''
+    data_config = ESM2DataConfig(
+        min_seq_length=1024,
+        max_seq_length=1024,
+        micro_batch_size=2,
+        num_dataset_workers=8,
+        train_cluster_path=args.train_cluster_path,
+        train_database_path=args.train_database_path,
+        valid_cluster_path=args.valid_cluster_path,
+        valid_database_path=args.valid_database_path,
+    )
+
+    return MainConfig(
+        data_config=data_config,
+        parallel_config=esm2_base_parallel_config(),
+        training_config=esm2_base_training_config(), # no changes for 8m
+        bionemo_model_config=esm2_8m_model_config(args.initial_ckpt_path),
+        optim_config=esm2_base_optimizer_scheduler_config(), # no changes for 8m
+        experiment_config=esm2_8m_experiment_config(args.result_dir),
+        wandb_config=esm2_8m_wandb_config(),
+    )
+
+def esm2_650m_model_config(initial_ckpt_path=None) -> ExposedESM2PretrainConfig:
+    '''Model config for ESM2 650m'''
+    return ExposedESM2PretrainConfig(
+        num_layers=6,
+        hidden_size=1280,
+        ffn_hidden_size=1280* 4,
+        seq_length=1024,
+        num_attention_heads=20,
+        biobert_spec_option=BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec,
+        initial_ckpt_path=initial_ckpt_path,
+        params_dtype='bf16-mixed',
+        pipeline_dtype='bf16-mixed',
+        autocast_dtype='bf16-mixed'
+    )
+
+def esm2_650m_wandb_config() -> WandbConfig:
+    '''Wandb config for ESM2 650m'''
+    return WandbConfig(
+        entity='esm2-650m_pretraining',
+        project='esm2-650m_pretraining',
+        group='esm2-650m',
+        tags=['esm2-650m'],
+        offline=True,
+        anonymous=True,
+        id='1',
+        log_model=False,
+    )
+
+def esm2_650m_experiment_config(result_dir) -> ExperimentConfig:
+    '''Experiment config for ESM2 650m'''
+    return ExperimentConfig(
+        save_every_n_steps=50,
+        result_dir=result_dir,
+        experiment_name='esm2-650m',
+        # TODO should this be exposed?
+        restore_from_checkpoint_path=None
+    )
+
+def esm2_650m_recipe(args) -> MainConfig[ExposedESM2PretrainConfig, ESM2DataConfig]:
+    '''Recipe for ESM2 650m'''
+    data_config = ESM2DataConfig(
+        min_seq_length=1024,
+        max_seq_length=1024,
+        micro_batch_size=1,
+        num_dataset_workers=8,
+        train_cluster_path=args.train_cluster_path,
+        train_database_path=args.train_database_path,
+        valid_cluster_path=args.valid_cluster_path,
+        valid_database_path=args.valid_database_path,
+    )
+
+    return MainConfig(
+        data_config=data_config,
+        parallel_config=esm2_base_parallel_config(),
+        training_config=esm2_base_training_config(), # no changes for 8m
+        bionemo_model_config=esm2_650m_model_config(args.initial_ckpt_path),
+        optim_config=esm2_base_optimizer_scheduler_config(), # no changes for 8m
+        experiment_config=esm2_650m_experiment_config(args.result_dir),
+        wandb_config=esm2_650m_wandb_config(),
+    )
+
+def esm2_3b_parallel_config() -> ParallelConfig:
+    '''Parallel config for ESM2 3b'''
+    return ParallelConfig(
+        tensor_model_parallel_size=2,
+        pipeline_model_parallel_size=1,
+        # TODO: is this correct?
+        accumulate_grad_batches=1,
+        ddp='megatron',
+        # NOTE assumes 8xGPU node. Can always edit the config.
+        num_devices=8,
+    )
+
+def esm2_3b_model_config(initial_ckpt_path=None) -> ExposedESM2PretrainConfig:
+    '''Model config for ESM2 3b'''
+    return ExposedESM2PretrainConfig(
+        num_layers=36,
+        hidden_size=2560,
+        ffn_hidden_size=2560 * 4,
+        num_attention_heads=40,
+        seq_length=1024,
+        biobert_spec_option=BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec,
+        initial_ckpt_path=initial_ckpt_path,
+        params_dtype='bf16-mixed',
+        pipeline_dtype='bf16-mixed',
+        autocast_dtype='bf16-mixed'
+    )
+
+def esm2_3b_wandb_config() -> WandbConfig:
+    '''Wandb config for ESM2 3b'''
+    return WandbConfig(
+        entity='esm2-3b_pretraining',
+        project='esm2-3b_pretraining',
+        group='esm2-3b',
+        tags=['esm2-3b'],
+        offline=True,
+        anonymous=True,
+        id='1',
+        log_model=False,
+    )
+
+def esm2_3b_recipe(args) -> MainConfig[ExposedESM2PretrainConfig, ESM2DataConfig]:
+    '''Recipe for ESM2 3b'''
+    data_config = ESM2DataConfig(
+        min_seq_length=1024,
+        max_seq_length=1024,
+        micro_batch_size=1,
+        num_dataset_workers=8,
+        train_cluster_path=args.train_cluster_path,
+        train_database_path=args.train_database_path,
+        valid_cluster_path=args.valid_cluster_path,
+        valid_database_path=args.valid_database_path,
+    )
+
+    return MainConfig(
+        data_config=data_config,
+        parallel_config=esm2_3b_parallel_config(),
+        training_config=esm2_base_training_config(), # no changes for 8m
+        bionemo_model_config=esm2_3b_model_config(args.initial_ckpt_path),
+        optim_config=esm2_base_optimizer_scheduler_config(), # no changes for 8m
+        experiment_config=esm2_650m_experiment_config(args.result_dir),
+        wandb_config=esm2_3b_wandb_config(),
+    )
+
+
 def simple_parallel_recipe(
     tensor_model_parallel_size: int = 1,
     pipeline_model_parallel_size: int = 1,
     num_devices: int = 1,
     accumulate_grad_batches: int = 1,
 ) -> ParallelConfig:
+    '''Simple parallel recipe for ESM2'''
     assert (
         num_devices >= tensor_model_parallel_size * pipeline_model_parallel_size
     ), "devices must be divisible by tensor_model_parallel_size * pipeline_model_parallel_size"
@@ -51,19 +271,18 @@ def simple_parallel_recipe(
     )
 
 
-def default_training_config_recipe() -> TrainingConfig:
-    return TrainingConfig(max_steps=55000, limit_val_batches=2, val_check_interval=100)
-
-
 def tiny_train_config_recipe() -> TrainingConfig:
+    '''Tiny training config for ESM2'''
     return TrainingConfig(max_steps=10, limit_val_batches=2, val_check_interval=2)
 
 
 def default_adam_optimizer_with_cosine_annealing_recipe() -> OptimizerSchedulerConfig:
+    '''Default optimizer scheduler config for ESM2'''
     return OptimizerSchedulerConfig()
 
 
 def experiment_config_recipe(result_dir="./results") -> ExperimentConfig:
+    '''Experiment config for ESM2'''
     return ExperimentConfig(
         save_every_n_steps=100,
         result_dir=result_dir,
@@ -84,6 +303,7 @@ def esm2_tiny_model_config(
     biobert_spec_option: BiobertSpecOption = BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec,
     variable_seq_lengths: bool = False,
 ) -> ExposedESM2PretrainConfig:
+    '''Model config for ESM2 tiny'''
     return ExposedESM2PretrainConfig(
         seq_length=seq_length,
         num_layers=2,
@@ -100,82 +320,11 @@ def esm2_tiny_model_config(
         variable_seq_lengths=variable_seq_lengths,
     )
 
-
-def esm2_8m_model_config(
-    seq_length: int = 2048,
-    precision: PrecisionTypes = "bf16-mixed",
-    nemo1_init_path: Optional[str] = None,
-    initial_ckpt_path: Optional[str] = None,
-    biobert_spec_option: BiobertSpecOption = BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec,
-    variable_seq_lengths: bool = False,
-) -> ExposedESM2PretrainConfig:
-    return ExposedESM2PretrainConfig(
-        seq_length=seq_length,
-        num_layers=6,
-        hidden_size=320,
-        num_attention_heads=20,
-        ffn_hidden_size=4 * 320,
-        params_dtype=precision,
-        pipeline_dtype=precision,
-        autocast_dtype=precision,
-        biobert_spec_option=biobert_spec_option,
-        nemo1_ckpt_path=str(nemo1_init_path) if nemo1_init_path is not None else None,
-        # handle checkpoint resumption here rather than auto-resume so this supports fine-tuning capabilities
-        initial_ckpt_path=str(initial_ckpt_path) if initial_ckpt_path is not None else None,
-        variable_seq_lengths=variable_seq_lengths,
-    )
-
-
-def esm2_650m_config(
-    seq_length: int = 2048,
-    precision: PrecisionTypes = "bf16-mixed",
-    nemo1_init_path: Optional[str] = None,
-    initial_ckpt_path: Optional[str] = None,
-    biobert_spec_option: BiobertSpecOption = BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec,
-    variable_seq_lengths: bool = False,
-) -> ExposedESM2PretrainConfig:
-    return ExposedESM2PretrainConfig(
-        seq_length=seq_length,
-        num_layers=33,
-        hidden_size=1280,
-        num_attention_heads=20,
-        ffn_hidden_size=4 * 1280,
-        params_dtype=precision,
-        pipeline_dtype=precision,
-        autocast_dtype=precision,
-        biobert_spec_option=biobert_spec_option,
-        nemo1_ckpt_path=str(nemo1_init_path) if nemo1_init_path is not None else None,
-        # handle checkpoint resumption here rather than auto-resume so this supports fine-tuning capabilities
-        initial_ckpt_path=str(initial_ckpt_path) if initial_ckpt_path is not None else None,
-        variable_seq_lengths=variable_seq_lengths,
-    )
-
-
-"""
-    --train-cluster-path ${TEST_DATA_DIR}/2024_03_sanity/train_clusters_sanity.parquet     \
-    --train-database-path ${TEST_DATA_DIR}/2024_03_sanity/train_sanity.db     \
-    --valid-cluster-path ${TEST_DATA_DIR}/2024_03_sanity/valid_clusters.parquet     \
-    --valid-database-path ${TEST_DATA_DIR}/2024_03_sanity/validation.db     \
-    --result-dir ./results     \
-    --experiment-name test_experiment     \
-    --num-gpus 1  \
-    --num-nodes 1 \
-    --val-check-interval 10 \
-    --num-dataset-workers 1 \
-    --num-steps 10 \
-    --max-seq-length 128 \
-    --limit-val-batches 2 \
-    --micro-batch-size 2 \
-    --restore-from-checkpoint-path ${ESM2_650M_CKPT}
-"""
-
-
 def esm2_tiny_test_recipe(args):
+    '''Test recipe for ESM2 tiny'''
     parallel_config = simple_parallel_recipe()
     training_config = tiny_train_config_recipe()
-    # $(download_bionemo_data esm2/testdata_esm2_pretrain:2.0 --source $MY_DATA_SOURCE);
 
-    # Find this from the test script... not sure what a sensible default is.
     data_config = ESM2DataConfig(
         min_seq_length=128,
         max_seq_length=128,
@@ -213,58 +362,13 @@ def esm2_tiny_test_recipe(args):
     )
     return main_config
 
-
-def esm2_8m_test_recipe(args):
-    parallel_config = simple_parallel_recipe()
-    training_config = default_training_config_recipe()
-    # $(download_bionemo_data esm2/testdata_esm2_pretrain:2.0 --source $MY_DATA_SOURCE);
-
-    # Find this from the test script... not sure what a sensible default is.
-    data_config = ESM2DataConfig(
-        min_seq_length=128,
-        max_seq_length=128,
-        micro_batch_size=2,
-        num_dataset_workers=1,
-        train_cluster_path=args.train_cluster_path,
-        train_database_path=args.train_database_path,
-        valid_cluster_path=args.valid_cluster_path,
-        valid_database_path=args.valid_database_path,
-    )
-    bionemo_model_config = esm2_8m_model_config(
-        seq_length=data_config.max_seq_length, initial_ckpt_path=args.initial_ckpt_path
-    )
-
-    optim_config = default_adam_optimizer_with_cosine_annealing_recipe()
-    experiment_config = experiment_config_recipe(args.result_dir)
-    wandb_config = WandbConfig(
-        project="bionemo2-demo",
-        entity="nvidia",
-        offline=True,
-        tags=[],
-        group="dev",
-        id="dev",
-        log_model=False,
-        anonymous=True,
-    )
-    main_config = MainConfig[ExposedESM2PretrainConfig, ESM2DataConfig](
-        data_config=data_config,
-        parallel_config=parallel_config,
-        training_config=training_config,
-        bionemo_model_config=bionemo_model_config,
-        optim_config=optim_config,
-        experiment_config=experiment_config,
-        wandb_config=wandb_config,
-    )
-    return main_config
-
-
 def main():
     def parse_args():
         parser = argparse.ArgumentParser(description="Create ESM2 configuration JSON.")
         parser.add_argument(
             "--recipe",
             type=str,
-            choices=["test-8m", "test"],
+            choices=["test", "8m", "650m", "3b"],
             required=True,
             help="Use one of the preconfigured recipes to create a template config file.",
         )
@@ -304,20 +408,20 @@ def main():
         args = parser.parse_args()
         return args
 
-    """Simple example for creating a JSON from recipes."""
+    # Simple example for creating a JSON from recipes.
     args = parse_args()
 
-    if args.recipe == "test-8m":
-        # Hardcoded test recipe.
-        config = esm2_8m_test_recipe(args)
+    if args.recipe == "8m":
+        config = esm2_8m_recipe(args)
+    elif args.recipe == "650m":
+        config = esm2_650m_recipe(args)
+    elif args.recipe == "3b":
+        config = esm2_3b_recipe(args)
     elif args.recipe == "test":
         # Hardcoded test recipe.
         config = esm2_tiny_test_recipe(args)
-    elif args.recipe == "test-finetune":
-        raise ValueError("Invalid recipe choice.")
-        # config = finetune_test_recipe(args)
     else:
-        raise ValueError("Invalid recipe choice.")
+        raise ValueError(f"Invalid recipe choice. {args.recipe=}")
 
     # Serialize to JSON
     json_str = config.model_dump_json(indent=2)
@@ -330,47 +434,5 @@ def main():
         f.write(json_str)
     logging.info(f"Saved configuration to {args.dest=}")
 
-
-from typing import Type
-
-import torch
-from pydantic import BaseModel, field_serializer, field_validator
-
-
-class MyConfig(BaseModel):
-    core_attention_override: Optional[Type[torch.nn.Module]] = None
-
-    @field_serializer("core_attention_override")
-    def serialize_core_attention_override(self, value: Optional[Type[torch.nn.Module]]) -> Optional[str]:
-        if value is None:
-            return None
-        return f"{value.__module__}.{value.__name__}"
-
-    @field_validator("core_attention_override", mode="before")
-    def validate_core_attention_override(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, str):
-            module_name, class_name = value.rsplit(".", 1)
-            try:
-                module = importlib.import_module(module_name)
-                cls = getattr(module, class_name)
-                if not issubclass(cls, torch.nn.Module):
-                    raise ValueError(f"{cls} is not a subclass of torch.nn.Module")
-                return cls
-            except (ImportError, AttributeError):
-                raise ValueError(f"Cannot import {value}")
-        return value
-
-
 if __name__ == "__main__":
-    # NOTE: this is where I left off!
-    config = esm2_650m_config()
-    dumped = config.model_dump()
-    config_again = ExposedESM2PretrainConfig(**dumped)
-
-    assert config_again == config
     main()
-
-
-# config.exposed_to_internal_bionemo_model_config()
