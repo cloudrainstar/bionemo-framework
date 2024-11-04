@@ -103,13 +103,13 @@ class GeneformerDatasetMetrics:
         random_integers = [random.randint(0, self.length - 1) for _ in range(num_indices)]
         for i in random_integers:
             index = EpochIndex(idx=i, epoch=0)
-            self.ds.scdl.get_row(index.idx, return_features=True, feature_vars=["feature_id"])
+            self.ds.scdl.get_row(index.idx, return_features=True)  # , feature_vars=["feature_id"])
         return 0
 
 
 @time_all_methods
 class OldGeneformerDatasetMetrics:
-    """SCDL Metrics."""
+    """Old dataset Metrics."""
 
     def __init__(self, data_dir, tokenizer, median_dict):
         """Instantiate class."""
@@ -151,7 +151,7 @@ class OldGeneformerDatasetMetrics:
         random.seed(42)
         random_integers = [random.randint(0, self.length - 1) for _ in range(num_indices)]
         for i in random_integers:
-            self.ds[i]
+            self.ds.lookup_cell_by_idx(i)
         return 0
 
 
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     )
     print(memap_data_path)
     print(old_data_path)
-    num_indices = 5_000
+    num_indices = 30_000
     match preprocessor.preprocess():
         case {"tokenizer": tokenizer, "median_dict": median_dict}:
             logging.info("*************** Preprocessing Finished ************")
