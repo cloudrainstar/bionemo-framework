@@ -18,6 +18,7 @@ import math
 import pathlib
 from typing import Optional
 
+from bionemo.llm.lightning import BionemoLightningModule
 from megatron.core.optimizer import OptimizerConfig
 from nemo import lightning as nl
 from nemo.collections import llm
@@ -29,7 +30,7 @@ from nemo.utils import logging
 from pytorch_lightning.callbacks import LearningRateMonitor, RichModelSummary
 from tokenizers import Tokenizer
 
-from bionemo.llm.model.biobert.lightning import BioBertLightningModule
+from bionemo.llm.model.biobert.lightning import BioBertLightningModule, biobert_lightning_module
 from bionemo.llm.model.biobert.model import BioBertConfig
 from bionemo.llm.run.config_models import (
     DataConfig,
@@ -114,47 +115,6 @@ def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConf
     return trainer
 
 
-def biobert_lightning_module(
-    bionemo_model_config: BioBertConfig,
-    tokenizer: Tokenizer,
-    optim_config: OptimizerSchedulerConfig,
-    num_steps: int,
-) -> BioBertLightningModule:
-    """Creates a BioBertLightningModule with the specified configuration, tokenizer, and optimizer settings.
-
-    Args:
-        bionemo_model_config (BioBertConfig): Configuration for the BioBert model.
-        tokenizer (Tokenizer): Tokenizer to be used with the model.
-        optim_config (OptimizerSchedulerConfig): Configuration for the optimizer and learning rate scheduler.
-        num_steps (int): Total number of training steps.
-
-    Returns:
-        BioBertLightningModule: An instance of BioBertLightningModule configured with the provided settings.
-    """
-    model = BioBertLightningModule(
-        bionemo_model_config,
-        tokenizer=tokenizer,
-        optimizer=MegatronOptimizerModule(
-            config=OptimizerConfig(
-                lr=optim_config.lr,
-                optimizer=optim_config.optimizer,
-                use_distributed_optimizer=True,
-                fp16=bionemo_model_config.fp16,
-                bf16=bionemo_model_config.bf16,
-            ),
-            lr_scheduler=CosineAnnealingScheduler(
-                max_steps=num_steps,
-                min_lr=optim_config.lr / 100,
-                warmup_steps=int(math.ceil(num_steps * optim_config.cosine_rampup_frac)),
-                interval=optim_config.interval,
-                monitor=optim_config.monitor,
-                constant_steps=int(math.ceil(num_steps * optim_config.cosine_hold_frac)),
-            ),
-        ),
-    )
-    return model
-
-
 def train(
     bionemo_exposed_model_config: ExposedModelConfig,
     data_config: DataConfig[DataModuleT],
@@ -197,8 +157,28 @@ def train(
 
     # TODO BioBertDataModule or BioBertTokenizer abstractions. We know all DataModuleT in this case has data.tokenizer,
     # although this constraint is not documented.
-    model: BioBertLightningModule = biobert_lightning_module(
-        bionemo_model_config, tokenizer=data.tokenizer, optim_config=optim_config, num_steps=training_config.max_steps
+
+    optimizer = MegatronOptimizerModule(
+        config=OptimizerConfig(
+            lr=optim_config.lr,
+            optimizer=optim_config.optimizer,
+            use_distributed_optimizer=True,
+            fp16=bionemo_model_config.fp16,
+            bf16=bionemo_model_config.bf16,
+        ),
+        lr_scheduler=CosineAnnealingScheduler(
+            max_steps=training_config.max_steps,
+            min_lr=optim_config.lr / 100,
+            warmup_steps=int(math.ceil(training_config.max_steps * optim_config.cosine_rampup_frac)),
+            interval=optim_config.interval,
+            monitor=optim_config.monitor,
+            constant_steps=int(math.ceil(training_config.max_steps * optim_config.cosine_hold_frac)),
+        )
+    )
+
+
+    model: BionemoLightningModule = biobert_lightning_module(
+        config=bionemo_model_config, tokenizer=data.tokenizer, optimizer=optimizer
     )
     trainer: nl.Trainer = setup_trainer(parallel_config, training_config)
     nemo_logger: nl.NeMoLogger = nemo_logger_factory(experiment_config, wandb_config=wandb_config)
