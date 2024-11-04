@@ -36,26 +36,174 @@ from bionemo.llm.run.config_models import (
 from bionemo.llm.utils.logger_utils import WandbConfig
 
 
-"""
-This script is for defining pre-configured recipes. Recipes at the minimum provide the user with a template config file.
-Additionally, it may be useful to define prepackaged recipes for common usecases such as tests. Here we define a the
-following recipes:
+def geneformer_base_parallel_config() -> ParallelConfig:
+    '''Base parallel config for Geneformer'''
+    return ParallelConfig(
+        tensor_model_parallel_size=1,
+        pipeline_model_parallel_size=1,
+        accumulate_grad_batches=1,
+        ddp='megatron',
+        num_devices=1,
+        num_nodes=1,
+    )
 
-- example recipe with minimal data
-- test recipe for running tests (same as above?)
-- finetuning recipe with regression head based on the output of the test recipe.
-- pretraining recipe on 10M sized model
-- pretraining recipe on 106M sized model
-"""
+def geneformer_base_optimizer_scheduler_config() -> OptimizerSchedulerConfig:
+    '''Base optimizer scheduler config for Geneformer'''
+    return OptimizerSchedulerConfig(lr=1e-3) # Matches bionemo1
+
+def geneformer_base_training_config() -> TrainingConfig:
+    '''Base training config for Geneformer'''
+    return TrainingConfig(max_steps=400000, limit_val_batches=8, val_check_interval=100, precision='bf16-mixed') # matches bionemo1
 
 
 def geneformer_data_recipe(data_dir) -> GeneformerPretrainingDataConfig:
     """Recipe that produces the base geneformer small data configuration."""
     return GeneformerPretrainingDataConfig(data_dir=data_dir)
 
+# 10m definitions
+def geneformer_10m_model_config(
+    seq_length: int = 2048,
+    precision: PrecisionTypes = "bf16-mixed",
+    nemo1_init_path: Optional[str] = None,
+    initial_ckpt_path: Optional[str] = None,
+    biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_with_transformer_engine_spec,
+) -> ExposedGeneformerPretrainConfig:
+    '''Geneformer 10m model config settings'''
+    geneformer_config = ExposedGeneformerPretrainConfig(
+        num_layers=6,
+        hidden_size=256,
+        ffn_hidden_size=512,
+        num_attention_heads=4,
+        seq_length=seq_length,
+        fp32_residual_connection=False,
+        hidden_dropout=0.02,
+        init_method_std=0.02,
+        kv_channels=None,
+        apply_query_key_layer_scaling=False,
+        make_vocab_size_divisible_by=128,
+        masked_softmax_fusion=True,
+        fp16_lm_cross_entropy=False,
+        params_dtype=precision,
+        pipeline_dtype=precision,
+        autocast_dtype=precision,
+        gradient_accumulation_fusion=False,
+        layernorm_zero_centered_gamma=False,
+        layernorm_epsilon=1.0e-12,
+        activation_func="gelu",
+        qk_layernorm=False,
+        apply_residual_connection_post_layernorm=False,
+        bias_activation_fusion=True,
+        bias_dropout_fusion=True,
+        get_attention_mask_from_fusion=False,
+        attention_dropout=0.1,
+        share_embeddings_and_output_weights=True,
+        enable_autocast=False,
+        biobert_spec_option=biobert_spec_option,
+        nemo1_ckpt_path=nemo1_init_path,
+        initial_ckpt_path=initial_ckpt_path,
+    )
+    return geneformer_config
 
-def full_geneformer_data_recipe(data_dir) -> GeneformerPretrainingDataConfig:
-    return GeneformerPretrainingDataConfig(data_dir=data_dir)
+def geneformer_10m_experiment_config(result_dir) -> ExperimentConfig:
+    '''Experiment config for Geneformer 10m'''
+    return ExperimentConfig(
+        save_every_n_steps=100,
+        result_dir=result_dir,
+        experiment_name="geneformer-10m",
+        restore_from_checkpoint_path=None
+    )
+
+def geneformer_10m_wandb_config() -> WandbConfig:
+    '''Wandb config for Geneformer 10m'''
+    wandb_config = WandbConfig(
+        entity='geneformer-10m_pretraining',
+        project='geneformer-10m_pretraining',
+        group='geneformer-10m',
+        tags=['geneformer-10m'],
+        offline=True,
+        anonymous=True,
+        id='1',
+        log_model=False,
+    )
+    return wandb_config
+
+# 106m definition, model, experiment, wandb, parallel
+def geneformer_106m_parallel_config() -> ParallelConfig:
+    '''Base parallel config for Geneformer'''
+    return ParallelConfig(
+        tensor_model_parallel_size=1,
+        pipeline_model_parallel_size=1,
+        accumulate_grad_batches=1,
+        ddp='megatron',
+        num_devices=8,
+        num_nodes=1,
+    )
+
+def geneformer_106m_experiment_config(result_dir) -> ExperimentConfig:
+    '''Experiment config for Geneformer 106m'''
+    return ExperimentConfig(
+        save_every_n_steps=100,
+        result_dir=result_dir,
+        experiment_name="geneformer-106m",
+        restore_from_checkpoint_path=None
+    )
+
+def geneformer_106m_wandb_config() -> WandbConfig:
+    '''Wandb config for Geneformer 106m'''
+    wandb_config = WandbConfig(
+        entity='geneformer-106m_pretraining',
+        project='geneformer-106m_pretraining',
+        group='geneformer-106m',
+        tags=['geneformer-106m'],
+        offline=True,
+        anonymous=True,
+        id='1',
+        log_model=False,
+    )
+    return wandb_config
+
+def geneformer_106m_model_config(
+    seq_length: int = 2048,
+    precision: PrecisionTypes = "bf16-mixed",
+    nemo1_init_path: Optional[str] = None,
+    initial_ckpt_path: Optional[str] = None,
+    biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_with_transformer_engine_spec,
+) -> ExposedGeneformerPretrainConfig:
+    '''Geneformer 106m model config settings'''
+    geneformer_config = ExposedGeneformerPretrainConfig(
+        num_layers=12,
+        hidden_size=768,
+        ffn_hidden_size=3072,
+        num_attention_heads=12,
+        seq_length=seq_length,
+        fp32_residual_connection=False,
+        hidden_dropout=0.02,
+        init_method_std=0.02,
+        kv_channels=None,
+        apply_query_key_layer_scaling=False,
+        make_vocab_size_divisible_by=128,
+        masked_softmax_fusion=True,
+        fp16_lm_cross_entropy=False,
+        params_dtype=precision,
+        pipeline_dtype=precision,
+        autocast_dtype=precision,
+        gradient_accumulation_fusion=False,
+        layernorm_zero_centered_gamma=False,
+        layernorm_epsilon=1.0e-12,
+        activation_func="gelu",
+        qk_layernorm=False,
+        apply_residual_connection_post_layernorm=False,
+        bias_activation_fusion=True,
+        bias_dropout_fusion=True,
+        get_attention_mask_from_fusion=False,
+        attention_dropout=0.1,
+        share_embeddings_and_output_weights=True,
+        enable_autocast=False,
+        biobert_spec_option=biobert_spec_option,
+        nemo1_ckpt_path=nemo1_init_path,
+        initial_ckpt_path=initial_ckpt_path,
+    )
+    return geneformer_config
 
 
 def simple_parallel_recipe(
@@ -64,12 +212,14 @@ def simple_parallel_recipe(
     num_devices: int = 1,
     accumulate_grad_batches: int = 1,
 ) -> ParallelConfig:
+    '''Simple parallel config for Geneformer, only used in testing.'''
     assert (
         num_devices >= tensor_model_parallel_size * pipeline_model_parallel_size
     ), "devices must be divisible by tensor_model_parallel_size * pipeline_model_parallel_size"
     return ParallelConfig(
         tensor_model_parallel_size=tensor_model_parallel_size,
         pipeline_model_parallel_size=pipeline_model_parallel_size,
+        accumulate_grad_batches=accumulate_grad_batches,
         num_devices=num_devices,
     )
 
@@ -80,10 +230,7 @@ def geneformer_finetuning_regression_head_recipe(
     initial_ckpt_path: Optional[str] = None,
     initial_ckpt_skip_keys_with_these_prefixes: Optional[List[str]] = None,
 ) -> ExposedFineTuneSeqLenBioBertConfig:
-    """NOTE on initial_ckpt_skip_keys_with_these_prefixes: configs define their own default with defaultfactory, so
-    when we get passed None, we defer to the default. Importantly, the 'do nothing' case is different, where the input
-    would be an empty list.
-    """
+    '''Recipe for finetuning a regression head on the masked tokens.'''
     partial_finetuning_config = partial(
         ExposedFineTuneSeqLenBioBertConfig,
         params_dtype=precision,
@@ -104,16 +251,18 @@ def geneformer_finetuning_regression_head_recipe(
 
 
 def default_trainer_config_recipe() -> TrainingConfig:
+    '''Default trainer config for Geneformer'''
     return TrainingConfig(max_steps=55000, limit_val_batches=2, val_check_interval=100)
 
 
-def geneformer10m_finetune_config(
+def geneformer_10m_finetune_config(
     seq_length: int = 2048,
     precision: PrecisionTypes = "bf16-mixed",
     nemo1_init_path: Optional[str] = None,
     initial_ckpt_path: Optional[str] = None,
     biobert_spec_option=BiobertSpecOption.bert_layer_with_transformer_engine_spec,
 ) -> ExposedFineTuneSeqLenBioBertConfig:
+    '''Geneformer 10m finetuning config settings'''
     geneformer_config = ExposedFineTuneSeqLenBioBertConfig(
         num_layers=6,
         hidden_size=256,
@@ -157,6 +306,7 @@ def geneformer_tiny_config(
     initial_ckpt_path: Optional[str] = None,
     biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_with_transformer_engine_spec,
 ) -> ExposedGeneformerPretrainConfig:
+    '''Geneformer tiny model config settings, used in testing.'''
     geneformer_config = ExposedGeneformerPretrainConfig(
         num_layers=2,
         hidden_size=32,
@@ -193,54 +343,13 @@ def geneformer_tiny_config(
     return geneformer_config
 
 
-def geneformer10M_pretraining_config(
-    seq_length: int = 2048,
-    precision: PrecisionTypes = "bf16-mixed",
-    nemo1_init_path: Optional[str] = None,
-    initial_ckpt_path: Optional[str] = None,
-    biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_with_transformer_engine_spec,
-) -> ExposedGeneformerPretrainConfig:
-    geneformer_config = ExposedGeneformerPretrainConfig(
-        num_layers=6,
-        hidden_size=256,
-        ffn_hidden_size=512,
-        num_attention_heads=4,
-        seq_length=seq_length,
-        fp32_residual_connection=False,
-        hidden_dropout=0.02,
-        init_method_std=0.02,
-        kv_channels=None,
-        apply_query_key_layer_scaling=False,
-        make_vocab_size_divisible_by=128,
-        masked_softmax_fusion=True,
-        fp16_lm_cross_entropy=False,
-        params_dtype=precision,
-        pipeline_dtype=precision,
-        autocast_dtype=precision,
-        gradient_accumulation_fusion=False,
-        layernorm_zero_centered_gamma=False,
-        layernorm_epsilon=1.0e-12,
-        activation_func="gelu",
-        qk_layernorm=False,
-        apply_residual_connection_post_layernorm=False,
-        bias_activation_fusion=True,
-        bias_dropout_fusion=True,
-        get_attention_mask_from_fusion=False,
-        attention_dropout=0.1,
-        share_embeddings_and_output_weights=True,
-        enable_autocast=False,
-        biobert_spec_option=biobert_spec_option,
-        nemo1_ckpt_path=nemo1_init_path,
-        initial_ckpt_path=initial_ckpt_path,
-    )
-    return geneformer_config
-
-
 def default_adam_optimizer_with_cosine_annealing_recipe() -> OptimizerSchedulerConfig:
+    '''Default optimizer scheduler config for Geneformer. See OptimizerSchedulerConfig for defaults.'''
     return OptimizerSchedulerConfig()
 
 
 def experiment_config_recipe() -> ExperimentConfig:
+    '''Default experiment config for Geneformer. Used in testing. '''
     return ExperimentConfig(
         save_every_n_steps=100,
         result_dir="./results",
@@ -254,6 +363,7 @@ def experiment_config_recipe() -> ExperimentConfig:
 
 
 def finetune_test_recipe(args) -> MainConfig[ExposedFineTuneSeqLenBioBertConfig, GeneformerPretrainingDataConfig]:
+    '''Recipe for finetuning a regression head on the masked tokens.'''
     data_path = args.data_path
     result_dir = args.result_dir
 
@@ -281,7 +391,7 @@ def finetune_test_recipe(args) -> MainConfig[ExposedFineTuneSeqLenBioBertConfig,
     )
 
     optim_config = OptimizerSchedulerConfig()
-    geneformer_config = geneformer10m_finetune_config(
+    geneformer_config = geneformer_10m_finetune_config(
         seq_length=data_config.seq_length, initial_ckpt_path=args.initial_ckpt_path
     )
 
@@ -296,6 +406,7 @@ def finetune_test_recipe(args) -> MainConfig[ExposedFineTuneSeqLenBioBertConfig,
 
 
 def pretrain_tiny_test_recipe(args) -> MainConfig[ExposedGeneformerPretrainConfig, GeneformerPretrainingDataConfig]:
+    '''Recipe for pretraining a tiny model. Used in testing.'''
     data_path = args.data_path
     result_dir = args.result_dir
 
@@ -337,25 +448,39 @@ def pretrain_tiny_test_recipe(args) -> MainConfig[ExposedGeneformerPretrainConfi
     )
 
 
-def geneformer10m_pretrain_recipe(
+def geneformer_10m_pretrain_recipe(
     args,
 ) -> MainConfig[ExposedGeneformerPretrainConfig, GeneformerPretrainingDataConfig]:
-    data_config: GeneformerPretrainingDataConfig = geneformer_data_recipe(data_dir=args.data_dir)
+    '''Recipe for pretraining the 10m model.'''
+    data_config: GeneformerPretrainingDataConfig = geneformer_data_recipe(data_dir=args.data_path)
     parallel_config = simple_parallel_recipe()
-    training_config = default_trainer_config_recipe()
-    bionemo_model_config = geneformer10M_pretraining_config(initial_ckpt_path=args.initial_ckpt_path)
-    optim_config = default_adam_optimizer_with_cosine_annealing_recipe()
-    experiment_config = experiment_config_recipe()
-    wandb_config = WandbConfig(
-        project="bionemo2-demo",
-        entity="nvidia",
-        offline=True,
-        tags=[],
-        group="dev",
-        id="dev",
-        log_model=False,
-        anonymous=True,
+    training_config = geneformer_base_training_config()
+    bionemo_model_config = geneformer_10m_model_config(initial_ckpt_path=args.initial_ckpt_path)
+    optim_config = geneformer_base_optimizer_scheduler_config()
+    experiment_config = geneformer_10m_experiment_config(result_dir=args.result_dir)
+    wandb_config = geneformer_10m_wandb_config()
+    main_config = MainConfig[ExposedGeneformerPretrainConfig, GeneformerPretrainingDataConfig](
+        data_config=data_config,
+        parallel_config=parallel_config,
+        training_config=training_config,
+        bionemo_model_config=bionemo_model_config,
+        optim_config=optim_config,
+        experiment_config=experiment_config,
+        wandb_config=wandb_config,
     )
+    return main_config
+
+def geneformer_106m_pretrain_recipe(
+    args,
+) -> MainConfig[ExposedGeneformerPretrainConfig, GeneformerPretrainingDataConfig]:
+    '''Recipe for pretraining the 106m model. Uses 8 GPUs for data parallelism'''
+    data_config: GeneformerPretrainingDataConfig = geneformer_data_recipe(data_dir=args.data_path)
+    parallel_config = geneformer_106m_parallel_config()
+    training_config = geneformer_base_training_config()
+    bionemo_model_config = geneformer_106m_model_config(initial_ckpt_path=args.initial_ckpt_path)
+    optim_config = geneformer_base_optimizer_scheduler_config()
+    experiment_config = geneformer_106m_experiment_config(result_dir=args.result_dir)
+    wandb_config = geneformer_106m_wandb_config()
     main_config = MainConfig[ExposedGeneformerPretrainConfig, GeneformerPretrainingDataConfig](
         data_config=data_config,
         parallel_config=parallel_config,
@@ -368,9 +493,11 @@ def geneformer10m_pretrain_recipe(
     return main_config
 
 
-def geneformer10m_finetune_recipe(
+
+def geneformer_10m_finetune_recipe(
     args,
 ) -> MainConfig[ExposedFineTuneSeqLenBioBertConfig, GeneformerPretrainingDataConfig]:
+    '''Recipe for finetuning the 10m model on a token regression head. Used as an example and for testing. '''
     data_config: GeneformerPretrainingDataConfig = geneformer_data_recipe(data_dir=args.data_path)
     parallel_config = simple_parallel_recipe()
     training_config = default_trainer_config_recipe()
@@ -405,7 +532,7 @@ def main():
         parser.add_argument(
             "--recipe",
             type=str,
-            choices=["test", "10m-pretrain", "test-finetune", "finetune"],
+            choices=["test", "10m-pretrain", "106m-pretrain", "test-finetune", "finetune"],
             required=True,
             help="Use one of the preconfigured recipes to create a template config file.",
         )
@@ -425,7 +552,6 @@ def main():
             "--result-dir", type=str, required=True, help="Path to the directory used to save results."
         )
 
-        # Extra argument.
         parser.add_argument(
             "--initial-ckpt-path",
             type=str,
@@ -443,13 +569,16 @@ def main():
     if args.recipe == "test":
         config = pretrain_tiny_test_recipe(args)
     elif args.recipe == "10m-pretrain":
-        config = geneformer10m_pretrain_recipe(args)
+        config = geneformer_10m_pretrain_recipe(args)
     elif args.recipe == "106m-pretrain":
+        config = geneformer_106m_pretrain_recipe(args)
         raise NotImplementedError("106M pretraining recipe not implemented.")
     elif args.recipe == "test-finetune":
+        # Uses a bigger model because we have a pretrained model for it.
         config = finetune_test_recipe(args)
     elif args.recipe == "finetune":
-        config = geneformer10m_finetune_recipe(args)
+        # NOTE: this recipe finetunes a regression model on the masked tokens, if youre looking to finetune with a custom task, youll need to define your own classes.
+        config = geneformer_10m_finetune_recipe(args)
     else:
         raise ValueError("Invalid recipe choice.")
 

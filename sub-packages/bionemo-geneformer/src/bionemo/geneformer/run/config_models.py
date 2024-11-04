@@ -43,13 +43,35 @@ class GeneformerDataArtifacts:
 
 
 class GeneformerPretrainingDataConfig(DataConfig[SingleCellDataModule]):
-    """Configuration for the geneformer pre-training data module."""
+    '''
+    Configuration class for Geneformer pretraining data. 
+
+    Expects train/test/val to be prior split by directory and processed by `sub-packages/bionemo-geneformer/src/bionemo/geneformer/data/singlecell/sc_memmap.py`.
+
+    Attributes:
+        data_dir (str): Directory where the data is stored.
+        result_dir (str | pathlib.Path): Directory where the results will be stored. Defaults to "./results".
+        micro_batch_size (int): Size of the micro-batch. Defaults to 8.
+        seq_length (int): Sequence length for the data. Defaults to 2048.
+        num_dataset_workers (int): Number of workers for data loading. Defaults to 0.
+
+    Properties:
+        train_data_path (str): Path to the training data.
+        val_data_path (str): Path to the validation data.
+        test_data_path (str): Path to the test data.
+
+    Methods:
+        geneformer_preprocess() -> GeneformerDataArtifacts:
+            Preprocesses the data using a legacy preprocessor from BioNeMo 1 and returns the necessary artifacts.
+        construct_data_module(global_batch_size: int) -> SingleCellDataModule:
+            Constructs and returns a SingleCellDataModule using the preprocessed data artifacts.
+    '''
 
     # Shadow two attributes from the parent for visibility.
+    data_dir: str
     result_dir: str | pathlib.Path = "./results"
     micro_batch_size: int = 8
 
-    data_dir: str
     seq_length: int = 2048
     num_dataset_workers: int = 0
 
@@ -83,6 +105,7 @@ class GeneformerPretrainingDataConfig(DataConfig[SingleCellDataModule]):
             raise ValueError("Preprocessing failed to create tokenizer and/or median dictionary.")
 
     def construct_data_module(self, global_batch_size: int) -> SingleCellDataModule:
+        ''' Downloads the requisite data artifacts and instantiates the DataModule. '''
         geneformer_data_artifacts: GeneformerDataArtifacts = self.geneformer_preprocess()
         data = SingleCellDataModule(
             seq_length=self.seq_length,
@@ -102,6 +125,12 @@ class GeneformerPretrainingDataConfig(DataConfig[SingleCellDataModule]):
 
 
 class ExposedGeneformerPretrainConfig(ExposedModelConfig[GeneformerConfig]):
+    ''' Exposes custom parameters for pretraining and binds the class to GeneformerConfig.
+
+    Attributes:
+        initial_ckpt_path (str): Path to a directory containing checkpoint files for initializing the model. This is only
+        initial_ckpt_skip_keys_with_these_prefixes (List[str]): Skip any layer that contains this key during restoration. Useful for finetuning, set the names of the task heads so checkpoint restoration does not errorniously try to restore these.
+    '''
     # Custom parameters for FineTuning
     initial_ckpt_path: Optional[str] = None
     initial_ckpt_skip_keys_with_these_prefixes: List[str] = field(default_factory=list)
@@ -125,25 +154,5 @@ class ExposedFineTuneSeqLenBioBertConfig(ExposedModelConfig[FineTuneSeqLenBioBer
     initial_ckpt_skip_keys_with_these_prefixes: List[str] = field(default_factory=lambda: ["regression_head"])
 
     def model_class(self) -> Type[FineTuneSeqLenBioBertConfig]:
+        ''' binds the class to FineTuneSeqLenBioBertConfig '''
         return FineTuneSeqLenBioBertConfig
-
-
-def nemo_logger_factory(experiment_config: ExperimentConfig, wandb_config: Optional[WandbConfig]) -> nl.NeMoLogger:
-    raise Exception
-    # TODO lift into llm?
-    checkpoint_callback = nl_callbacks.ModelCheckpoint(
-        save_last=experiment_config.save_last_checkpoint,
-        monitor=experiment_config.metric_to_monitor_for_checkpoints,
-        save_top_k=experiment_config.save_top_k,
-        every_n_train_steps=experiment_config.save_every_n_steps,
-        always_save_context=True,
-    )
-
-    nemo_logger = setup_nemo_lightning_logger(
-        root_dir=experiment_config.result_dir,
-        name=experiment_config.experiment_name,
-        initialize_tensorboard_logger=experiment_config.create_tensorboard_logger,
-        wandb_config=wandb_config,
-        ckpt_callback=checkpoint_callback,
-    )
-    return nemo_logger

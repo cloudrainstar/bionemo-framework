@@ -212,9 +212,11 @@ bionemo-esm2-recipe \
 --valid-cluster-path ${TEST_DATA_DIR}/2024_03_sanity/valid_clusters.parquet     \
 --valid-database-path ${TEST_DATA_DIR}/2024_03_sanity/validation.db     \
 --result-dir ./results     \
---dest my_config.yaml \
+--dest my_config.json \
 --recipe 8m
 ```
+
+> ⚠️ **IMPORTANT:** Inspect and edit the contents of the outputted my_config.json as you see fit
 
 > NOTE: To pretrain from an existing checkpoint, simply pass in the path --initial-ckpt-path to the recipe command. This will populate the JSON with the correct field to ensure pretraining is initialized from an existing checkpoint.
 
@@ -240,7 +242,7 @@ export NVTE_FLASH_ATTN=0
 bionemo-esm2-train \
 --data-config-t bionemo.esm2.run.config_models.ESM2DataConfig \
 --model-config-t bionemo.esm2.run.config_models.ExposedESM2PretrainConfig \
---config my_config.yaml
+--config my_config.json
 ```
 
 > NOTE: both data-config-t and model-config-t have default values corresponding to ESM2DataConfig and ExposedESM2PretrainingConfig
@@ -302,6 +304,54 @@ python  \
     --training-model-config-class FineTuneSeqLenBioBertConfig \
     --restore-from-checkpoint-path results/test_experiment/dev/checkpoints/test_experiment--val_loss=4.3506-epoch=1-last
 ```
+
+##### Running with Pydantic configs
+Alternatively, we provide a validated and serialized configuration file entrypoint for executing the same workflow. Recipes 
+are available for 10m, and 106m geneformer models. Additionally we provide an example recipe of finetuning, where the objective
+is to 'regress' on token IDs rather than the traditional masked language model approach. In practice, you will likely
+need to implement your own DataModule, DataConfig, and Finetuning model. You can use the same overall approach, but with
+customizations fory our task.
+
+
+```bash
+TEST_DATA_DIR=$(download_bionemo_data single_cell/testdata-20240506 --source $MY_DATA_SOURCE); \
+bionemo-geneformer-recipe \
+    --recipe 10m-pretrain \
+    --dest my_config.json \
+    --data-path ${TEST_DATA_DIR}/cellxgene_2023-12-15_small/processed_data \
+    --result-dir ./results
+```
+> ⚠️ **IMPORTANT:** Inspect and edit the contents of the outputted my_config.json as you see fit
+
+> NOTE: To pretrain from an existing checkpoint, simply pass in the path --initial-ckpt-path to the recipe command. This will populate the JSON with the correct field to ensure pretraining is initialized from an existing checkpoint.
+
+To submit a training job with the passed config, first update the json file with any additional execution parameters
+of your choosing: number of devices, workers, steps, etc. Second, invoke our training entrypoint. To do this, we need 
+three things:
+
+- Configuration file, the JSON produced by the previous step
+- Model config type, in this case the pretraining config. This will validate the arguments in the config JSON against 
+    those required for pretraining. Alternatively, things like fine-tuning with custom task heads may be specified here.
+    This allows for mixing/matching Data Modules with various tasks. 
+- Data Config type, this specifies how to parse, validate, and prepare the DataModule. This may change depending on task,
+for example, while fine-tuning you may want to use a custom Dataset/DataModule that includes PERTURB-seq. In this case,
+the default pretraining DataConfig and DataModule will be insufficient. See ESM2 for additional example usecases.
+
+> ⚠️ **Warning:** This setup does NO configuration of Weights and Biases. Edit your config JSON and populate it with your WandB details.
+
+```bash
+bionemo-esm2-train \
+--data-config-t bionemo.geneformer.run.config_models.GeneformerPretrainingDataConfig \
+--model-config-t bionemo.geneformer.run.config_models.ExposedGeneformerPretrainConfig \
+--config my_config.json
+```
+
+> NOTE: both data-config-t and model-config-t have default values corresponding to GeneformerPretrainingDataConfig and ExposedGeneformerPretrainConfig
+
+DataConfigT and ModelConfigT can also refer to locally defined types by the user. As long as python knows how to import
+the specified path, they may be configured. For example, you may have a custom Dataset/DataModule that you would like to
+mix with an existing recipe. In this case, you define a DataConfig object with the generic specified as your DataModule
+type, and then pass in the config type to the training recipe.
 
 
 

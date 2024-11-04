@@ -18,6 +18,7 @@ import argparse
 import json
 from typing import Optional
 
+
 from bionemo.geneformer.run.config_models import (
     ExposedFineTuneSeqLenBioBertConfig,
     ExposedGeneformerPretrainConfig,
@@ -76,7 +77,6 @@ def main():
             data_config_t = GeneformerPretrainingDataConfig
         elif isinstance(data_config_t, str):
             data_config_t = string_to_class(data_config_t)
-
         return MainConfig[model_config_t, data_config_t](**config_dict)
 
     args = parse_args()
