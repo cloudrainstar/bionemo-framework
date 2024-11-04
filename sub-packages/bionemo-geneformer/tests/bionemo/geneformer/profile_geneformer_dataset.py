@@ -15,6 +15,7 @@
 
 
 import logging
+import random
 import time
 from functools import wraps
 
@@ -22,6 +23,7 @@ import pandas as pd
 
 from bionemo.core.data.multi_epoch_dataset import EpochIndex
 from bionemo.geneformer.data.singlecell.dataset import SingleCellDataset
+from bionemo.geneformer.data.singlecell.dataset_old import SingleCellDataset as OldSingleCellDataset
 from bionemo.geneformer.data.singlecell.preprocess import GeneformerPreprocess
 from bionemo.testing.data.load import load
 
@@ -53,16 +55,17 @@ def time_all_methods(cls):
 class GeneformerDatasetMetrics:
     """SCDL Metrics."""
 
-    def __init__(self, memmap_dir, tokenizer, median_dict):
+    def __init__(self, data_dir, tokenizer, median_dict, old=False):
         """Instantiate class."""
-        self.memmap_dir = memmap_dir
+        self.data_dir = data_dir
         self.tokenizer = tokenizer
         self.median_dict = median_dict
+        self.old = old
 
     def create_from_memmap(self):
         """Create from memmap dir."""
         self.ds = SingleCellDataset(
-            self.memmap_dir, tokenizer=self.tokenizer, median_dict=self.median_dict, bypass_tokenizer_vocab=True
+            self.data_dir, tokenizer=self.tokenizer, median_dict=self.median_dict, bypass_tokenizer_vocab=True
         )
 
     def get_length(self):
@@ -85,10 +88,77 @@ class GeneformerDatasetMetrics:
         index = EpochIndex(epoch=0, idx=(self.length - 1) // 2)
         return self.ds.__getitem__(index)
 
+    def stress_test_item(self):
+        """Stress test get item."""
+        random.seed(42)
+        random_integers = [random.randint(0, self.length) for _ in range(500)]
+        for i in random_integers:
+            index = EpochIndex(idx=i, epoch=0)
+            self.ds.__getitem__(index)
+        return 0
+
+    def stress_test_get_indices(self):
+        """Stress test get indices."""
+        random.seed(42)
+        random_integers = [random.randint(0, self.length) for _ in range(1000)]
+        for i in random_integers:
+            index = EpochIndex(idx=i, epoch=0)
+            self.ds.scdl.get_row(index.idx, return_features=True, feature_vars=["feature_id"])
+        return 0
+
+
+@time_all_methods
+class OldGeneformerDatasetMetrics:
+    """SCDL Metrics."""
+
+    def __init__(self, data_dir, tokenizer, median_dict):
+        """Instantiate class."""
+        self.data_dir = data_dir
+        self.tokenizer = tokenizer
+        self.median_dict = median_dict
+
+    def create_from_memmap(self):
+        """Create from memmap dir."""
+        self.ds = OldSingleCellDataset(self.data_dir, tokenizer=self.tokenizer, median_dict=self.median_dict)
+
+    def get_length(self):
+        """Length."""
+        self.length = len(self.ds)
+        return self.length
+
+    def get_first_item(self):
+        """Get first item."""
+        return self.ds.__getitem__(0)
+
+    def get_last_item(self):
+        """Get last item."""
+        return self.ds.__getitem__(self.length - 1)
+
+    def get_middle_item(self):
+        """Get middle item."""
+        return self.ds.__getitem__((self.length - 1) // 2)
+
+    def stress_test_item(self):
+        """Stress test get item."""
+        random.seed(42)
+        random_integers = [random.randint(0, self.length) for _ in range(500)]
+        for i in random_integers:
+            self.ds.__getitem__(i)
+        return 0
+
+    def stress_test_get_indices(self):
+        """Stress test get indices."""
+        random.seed(42)
+        random_integers = [random.randint(0, self.length) for _ in range(1000)]
+        for i in random_integers:
+            self.ds.lookup_cell_by_idx(i)
+        return 0
+
 
 if __name__ == "__main__":
     results_dict = {}
     memap_data_path = load("single_cell/testdata-memmap-format") / "cellxgene_2023-12-15_small_mmap" / "train"
+    old_data_path = load("single_cell/testdata-20240506") / "cellxgene_2023-12-15_small" / "processed_data" / "train"
     preprocessor = GeneformerPreprocess(
         download_directory=memap_data_path,
         medians_file_path=memap_data_path / "medians.json",
@@ -99,13 +169,30 @@ if __name__ == "__main__":
             logging.info("*************** Preprocessing Finished ************")
         case _:
             logging.error("Preprocessing failed.")
-    geneformer_metrics = GeneformerDatasetMetrics(
-        memmap_dir=memap_data_path, tokenizer=tokenizer, median_dict=median_dict
+    geneformer_metrics_new = GeneformerDatasetMetrics(
+        data_dir=memap_data_path,
+        tokenizer=tokenizer,
+        median_dict=median_dict,  # type: ignore
     )  # type: ignore
-    results_dict[" Create Geneformer Dataset"] = geneformer_metrics.create_from_memmap()[1]
-    results_dict["Geneformer Dataset Get Length (s)"] = geneformer_metrics.get_length()[1]
-    results_dict["Geneformer Dataset Get First Item (s)"] = geneformer_metrics.get_first_item()[1]
-    results_dict["Geneformer Dataset Get Middle Item (s)"] = geneformer_metrics.get_middle_item()[1]
-    results_dict["Geneformer Dataset Get Last Item (s)"] = geneformer_metrics.get_last_item()[1]
+    results_dict["Create Geneformer Dataset"] = geneformer_metrics_new.create_from_memmap()[1]  # type: ignore
+    results_dict["Geneformer Dataset Get Length (s)"] = geneformer_metrics_new.get_length()[1]
+    results_dict["Geneformer Dataset Get First Item (s)"] = geneformer_metrics_new.get_first_item()[1]
+    results_dict["Geneformer Dataset Get Middle Item (s)"] = geneformer_metrics_new.get_middle_item()[1]
+    results_dict["Geneformer Dataset Get Last Item (s)"] = geneformer_metrics_new.get_last_item()[1]
+    results_dict["Geneformer Dataset Get Indices (s)"] = geneformer_metrics_new.stress_test_get_indices()[1]
+    results_dict["Geneformer Dataset Get Items (s)"] = geneformer_metrics_new.stress_test_item()[1]
+
+    geneformer_metrics_old = OldGeneformerDatasetMetrics(
+        data_dir=old_data_path,
+        tokenizer=tokenizer,
+        median_dict=median_dict,  # type: ignore
+    )  # type: ignore
+    results_dict["Old Create Geneformer Dataset"] = geneformer_metrics_old.create_from_memmap()[1]  # type: ignore
+    results_dict["Old Geneformer Dataset Get Length (s)"] = geneformer_metrics_old.get_length()[1]
+    results_dict["Old Geneformer Dataset Get First Item (s)"] = geneformer_metrics_old.get_first_item()[1]
+    results_dict["Old Geneformer Dataset Get Middle Item (s)"] = geneformer_metrics_old.get_middle_item()[1]
+    results_dict["Old Geneformer Dataset Get Last Item (s)"] = geneformer_metrics_old.get_last_item()[1]
+    results_dict["Old Geneformer Dataset Get Indices (s)"] = geneformer_metrics_old.stress_test_get_indices()[1]
+    results_dict["Old Geneformer Dataset Get Items (s)"] = geneformer_metrics_old.stress_test_item()[1]
     df = pd.DataFrame([results_dict])
     df.to_csv("full_runtime.csv")
