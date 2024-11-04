@@ -89,34 +89,33 @@ class ESM2DataConfig(DataConfig[ESMDataModule]):
 
 
 class ExposedESM2PretrainConfig(ExposedModelConfig[ESM2Config]):
-    class ExposedESM2PretrainConfig:
-        """Configuration class for ESM2 pretraining with select exposed parameters.
+    """Configuration class for ESM2 pretraining with select exposed parameters.
 
-        See the inherited ExposedModelConfig for attributes and methods from the base class. Use this class either
-        as a template or extension for custom configurations. Importantly, these kinds of classes should do two things,
-        select attributes to expose to the user, and provide validation and serialization any attributes.
+    See the inherited ExposedModelConfig for attributes and methods from the base class. Use this class either
+    as a template or extension for custom configurations. Importantly, these kinds of classes should do two things,
+    select attributes to expose to the user, and provide validation and serialization any attributes.
 
-        Attributes:
-            use_esm_attention (bool): Flag to skip ESM2 custom attention for TE acceleration. Defaults to False.
-            token_dropout (bool): Flag to enable token dropout. Defaults to True.
-            normalize_attention_scores (bool): Flag to normalize attention scores. Defaults to False.
-            variable_seq_lengths (bool): Flag to enable variable sequence lengths. Defaults to False.
-            core_attention_override (Optional[Type[torch.nn.Module]]): Optional override for core attention module. Defaults to None.
+    Attributes:
+        use_esm_attention (bool): Flag to skip ESM2 custom attention for TE acceleration. Defaults to False.
+        token_dropout (bool): Flag to enable token dropout. Defaults to True.
+        normalize_attention_scores (bool): Flag to normalize attention scores. Defaults to False.
+        variable_seq_lengths (bool): Flag to enable variable sequence lengths. Defaults to False.
+        core_attention_override (Optional[Type[torch.nn.Module]]): Optional override for core attention module. Defaults to None.
 
-        Methods:
-            restrict_biobert_spec_to_esm2(cls, biobert_spec_option: BiobertSpecOption) -> BiobertSpecOption:
-                Validates the BiobertSpecOption to ensure it is compatible with ESM2.
-            serialize_core_attention_override(self, value: Optional[Type[torch.nn.Module]]) -> Optional[str]:
-                Serializes the core attention override module to a string.
-            validate_core_attention_override(cls, value):
-                Validates the core attention override module, ensuring it is a subclass of torch.nn.Module.
-            validate_and_set_attention_and_scaling(self):
-                Validates and sets the attention and scaling parameters based on the biobert_spec_option.
-            model_validator(self, global_cfg: MainConfig) -> MainConfig:
-                Validates the global configuration, ensuring compatibility with ESM2DataConfig and parallel settings.
-            model_class(self) -> Type[ESM2Config]:
-                Returns the model class associated with this configuration.
-        """
+    Methods:
+        restrict_biobert_spec_to_esm2(cls, biobert_spec_option: BiobertSpecOption) -> BiobertSpecOption:
+            Validates the BiobertSpecOption to ensure it is compatible with ESM2.
+        serialize_core_attention_override(self, value: Optional[Type[torch.nn.Module]]) -> Optional[str]:
+            Serializes the core attention override module to a string.
+        validate_core_attention_override(cls, value):
+            Validates the core attention override module, ensuring it is a subclass of torch.nn.Module.
+        validate_and_set_attention_and_scaling(self):
+            Validates and sets the attention and scaling parameters based on the biobert_spec_option.
+        model_validator(self, global_cfg: MainConfig) -> MainConfig:
+            Validates the global configuration, ensuring compatibility with ESM2DataConfig and parallel settings.
+        model_class(self) -> Type[ESM2Config]:
+            Returns the model class associated with this configuration.
+    """
 
     use_esm_attention: bool = False  # Skip ESM2 custom attention for TE acceleration. Still passes golden value test.
     token_dropout: bool = True
@@ -127,7 +126,7 @@ class ExposedESM2PretrainConfig(ExposedModelConfig[ESM2Config]):
     @field_validator("biobert_spec_option", mode="after")
     @classmethod
     def restrict_biobert_spec_to_esm2(cls, biobert_spec_option: BiobertSpecOption) -> BiobertSpecOption:
-        """Validates the BiobertSpecOption to ensure it is compatible with ESM2. by restricting it to the specs compatable with ESM2"""
+        """Validates the BiobertSpecOption to ensure it is compatible with ESM2. by restricting it to the specs compatable with ESM2."""
         if biobert_spec_option in (
             BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec,
             BiobertSpecOption.esm2_bert_layer_local_spec,

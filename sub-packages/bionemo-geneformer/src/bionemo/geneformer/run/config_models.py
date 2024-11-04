@@ -71,19 +71,20 @@ class GeneformerPretrainingDataConfig(DataConfig[SingleCellDataModule]):
     num_dataset_workers: int = 0
 
     @property
-    def train_data_path(self) -> str:
+    def train_data_path(self) -> str:  # noqa: D102
         return self.data_dir + "/train"
 
     @property
-    def val_data_path(self) -> str:
+    def val_data_path(self) -> str:  # noqa: D102
         return self.data_dir + "/val"
 
     @property
-    def test_data_path(self) -> str:
+    def test_data_path(self) -> str:  # noqa: D102
         return self.data_dir + "/test"
 
     def geneformer_preprocess(self) -> GeneformerDataArtifacts:
         """Geneformer datamodule expects certain artifacts to be present in the data directory.
+
         This method uses a legacy 'preprocessor' from BioNeMo 1 to acquire the associated artifacts.
         """
         preprocessor = GeneformerPreprocess(
@@ -131,7 +132,7 @@ class ExposedGeneformerPretrainConfig(ExposedModelConfig[GeneformerConfig]):
     initial_ckpt_path: Optional[str] = None
     initial_ckpt_skip_keys_with_these_prefixes: List[str] = field(default_factory=list)
 
-    def model_class(self) -> Type[GeneformerConfig]:
+    def model_class(self) -> Type[GeneformerConfig]:  # noqa: D102
         return GeneformerConfig
 
 
@@ -150,5 +151,5 @@ class ExposedFineTuneSeqLenBioBertConfig(ExposedModelConfig[FineTuneSeqLenBioBer
     initial_ckpt_skip_keys_with_these_prefixes: List[str] = field(default_factory=lambda: ["regression_head"])
 
     def model_class(self) -> Type[FineTuneSeqLenBioBertConfig]:
-        """Binds the class to FineTuneSeqLenBioBertConfig"""
+        """Binds the class to FineTuneSeqLenBioBertConfig."""
         return FineTuneSeqLenBioBertConfig

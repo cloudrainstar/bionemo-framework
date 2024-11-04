@@ -27,7 +27,7 @@ from bionemo.llm.run.config_models import MainConfig
 from bionemo.llm.train import train
 
 
-def main():
+def main():  # noqa: D103
     def parse_args():
         parser = argparse.ArgumentParser(description="Run Geneformer pretraining")
         parser.add_argument("--config", type=str, required=True, help="Path to the JSON configuration file")

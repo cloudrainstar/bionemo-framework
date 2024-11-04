@@ -37,7 +37,7 @@ from bionemo.llm.utils.logger_utils import WandbConfig
 
 
 def geneformer_base_parallel_config() -> ParallelConfig:
-    """Base parallel config for Geneformer"""
+    """Base parallel config for Geneformer."""
     return ParallelConfig(
         tensor_model_parallel_size=1,
         pipeline_model_parallel_size=1,
@@ -49,12 +49,12 @@ def geneformer_base_parallel_config() -> ParallelConfig:
 
 
 def geneformer_base_optimizer_scheduler_config() -> OptimizerSchedulerConfig:
-    """Base optimizer scheduler config for Geneformer"""
+    """Base optimizer scheduler config for Geneformer."""
     return OptimizerSchedulerConfig(lr=1e-3)  # Matches bionemo1
 
 
 def geneformer_base_training_config() -> TrainingConfig:
-    """Base training config for Geneformer"""
+    """Base training config for Geneformer."""
     return TrainingConfig(
         max_steps=400000, limit_val_batches=8, val_check_interval=100, precision="bf16-mixed"
     )  # matches bionemo1
@@ -73,7 +73,7 @@ def geneformer_10m_model_config(
     initial_ckpt_path: Optional[str] = None,
     biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_with_transformer_engine_spec,
 ) -> ExposedGeneformerPretrainConfig:
-    """Geneformer 10m model config settings"""
+    """Geneformer 10m model config settings."""
     geneformer_config = ExposedGeneformerPretrainConfig(
         num_layers=6,
         hidden_size=256,
@@ -111,7 +111,7 @@ def geneformer_10m_model_config(
 
 
 def geneformer_10m_experiment_config(result_dir) -> ExperimentConfig:
-    """Experiment config for Geneformer 10m"""
+    """Experiment config for Geneformer 10m."""
     return ExperimentConfig(
         save_every_n_steps=100,
         result_dir=result_dir,
@@ -121,7 +121,7 @@ def geneformer_10m_experiment_config(result_dir) -> ExperimentConfig:
 
 
 def geneformer_10m_wandb_config() -> WandbConfig:
-    """Wandb config for Geneformer 10m"""
+    """Wandb config for Geneformer 10m."""
     wandb_config = WandbConfig(
         entity="geneformer-10m_pretraining",
         project="geneformer-10m_pretraining",
@@ -137,7 +137,7 @@ def geneformer_10m_wandb_config() -> WandbConfig:
 
 # 106m definition, model, experiment, wandb, parallel
 def geneformer_106m_parallel_config() -> ParallelConfig:
-    """Base parallel config for Geneformer"""
+    """Base parallel config for Geneformer."""
     return ParallelConfig(
         tensor_model_parallel_size=1,
         pipeline_model_parallel_size=1,
@@ -149,7 +149,7 @@ def geneformer_106m_parallel_config() -> ParallelConfig:
 
 
 def geneformer_106m_experiment_config(result_dir) -> ExperimentConfig:
-    """Experiment config for Geneformer 106m"""
+    """Experiment config for Geneformer 106m."""
     return ExperimentConfig(
         save_every_n_steps=100,
         result_dir=result_dir,
@@ -159,7 +159,7 @@ def geneformer_106m_experiment_config(result_dir) -> ExperimentConfig:
 
 
 def geneformer_106m_wandb_config() -> WandbConfig:
-    """Wandb config for Geneformer 106m"""
+    """Wandb config for Geneformer 106m."""
     wandb_config = WandbConfig(
         entity="geneformer-106m_pretraining",
         project="geneformer-106m_pretraining",
@@ -180,7 +180,7 @@ def geneformer_106m_model_config(
     initial_ckpt_path: Optional[str] = None,
     biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_with_transformer_engine_spec,
 ) -> ExposedGeneformerPretrainConfig:
-    """Geneformer 106m model config settings"""
+    """Geneformer 106m model config settings."""
     geneformer_config = ExposedGeneformerPretrainConfig(
         num_layers=12,
         hidden_size=768,
@@ -537,7 +537,7 @@ def geneformer_10m_finetune_recipe(
     return main_config
 
 
-def main(): # noqa: D103
+def main():  # noqa: D103
     def parse_args():
         parser = argparse.ArgumentParser(description="Create Geneformer configuration JSON.")
         parser.add_argument(

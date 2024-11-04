@@ -34,12 +34,12 @@ from bionemo.llm.utils.logger_utils import WandbConfig
 
 
 def esm2_base_training_config() -> TrainingConfig:
-    """Base training config for ESM2"""
+    """Base training config for ESM2."""
     return TrainingConfig(max_steps=500000, limit_val_batches=1.0, val_check_interval=1500, precision="bf16-mixed")
 
 
 def esm2_base_optimizer_scheduler_config() -> OptimizerSchedulerConfig:
-    """Base optimizer scheduler config for ESM2"""
+    """Base optimizer scheduler config for ESM2."""
     return OptimizerSchedulerConfig(
         optimizer="adam",
         lr=4e-4,
@@ -51,7 +51,7 @@ def esm2_base_optimizer_scheduler_config() -> OptimizerSchedulerConfig:
 
 
 def esm2_base_parallel_config() -> ParallelConfig:
-    """Base parallel config for ESM2"""
+    """Base parallel config for ESM2."""
     return ParallelConfig(
         tensor_model_parallel_size=1,
         pipeline_model_parallel_size=1,
@@ -63,7 +63,7 @@ def esm2_base_parallel_config() -> ParallelConfig:
 
 
 def esm2_8m_wandb_config() -> WandbConfig:
-    """Wandb config for ESM2 8m"""
+    """Wandb config for ESM2 8m."""
     wandb_config = WandbConfig(
         entity="esm2-8m_pretraining",
         project="esm2-8m_pretraining",
@@ -78,7 +78,7 @@ def esm2_8m_wandb_config() -> WandbConfig:
 
 
 def esm2_8m_experiment_config(result_dir) -> ExperimentConfig:
-    """Experiment config for ESM2 8m"""
+    """Experiment config for ESM2 8m."""
     return ExperimentConfig(
         save_every_n_steps=50,  # default set in previous script.
         result_dir=result_dir,
@@ -88,7 +88,7 @@ def esm2_8m_experiment_config(result_dir) -> ExperimentConfig:
 
 
 def esm2_8m_model_config(initial_ckpt_path=None) -> ExposedESM2PretrainConfig:
-    """Model config for ESM2 8m"""
+    """Model config for ESM2 8m."""
     return ExposedESM2PretrainConfig(
         num_layers=6,
         hidden_size=320,
@@ -104,7 +104,7 @@ def esm2_8m_model_config(initial_ckpt_path=None) -> ExposedESM2PretrainConfig:
 
 
 def esm2_8m_recipe(args) -> MainConfig[ExposedESM2PretrainConfig, ESM2DataConfig]:
-    """Recipe for ESM2 8m"""
+    """Recipe for ESM2 8m."""
     data_config = ESM2DataConfig(
         min_seq_length=1024,
         max_seq_length=1024,
@@ -128,7 +128,7 @@ def esm2_8m_recipe(args) -> MainConfig[ExposedESM2PretrainConfig, ESM2DataConfig
 
 
 def esm2_650m_model_config(initial_ckpt_path=None) -> ExposedESM2PretrainConfig:
-    """Model config for ESM2 650m"""
+    """Model config for ESM2 650m."""
     return ExposedESM2PretrainConfig(
         num_layers=6,
         hidden_size=1280,
@@ -144,7 +144,7 @@ def esm2_650m_model_config(initial_ckpt_path=None) -> ExposedESM2PretrainConfig:
 
 
 def esm2_650m_wandb_config() -> WandbConfig:
-    """Wandb config for ESM2 650m"""
+    """Wandb config for ESM2 650m."""
     return WandbConfig(
         entity="esm2-650m_pretraining",
         project="esm2-650m_pretraining",
@@ -158,7 +158,7 @@ def esm2_650m_wandb_config() -> WandbConfig:
 
 
 def esm2_650m_experiment_config(result_dir) -> ExperimentConfig:
-    """Experiment config for ESM2 650m"""
+    """Experiment config for ESM2 650m."""
     return ExperimentConfig(
         save_every_n_steps=50,
         result_dir=result_dir,
@@ -169,7 +169,7 @@ def esm2_650m_experiment_config(result_dir) -> ExperimentConfig:
 
 
 def esm2_650m_recipe(args) -> MainConfig[ExposedESM2PretrainConfig, ESM2DataConfig]:
-    """Recipe for ESM2 650m"""
+    """Recipe for ESM2 650m."""
     data_config = ESM2DataConfig(
         min_seq_length=1024,
         max_seq_length=1024,
@@ -193,7 +193,7 @@ def esm2_650m_recipe(args) -> MainConfig[ExposedESM2PretrainConfig, ESM2DataConf
 
 
 def esm2_3b_parallel_config() -> ParallelConfig:
-    """Parallel config for ESM2 3b"""
+    """Parallel config for ESM2 3b."""
     return ParallelConfig(
         tensor_model_parallel_size=2,
         pipeline_model_parallel_size=1,
@@ -206,7 +206,7 @@ def esm2_3b_parallel_config() -> ParallelConfig:
 
 
 def esm2_3b_model_config(initial_ckpt_path=None) -> ExposedESM2PretrainConfig:
-    """Model config for ESM2 3b"""
+    """Model config for ESM2 3b."""
     return ExposedESM2PretrainConfig(
         num_layers=36,
         hidden_size=2560,
@@ -222,7 +222,7 @@ def esm2_3b_model_config(initial_ckpt_path=None) -> ExposedESM2PretrainConfig:
 
 
 def esm2_3b_wandb_config() -> WandbConfig:
-    """Wandb config for ESM2 3b"""
+    """Wandb config for ESM2 3b."""
     return WandbConfig(
         entity="esm2-3b_pretraining",
         project="esm2-3b_pretraining",
@@ -236,7 +236,7 @@ def esm2_3b_wandb_config() -> WandbConfig:
 
 
 def esm2_3b_recipe(args) -> MainConfig[ExposedESM2PretrainConfig, ESM2DataConfig]:
-    """Recipe for ESM2 3b"""
+    """Recipe for ESM2 3b."""
     data_config = ESM2DataConfig(
         min_seq_length=1024,
         max_seq_length=1024,
@@ -265,7 +265,7 @@ def simple_parallel_recipe(
     num_devices: int = 1,
     accumulate_grad_batches: int = 1,
 ) -> ParallelConfig:
-    """Simple parallel recipe for ESM2"""
+    """Simple parallel recipe for ESM2."""
     assert (
         num_devices >= tensor_model_parallel_size * pipeline_model_parallel_size
     ), "devices must be divisible by tensor_model_parallel_size * pipeline_model_parallel_size"
@@ -278,17 +278,17 @@ def simple_parallel_recipe(
 
 
 def tiny_train_config_recipe() -> TrainingConfig:
-    """Tiny training config for ESM2"""
+    """Tiny training config for ESM2."""
     return TrainingConfig(max_steps=10, limit_val_batches=2, val_check_interval=2)
 
 
 def default_adam_optimizer_with_cosine_annealing_recipe() -> OptimizerSchedulerConfig:
-    """Default optimizer scheduler config for ESM2"""
+    """Default optimizer scheduler config for ESM2."""
     return OptimizerSchedulerConfig()
 
 
 def experiment_config_recipe(result_dir="./results") -> ExperimentConfig:
-    """Experiment config for ESM2"""
+    """Experiment config for ESM2."""
     return ExperimentConfig(
         save_every_n_steps=100,
         result_dir=result_dir,
@@ -309,7 +309,7 @@ def esm2_tiny_model_config(
     biobert_spec_option: BiobertSpecOption = BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec,
     variable_seq_lengths: bool = False,
 ) -> ExposedESM2PretrainConfig:
-    """Model config for ESM2 tiny"""
+    """Model config for ESM2 tiny, used for testing."""
     return ExposedESM2PretrainConfig(
         seq_length=seq_length,
         num_layers=2,
@@ -328,7 +328,7 @@ def esm2_tiny_model_config(
 
 
 def esm2_tiny_test_recipe(args):
-    """Test recipe for ESM2 tiny"""
+    """Test recipe for ESM2 tiny, used for testing."""
     parallel_config = simple_parallel_recipe()
     training_config = tiny_train_config_recipe()
 
@@ -370,7 +370,7 @@ def esm2_tiny_test_recipe(args):
     return main_config
 
 
-def main():
+def main():  # noqa: D103
     def parse_args():
         parser = argparse.ArgumentParser(description="Create ESM2 configuration JSON.")
         parser.add_argument(
