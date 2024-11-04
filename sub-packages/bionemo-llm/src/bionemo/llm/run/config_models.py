@@ -270,6 +270,7 @@ class TrainingConfig(BaseModel):
         val_check_interval (int): The interval (in steps) at which to check validation.
         precision (Literal["32", "bf16-mixed", "16-mixed"], optional): The precision to use for training. Defaults to "bf16-mixed".
         accelerator (str, optional): The type of accelerator to use for training. Defaults to "gpu".
+        gc_interval (int, optional): The interval of global steps at which to run synchronized garbage collection. Useful for synchronizing garbage collection when performing distributed training. Defaults to 0.
     """
 
     max_steps: int
@@ -277,6 +278,8 @@ class TrainingConfig(BaseModel):
     val_check_interval: int
     precision: Literal["32", "bf16-mixed", "16-mixed"] = "bf16-mixed"
     accelerator: str = "gpu"
+    # NOTE: VERY important for distributed training performance.
+    gc_interval: int = 0 
 
 
 class OptimizerSchedulerConfig(BaseModel):

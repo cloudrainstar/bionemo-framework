@@ -14,9 +14,12 @@
 # limitations under the License.
 
 
+from dataclasses import field
 import math
 import pathlib
 from typing import Optional
+
+from pydantic import BaseModel
 
 from bionemo.llm.lightning import BionemoLightningModule
 from megatron.core.optimizer import OptimizerConfig
@@ -43,6 +46,12 @@ from bionemo.llm.run.config_models import (
 )
 from bionemo.llm.utils.datamodule_utils import infer_global_batch_size
 from bionemo.llm.utils.logger_utils import WandbConfig, setup_nemo_lightning_logger
+
+class NsysConfig(BaseModel):
+    """Configuration for nsys profiling."""
+    start_step: int = 0
+    end_step: Optional[int] = None
+    ranks: list[int] = field(default_factory=lambda: [0])
 
 
 def nemo_logger_factory(experiment_config: ExperimentConfig, wandb_config: Optional[WandbConfig]) -> nl.NeMoLogger:
@@ -74,7 +83,7 @@ def nemo_logger_factory(experiment_config: ExperimentConfig, wandb_config: Optio
     return nemo_logger
 
 
-def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConfig, callbacks=None) -> nl.Trainer:
+def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConfig, callbacks=None, nsys_config: NsysConfig | None = None) -> nl.Trainer:
     """Set up the trainer for model training using the specified parallel and training configurations.
 
     Args:
@@ -101,6 +110,29 @@ def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConf
             LearningRateMonitor(),
         ]
 
+    if training_config.gc_interval > 0:
+        callbacks.append(
+            nl_callbacks.GarbageCollectionCallback(gc_interval_train=training_config.gc_interval, gc_interval_val=training_config.gc_interval)
+        )
+
+    # TODO set these as flags, the following are needed:
+    '''
+    nsys_profiling (bool)
+    nsys_start_step (int) when to start profiling
+    nsys_end_step (int) when to stop profiling
+    nsys_ranks (List[int]) which ranks to profile.
+    '''
+    if nsys_config:
+        if nsys_config.end_step is None:
+            nsys_config.end_step = training_config.max_steps
+        callbacks.append(
+            nl_callbacks.NsysCallback(
+                start_step=nsys_config.start_step, end_step=nsys_config.end_step, ranks=nsys_config.ranks, gen_shape=True
+            )
+        )
+
+
+
     trainer = nl.Trainer(
         devices=parallel_config.num_devices,
         max_steps=training_config.max_steps,
@@ -123,6 +155,7 @@ def train(
     optim_config: OptimizerSchedulerConfig,
     experiment_config: ExperimentConfig,
     wandb_config: Optional[WandbConfig],
+    nsys_config: Optional[NsysConfig] = None,
     resume_if_exists: bool = True,
 ):
     """Train a BioNemo model using the provided configurations. Uses the ExposedModelConfig and DataConfig as the primary variants for this method.
@@ -134,7 +167,8 @@ def train(
         training_config (TrainingConfig): Configuration for training parameters.
         optim_config (OptimizerSchedulerConfig): Configuration for the optimizer and scheduler.
         experiment_config (ExperimentConfig): Configuration for the experiment.
-        wandb_config (Optional[WandbConfig]): Configuration for Weights and Biases logging.
+        wandb_config (Optional[WandbConfig]): Configuration for Weights and Biases logging.n
+        nsys_config (Optional[NsysConfig], optional): Configuration for nsys profiling. If None, is disabled.
         resume_if_exists (bool, optional): Flag to resume training if a checkpoint exists. Defaults to True.
     """
     bionemo_model_config = bionemo_exposed_model_config.exposed_to_internal_bionemo_model_config()
@@ -180,7 +214,7 @@ def train(
     model: BionemoLightningModule = biobert_lightning_module(
         config=bionemo_model_config, tokenizer=data.tokenizer, optimizer=optimizer
     )
-    trainer: nl.Trainer = setup_trainer(parallel_config, training_config)
+    trainer: nl.Trainer = setup_trainer(parallel_config, training_config, nsys_config=nsys_config)
     nemo_logger: nl.NeMoLogger = nemo_logger_factory(experiment_config, wandb_config=wandb_config)
 
     llm.train(

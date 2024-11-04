@@ -18,14 +18,15 @@ import argparse
 import json
 from typing import Optional
 
+from pydantic import BaseModel
+
 from bionemo.geneformer.run.config_models import (
     ExposedFineTuneSeqLenBioBertConfig,
     ExposedGeneformerPretrainConfig,
     GeneformerPretrainingDataConfig,
 )
 from bionemo.llm.run.config_models import MainConfig
-from bionemo.llm.train import train
-
+from bionemo.llm.train import NsysConfig, train
 
 def main():  # noqa: D103
     def parse_args():
@@ -49,6 +50,39 @@ def main():  # noqa: D103
             action="store_true",
             help="Resume training if a checkpoint exists that matches the current experiment configuration.",
         )
+
+        # Debug options.
+        parser.add_argument(
+            "--nsys-profiling",
+            action="store_true",
+            default=False,
+            help="Enable targeted `nsys` profiling on the training loop for a defined step range. To actually get profiling output you must run the whole program with `nsys`. For example: "
+            " `nsys profile -s none -o output_report_name -t cuda,nvtx --force-overwrite true --capture-range=cudaProfilerApi --capture-range-end=stop  [regular python command here]`",
+        )
+        # start, end, rank
+        parser.add_argument(
+            "--nsys-start-step",
+            type=int,
+            required=False,
+            default=0,
+            help="Start nsys profiling after this step.",
+        )
+        parser.add_argument(
+            "--nsys-end-step",
+            type=int,
+            required=False,
+            help="End nsys profiling after this step.",
+        )
+        # rank as list of integers
+        parser.add_argument(
+            "--nsys-ranks",
+            type=int,
+            nargs="+",
+            required=False,
+            default=[0],
+            help="Enable nsys profiling for these ranks.",
+        )
+
         return parser.parse_args()
 
     def string_to_class(path: str):
@@ -80,6 +114,16 @@ def main():  # noqa: D103
 
     args = parse_args()
     config = load_config(args.config, args.model_config_t, args.data_config_t)
+
+    if args.nsys_profiling:
+        nsys_config = NsysConfig(
+            start_step=args.nsys_start_step,
+            end_step=args.nsys_end_step,
+            ranks=args.nsys_ranks,
+        )
+    else:
+        nsys_config = None
+
     train(
         bionemo_exposed_model_config=config.bionemo_model_config,
         data_config=config.data_config,
@@ -89,6 +133,7 @@ def main():  # noqa: D103
         experiment_config=config.experiment_config,
         wandb_config=config.wandb_config,
         resume_if_exists=args.resume_if_exists,
+        nsys_config=nsys_config
     )
 
 
