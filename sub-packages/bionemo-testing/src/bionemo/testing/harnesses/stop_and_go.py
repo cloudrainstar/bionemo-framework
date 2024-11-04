@@ -217,6 +217,13 @@ class StopAndGoHarness(ABC):
                 testing_callbacks.ValidInputCallback: testing_callbacks.ValidInputCallback(),
                 testing_callbacks.ValidOutputCallback: testing_callbacks.ValidOutputCallback(),
                 testing_callbacks.ValidLossCallback: testing_callbacks.ValidLossCallback(),
+                nl_callbacks.ModelCheckpoint: nl_callbacks.ModelCheckpoint(
+                    save_last=True,
+                    monitor="reduced_train_loss",
+                    save_top_k=2,
+                    every_n_train_steps=cls.val_check_interval,
+                    always_save_context=True,
+                ),
             }
 
         interrupted_callbacks = make_callbacks()
@@ -232,13 +239,6 @@ class StopAndGoHarness(ABC):
         callbacks[Mode.STOP].update(
             {
                 testing_callbacks.RaiseAfterMetadataCallback: testing_callbacks.RaiseAfterMetadataCallback(),
-                nl_callbacks.ModelCheckpoint: nl_callbacks.ModelCheckpoint(
-                    save_last=True,
-                    monitor="reduced_train_loss",
-                    save_top_k=2,
-                    every_n_train_steps=cls.val_check_interval,
-                    always_save_context=True,
-                ),
             }
         )
 
