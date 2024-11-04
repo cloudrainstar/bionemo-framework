@@ -14,14 +14,11 @@
 # limitations under the License.
 
 
-from dataclasses import field
 import math
 import pathlib
+from dataclasses import field
 from typing import Optional
 
-from pydantic import BaseModel
-
-from bionemo.llm.lightning import BionemoLightningModule
 from megatron.core.optimizer import OptimizerConfig
 from nemo import lightning as nl
 from nemo.collections import llm
@@ -30,11 +27,11 @@ from nemo.lightning.pytorch import callbacks as nl_callbacks
 from nemo.lightning.pytorch.optim import MegatronOptimizerModule
 from nemo.lightning.pytorch.optim.lr_scheduler import CosineAnnealingScheduler
 from nemo.utils import logging
+from pydantic import BaseModel
 from pytorch_lightning.callbacks import LearningRateMonitor, RichModelSummary
-from tokenizers import Tokenizer
 
-from bionemo.llm.model.biobert.lightning import BioBertLightningModule, biobert_lightning_module
-from bionemo.llm.model.biobert.model import BioBertConfig
+from bionemo.llm.lightning import BionemoLightningModule
+from bionemo.llm.model.biobert.lightning import biobert_lightning_module
 from bionemo.llm.run.config_models import (
     DataConfig,
     DataModuleT,
@@ -47,8 +44,10 @@ from bionemo.llm.run.config_models import (
 from bionemo.llm.utils.datamodule_utils import infer_global_batch_size
 from bionemo.llm.utils.logger_utils import WandbConfig, setup_nemo_lightning_logger
 
+
 class NsysConfig(BaseModel):
     """Configuration for nsys profiling."""
+
     start_step: int = 0
     end_step: Optional[int] = None
     ranks: list[int] = field(default_factory=lambda: [0])
@@ -83,7 +82,12 @@ def nemo_logger_factory(experiment_config: ExperimentConfig, wandb_config: Optio
     return nemo_logger
 
 
-def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConfig, callbacks=None, nsys_config: NsysConfig | None = None) -> nl.Trainer:
+def setup_trainer(
+    parallel_config: ParallelConfig,
+    training_config: TrainingConfig,
+    callbacks=None,
+    nsys_config: NsysConfig | None = None,
+) -> nl.Trainer:
     """Set up the trainer for model training using the specified parallel and training configurations.
 
     Args:
@@ -93,6 +97,7 @@ def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConf
                                           validation batch limit, validation check interval, and precision.
         callbacks (list, optional): List of callback functions to be used during training. Defaults to None,
                                     in which case default callbacks (RichModelSummary and LearningRateMonitor) are used.
+        nsys_config (NsysConfig, optional): Configuration for nsys profiling. If None, is disabled.
 
     Returns:
         nl.Trainer: Configured trainer object ready for model training.
@@ -112,26 +117,29 @@ def setup_trainer(parallel_config: ParallelConfig, training_config: TrainingConf
 
     if training_config.gc_interval > 0:
         callbacks.append(
-            nl_callbacks.GarbageCollectionCallback(gc_interval_train=training_config.gc_interval, gc_interval_val=training_config.gc_interval)
+            nl_callbacks.GarbageCollectionCallback(
+                gc_interval_train=training_config.gc_interval, gc_interval_val=training_config.gc_interval
+            )
         )
 
     # TODO set these as flags, the following are needed:
-    '''
+    """
     nsys_profiling (bool)
     nsys_start_step (int) when to start profiling
     nsys_end_step (int) when to stop profiling
     nsys_ranks (List[int]) which ranks to profile.
-    '''
+    """
     if nsys_config:
         if nsys_config.end_step is None:
             nsys_config.end_step = training_config.max_steps
         callbacks.append(
             nl_callbacks.NsysCallback(
-                start_step=nsys_config.start_step, end_step=nsys_config.end_step, ranks=nsys_config.ranks, gen_shape=True
+                start_step=nsys_config.start_step,
+                end_step=nsys_config.end_step,
+                ranks=nsys_config.ranks,
+                gen_shape=True,
             )
         )
-
-
 
     trainer = nl.Trainer(
         devices=parallel_config.num_devices,
@@ -207,9 +215,8 @@ def train(
             interval=optim_config.interval,
             monitor=optim_config.monitor,
             constant_steps=int(math.ceil(training_config.max_steps * optim_config.cosine_hold_frac)),
-        )
+        ),
     )
-
 
     model: BionemoLightningModule = biobert_lightning_module(
         config=bionemo_model_config, tokenizer=data.tokenizer, optimizer=optimizer

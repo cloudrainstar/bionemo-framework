@@ -18,8 +18,6 @@ import argparse
 import json
 from typing import Optional
 
-from pydantic import BaseModel
-
 from bionemo.geneformer.run.config_models import (
     ExposedFineTuneSeqLenBioBertConfig,
     ExposedGeneformerPretrainConfig,
@@ -27,6 +25,7 @@ from bionemo.geneformer.run.config_models import (
 )
 from bionemo.llm.run.config_models import MainConfig
 from bionemo.llm.train import NsysConfig, train
+
 
 def main():  # noqa: D103
     def parse_args():
@@ -133,7 +132,7 @@ def main():  # noqa: D103
         experiment_config=config.experiment_config,
         wandb_config=config.wandb_config,
         resume_if_exists=args.resume_if_exists,
-        nsys_config=nsys_config
+        nsys_config=nsys_config,
     )
 
 

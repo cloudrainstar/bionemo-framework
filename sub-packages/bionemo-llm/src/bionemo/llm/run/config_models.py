@@ -279,7 +279,7 @@ class TrainingConfig(BaseModel):
     precision: Literal["32", "bf16-mixed", "16-mixed"] = "bf16-mixed"
     accelerator: str = "gpu"
     # NOTE: VERY important for distributed training performance.
-    gc_interval: int = 0 
+    gc_interval: int = 0
 
 
 class OptimizerSchedulerConfig(BaseModel):

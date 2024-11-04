@@ -111,7 +111,6 @@ def main():  # noqa: D103
     args = parse_args()
     config = load_config(args.config, args.model_config_t, args.data_config_t)
 
-
     if args.nsys_profiling:
         nsys_config = NsysConfig(
             start_step=args.nsys_start_step,
