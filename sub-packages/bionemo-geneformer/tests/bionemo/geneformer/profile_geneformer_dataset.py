@@ -97,10 +97,10 @@ class GeneformerDatasetMetrics:
             self.ds.__getitem__(index)
         return 0
 
-    def stress_test_get_indices(self):
+    def stress_test_get_indices(self, num_indices):
         """Stress test get indices."""
         random.seed(42)
-        random_integers = [random.randint(0, self.length) for _ in range(1000)]
+        random_integers = [random.randint(0, self.length - 1) for _ in range(num_indices)]
         for i in random_integers:
             index = EpochIndex(idx=i, epoch=0)
             self.ds.scdl.get_row(index.idx, return_features=True, feature_vars=["feature_id"])
@@ -141,17 +141,17 @@ class OldGeneformerDatasetMetrics:
     def stress_test_item(self):
         """Stress test get item."""
         random.seed(42)
-        random_integers = [random.randint(0, self.length) for _ in range(500)]
+        random_integers = [random.randint(0, self.length) for _ in range(5_000)]
         for i in random_integers:
             self.ds.__getitem__(i)
         return 0
 
-    def stress_test_get_indices(self):
+    def stress_test_get_indices(self, num_indices):
         """Stress test get indices."""
         random.seed(42)
-        random_integers = [random.randint(0, self.length) for _ in range(1000)]
+        random_integers = [random.randint(0, self.length - 1) for _ in range(num_indices)]
         for i in random_integers:
-            self.ds.lookup_cell_by_idx(i)
+            self.ds[i]
         return 0
 
 
@@ -164,6 +164,9 @@ if __name__ == "__main__":
         medians_file_path=memap_data_path / "medians.json",
         tokenizer_vocab_path=memap_data_path / "geneformer.vocab",
     )
+    print(memap_data_path)
+    print(old_data_path)
+    num_indices = 5_000
     match preprocessor.preprocess():
         case {"tokenizer": tokenizer, "median_dict": median_dict}:
             logging.info("*************** Preprocessing Finished ************")
@@ -174,25 +177,30 @@ if __name__ == "__main__":
         tokenizer=tokenizer,
         median_dict=median_dict,  # type: ignore
     )  # type: ignore
+    print("NEW STUFF")
     results_dict["Create Geneformer Dataset"] = geneformer_metrics_new.create_from_memmap()[1]  # type: ignore
     results_dict["Geneformer Dataset Get Length (s)"] = geneformer_metrics_new.get_length()[1]
     results_dict["Geneformer Dataset Get First Item (s)"] = geneformer_metrics_new.get_first_item()[1]
     results_dict["Geneformer Dataset Get Middle Item (s)"] = geneformer_metrics_new.get_middle_item()[1]
     results_dict["Geneformer Dataset Get Last Item (s)"] = geneformer_metrics_new.get_last_item()[1]
-    results_dict["Geneformer Dataset Get Indices (s)"] = geneformer_metrics_new.stress_test_get_indices()[1]
-    results_dict["Geneformer Dataset Get Items (s)"] = geneformer_metrics_new.stress_test_item()[1]
+    results_dict["Geneformer Dataset Get Indices (s)"] = geneformer_metrics_new.stress_test_get_indices(num_indices)[1]
+
+    # results_dict["Geneformer Dataset Get Items (s)"] = geneformer_metrics_new.stress_test_item()[1]
 
     geneformer_metrics_old = OldGeneformerDatasetMetrics(
         data_dir=old_data_path,
         tokenizer=tokenizer,
         median_dict=median_dict,  # type: ignore
     )  # type: ignore
+    print("OLD STUFF")
     results_dict["Old Create Geneformer Dataset"] = geneformer_metrics_old.create_from_memmap()[1]  # type: ignore
     results_dict["Old Geneformer Dataset Get Length (s)"] = geneformer_metrics_old.get_length()[1]
     results_dict["Old Geneformer Dataset Get First Item (s)"] = geneformer_metrics_old.get_first_item()[1]
     results_dict["Old Geneformer Dataset Get Middle Item (s)"] = geneformer_metrics_old.get_middle_item()[1]
     results_dict["Old Geneformer Dataset Get Last Item (s)"] = geneformer_metrics_old.get_last_item()[1]
-    results_dict["Old Geneformer Dataset Get Indices (s)"] = geneformer_metrics_old.stress_test_get_indices()[1]
-    results_dict["Old Geneformer Dataset Get Items (s)"] = geneformer_metrics_old.stress_test_item()[1]
+    results_dict["Old Geneformer Dataset Get Indices (s)"] = geneformer_metrics_old.stress_test_get_indices(
+        num_indices
+    )[1]
+    # results_dict["Old Geneformer Dataset Get Items (s)"] = geneformer_metrics_old.stress_test_item()[1]
     df = pd.DataFrame([results_dict])
     df.to_csv("full_runtime.csv")
