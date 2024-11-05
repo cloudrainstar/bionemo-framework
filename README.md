@@ -338,7 +338,7 @@ the default pretraining DataConfig and DataModule will be insufficient. See ESM2
 > ⚠️ **Warning:** This setup does NO configuration of Weights and Biases. Edit your config JSON and populate it with your WandB details.
 
 ```bash
-bionemo-esm2-train \
+bionemo-geneformer-train \
 --data-config-t bionemo.geneformer.run.config_models.GeneformerPretrainingDataConfig \
 --model-config-t bionemo.geneformer.run.config_models.ExposedGeneformerPretrainConfig \
 --config my_config.json
