@@ -72,7 +72,7 @@ class SingleCellDataset(Dataset):
         __getitem__(idx): Returns the item at the given index.
 
     See Also:
-        bionemo/data/singlecell/sc_memmap.py - creates the artifacts required for instantiating a singlecell dataset from hdf5 files.
+        bionemo/data/singlecell/sc_memmap.py - creates the artifacts required for instantiating a singlecell dataset from hdf5 files. #TODO: replace
     """  # noqa: D205
 
     def __init__(  # noqa: D107
@@ -107,16 +107,17 @@ class SingleCellDataset(Dataset):
 
     def __getitem__(self, index: EpochIndex) -> types.BertSample:  # noqa: D105
         rng = np.random.default_rng([self._seed, index.epoch, index.idx])
-        values, feature_ids_df = self.scdl.get_row(index.idx, return_features=True, feature_vars=["feature_id"])
+        values, feature_ids = self.scdl.get_row(index.idx, return_features=True, feature_vars=["feature_id"])
         gene_data, col_idxs = values[0], values[1]
-        gene_data = gene_data.astype(np.int64)
-        col_idxs = col_idxs.astype(np.int64)
+        # gene_data = gene_data.astype(np.int64)
+        # col_idxs = col_idxs.astype(np.int64)
+        feature_ids = feature_ids["feature_id"].to_numpy()
         if len(gene_data) == 0:
             raise ValueError(
                 "SingleCellMemap data provided is invalid; the gene expression data parsed for the specified index is empty."
             )
-        feature_ids = feature_ids_df.values.tolist()
-        feature_ids = [f[0] for f in feature_ids]
+        # feature_ids = feature_ids_df.values.tolist()
+        # feature_ids = [f[0] for f in feature_ids]
         return process_item(
             gene_data,
             col_idxs,

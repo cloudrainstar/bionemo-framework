@@ -21,6 +21,8 @@ from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 
 __all__: Sequence[str] = ("RowFeatureIndex",)
@@ -45,7 +47,7 @@ class RowFeatureIndex:
     def __init__(self) -> None:
         """Instantiates the index."""
         self._cumulative_sum_index: np.array = np.array([-1])
-        self._feature_arr: List[pd.DataFrame] = []
+        self._feature_arr: List[pa.Table] = []
         self._version = importlib.metadata.version("bionemo.scdl")
         self._labels: List[str] = []
 
@@ -117,7 +119,8 @@ class RowFeatureIndex:
 
         # If specific features are to be selected, filter the features.
         if select_features is not None:
-            features = features[select_features]
+            # features = features[select_features]
+            features = features.select(select_features)
 
         # Return the features for the identified range.
         return features, self._labels[d_id]
@@ -232,7 +235,7 @@ class RowFeatureIndex:
         """
         new_row_feat_index = RowFeatureIndex()
         parquet_data_paths = sorted(Path(datapath).rglob("*.parquet"))
-        new_row_feat_index._feature_arr = [pd.read_parquet(csv_path) for csv_path in parquet_data_paths]
+        new_row_feat_index._feature_arr = [pq.read_table(csv_path) for csv_path in parquet_data_paths]
         new_row_feat_index._cumulative_sum_index = np.load(Path(datapath) / "cumulative_sum_index.npy")
         new_row_feat_index._labels = np.load(Path(datapath) / "labels.npy", allow_pickle=True)
         new_row_feat_index._version = np.load(Path(datapath) / "version.npy").item()
