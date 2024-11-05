@@ -86,10 +86,10 @@ class TestIOMixin:
         with pytest.raises(KeyError):
             v1.get_hparam("q")
 
-        # Make sure we can get all hyper-parameters that are not defaultfactory objects
-        assert v1.get_hparams() == {"b": 7, "c": 3}
+        # Make sure we can get all hyper-parameters that are **non-default** non-defaultfactory objects
+        assert v1.get_hparams() == {"b": 7}
 
-        # Make sure by default we can change botht he hyper-parameter and the attribute.
+        # Make sure by default we can change both the hyper-parameter and the attribute.
         v1_copy.set_hparam("b", 8)
         assert v1_copy.b == 8
         assert v1_copy.get_hparam("b") == 8
@@ -98,8 +98,8 @@ class TestIOMixin:
         v1 = OverrideModelDataClass1()
         v1.set_hparam("a", 7)
         assert v1.a == 7
-        # Make sure we can get all hyper-parameters
-        assert v1.get_hparams() == {"a": 7, "b": 3, "c": 3}
+        # Make sure we can get all **non-default** **non-defaultfactory** hyper-parameters
+        assert v1.get_hparams() == {"a": 7}
 
         v1_copy = io.reinit(v1)
         assert v1_copy.a == 7, "V1 should re-initialize with the updated hyper-parameter."
