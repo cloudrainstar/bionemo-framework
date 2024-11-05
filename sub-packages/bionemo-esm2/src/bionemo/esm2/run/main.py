@@ -25,7 +25,7 @@ from bionemo.llm.train import NsysConfig, train
 
 def main():  # noqa: D103
     def parse_args():
-        parser = argparse.ArgumentParser(description="Run Geneformer pretraining")
+        parser = argparse.ArgumentParser(description="Run ESM2 pretraining")
         parser.add_argument("--config", type=str, required=True, help="Path to the JSON configuration file")
         parser.add_argument(
             "--model-config-t",
