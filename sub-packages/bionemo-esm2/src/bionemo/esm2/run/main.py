@@ -31,7 +31,7 @@ def main():  # noqa: D103
             "--model-config-t",
             default=ExposedESM2PretrainConfig,
             required=False,
-            help="fully resolvable python import path to the ModelConfig object. Builtin options are ExposedGeneformerPretrainConfig and ExposedFineTuneSeqLenBioBertConfig.",
+            help="fully resolvable python import path to the ModelConfig object. Builtin options are ExposedESM2PretrainConfig.",
         )
         parser.add_argument(
             "--data-config-t",
