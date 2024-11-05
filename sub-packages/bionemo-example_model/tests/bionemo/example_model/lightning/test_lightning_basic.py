@@ -56,7 +56,7 @@ def _train_model_get_ckpt(
         every_n_train_steps=5,
         always_save_context=True,  # Enables the .nemo file-like checkpointing where all IOMixins are under SerDe
         # async_save=False,  # Tries to save asynchronously, previously led to race conditions.
-        filename="{epoch}-{step}-{val_loss:.2f}"
+        filename="{epoch}-{step}-{val_loss:.2f}",
     )
     save_dir = root_dir / name
     tb_logger = TensorBoardLogger(save_dir=save_dir, name=name)
