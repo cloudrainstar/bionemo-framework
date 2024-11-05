@@ -126,13 +126,6 @@ def setup_trainer(
             )
         )
 
-    # TODO set these as flags, the following are needed:
-    """
-    nsys_profiling (bool)
-    nsys_start_step (int) when to start profiling
-    nsys_end_step (int) when to stop profiling
-    nsys_ranks (List[int]) which ranks to profile.
-    """
     if nsys_config:
         if nsys_config.end_step is None:
             nsys_config.end_step = training_config.max_steps
