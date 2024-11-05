@@ -25,13 +25,13 @@ from bionemo.llm.train import NsysConfig, train
 
 def main():  # noqa: D103
     def parse_args():
-        parser = argparse.ArgumentParser(description="Run Geneformer pretraining")
+        parser = argparse.ArgumentParser(description="Run ESM2 pretraining")
         parser.add_argument("--config", type=str, required=True, help="Path to the JSON configuration file")
         parser.add_argument(
             "--model-config-t",
             default=ExposedESM2PretrainConfig,
             required=False,
-            help="fully resolvable python import path to the ModelConfig object. Builtin options are ExposedGeneformerPretrainConfig and ExposedFineTuneSeqLenBioBertConfig.",
+            help="fully resolvable python import path to the ModelConfig object. Builtin options are ExposedESM2PretrainConfig.",
         )
         parser.add_argument(
             "--data-config-t",
