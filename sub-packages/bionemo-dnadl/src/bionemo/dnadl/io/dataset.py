@@ -32,7 +32,7 @@ from typing import Any, Callable, List, Optional
 import polars as pl
 import pysam
 import torch
-from pyfaidx import Fasta
+from pyfaidx import Fasta, Sequence
 from torch.utils.data import Dataset
 
 from bionemo.dnadl.tools.genome_editing import create_personal_sequence
@@ -43,20 +43,33 @@ from bionemo.dnadl.tools.vcf import SampleId, read_variants_in_interval
 DNATokenizer = Callable[[str], torch.Tensor]
 
 
+def _thread_safe_genome_access(
+    fasta_file_path: Path, chromosome: str, start_index: int | None = None, end_index: int | None = None
+) -> Sequence:
+    """Bypass the multiprocessing issues with pyfaidx by destroying the fasta object after use."""
+    fasta = Fasta(fasta_file_path)
+    if start_index is not None and end_index is not None:
+        sequence = fasta[chromosome][start_index:end_index]
+    else:
+        sequence = fasta[chromosome]
+    del fasta
+    return sequence
+
+
 class Genome:
     """Class that creates a genome object from a fasta file. It can be used to extract sequences from the genome."""
 
     def __init__(self, fasta_file: str | os.PathLike):
         """Instantiate the class."""
-        fasta_file = Path(fasta_file)
+        self.fasta_file = Path(fasta_file)
         assert fasta_file.exists(), "path to fasta file must exist"
-        self.seqs = Fasta(str(fasta_file))
 
     def adjust_interval(self, interval: GenomeInterval, context_length: int) -> GenomeInterval:
         """Used to extend an interval by a fixed amount on both sides."""
         start, end = interval.start, interval.end
         interval_length = interval.end - interval.start
-        chromosome_length = len(self.seqs[interval.chromosome])
+        chromosome_length = len(_thread_safe_genome_access(self.fasta_file, interval.chromosome))
+
         if interval_length >= context_length:
             return interval
 
@@ -77,7 +90,11 @@ class Genome:
 
     def extract_sequence(self, genome_interval: GenomeInterval) -> str:
         """Extract a sequence from the genome."""
-        return str(self.seqs[genome_interval.chromosome][genome_interval.start : genome_interval.end])
+        return str(
+            _thread_safe_genome_access(
+                self.fasta_file, genome_interval.chromosome, genome_interval.start, genome_interval.end
+            )
+        )
 
 
 class GenomeDataset(Dataset, ABC):

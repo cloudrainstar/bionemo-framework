@@ -40,7 +40,7 @@ TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 
 @pytest.fixture(scope="module")
 def temp_bed_file(tmp_path_factory):
-    """Fixture that creates a temporary FASTA file with dummy content and yields the path to the file."""
+    """Fixture that creates a temporary BED file with dummy content and yields the path to the file."""
     temp_bed_path = tmp_path_factory.mktemp("data") / "temp_genome.bed"
     bed_content = """chr1 10 15 train 0
 chr2 1 10 train 1
