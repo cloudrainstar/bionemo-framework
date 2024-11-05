@@ -273,11 +273,6 @@ class ESM2GenericConfig(BioBertConfig[ESM2ModelT, MegatronLossType]):
         loss_reduction_class: Loss reduction class for the model. Default to BERTMLMLossWithReduction.
     """
 
-    # ESM specific fields (these are repeated below)
-    use_esm_attention: bool = False  # Skip ESM2 custom attention for TE acceleration. Still passes golden value test.
-    token_dropout: bool = True
-    normalize_attention_scores: bool = False
-
     # When overriding fields in a dataclass _always_ declare types: https://github.com/python/cpython/issues/123269
     model_cls: Type[ESM2ModelT] = ESM2Model
     num_layers: int = 33  # 650M

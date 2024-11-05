@@ -189,6 +189,8 @@ def main(
         plugins=nl.MegatronMixedPrecision(precision=precision),
     )
 
+    tokenizer = get_tokenizer()
+
     # Initialize the data module.
     data = ESMDataModule(
         train_cluster_path=train_cluster_path,
@@ -201,10 +203,8 @@ def main(
         max_seq_length=max_seq_length,
         num_workers=num_dataset_workers,
         random_mask_strategy=random_mask_strategy,
-        tokenizer=get_tokenizer(),
+        tokenizer=tokenizer,
     )
-    # NOTE(SKH) added this.
-    tokenizer = data._tokenizer
     # Configure the model
     esm2_config = ESM2Config(
         seq_length=max_seq_length,

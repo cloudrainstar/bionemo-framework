@@ -70,7 +70,18 @@ class ESM2DataConfig(DataConfig[ESMDataModule]):
     num_dataset_workers: int = 0
 
     def construct_data_module(self, global_batch_size: int) -> ESMDataModule:
-        """Constructs and returns an ESMDataModule instance with the provided global batch size."""
+        """Constructs and returns an ESMDataModule instance with the provided global batch size.
+
+        This method provides means for constructing the datamodule, any pre-requisites for the DataModule should be
+        aquired here. For example, tokenizers, preprocessing, may want to live in this method.        
+
+        Args:
+            global_batch_size (int): Global batch size for the data module. Global batch size must be a function of
+                parallelism settings and the `micro_batch_size` attribute. Since the DataConfig has no ownership over
+                parallelism configuration, we expect someone higher up on the ownership chain to provide the value to 
+                this method.
+        
+        """
         tokenizer = get_tokenizer()
         data = ESMDataModule(
             train_cluster_path=self.train_cluster_path,
@@ -122,20 +133,6 @@ class ExposedESM2PretrainConfig(ExposedModelConfig[ESM2Config]):
     normalize_attention_scores: bool = False
     variable_seq_lengths: bool = False
     core_attention_override: Type[torch.nn.Module] | None = None
-
-    @field_validator("biobert_spec_option", mode="after")
-    @classmethod
-    def restrict_biobert_spec_to_esm2(cls, biobert_spec_option: BiobertSpecOption) -> BiobertSpecOption:
-        """Validates the BiobertSpecOption to ensure it is compatible with ESM2. by restricting it to the specs compatable with ESM2."""
-        if biobert_spec_option in (
-            BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec,
-            BiobertSpecOption.esm2_bert_layer_local_spec,
-        ):
-            return biobert_spec_option
-        else:
-            raise TypeError(
-                f"Unsupported BiobertSpecOption: {biobert_spec_option=}, use one of {BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec}, {BiobertSpecOption.esm2_bert_layer_local_spec}"
-            )
 
     @field_serializer("core_attention_override")
     def serialize_core_attention_override(self, value: Optional[Type[torch.nn.Module]]) -> Optional[str]:
@@ -201,7 +198,7 @@ class ExposedESM2PretrainConfig(ExposedModelConfig[ESM2Config]):
         assert (
             self.variable_seq_lengths
             == (pipeline_model_parallel_size * tensor_model_parallel_size > 1 and min_seq_length != max_seq_length)
-        ), "Must set variable_seq_lengths = (pipeline_model_parallel_size * tensor_model_parallel_size > 1 and min_seq_length != max_seq_length)"
+        ), "Must set variable_seq_lengths to True when min_seq_length != max_seq_length under pipeline or tensor parallelism."
         return global_cfg
 
     def model_class(self) -> Type[ESM2Config]:

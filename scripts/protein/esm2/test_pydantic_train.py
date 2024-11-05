@@ -24,6 +24,7 @@ import pytest
 from lightning.fabric.plugins.environments.lightning import find_free_network_port
 
 from bionemo.testing.data.load import load
+from bionemo.testing.data.esm2 import create_mock_parquet_train_val_inputs, create_mock_protein_dataset
 
 
 data_path: Path = load("single_cell/testdata-20240506") / "cellxgene_2023-12-15_small" / "processed_data"
@@ -41,52 +42,14 @@ def test_bionemo2_rootdir():
 @pytest.fixture
 def dummy_protein_dataset(tmp_path):
     """Create a mock protein dataset."""
-    db_file = tmp_path / "protein_dataset.db"
-    conn = sqlite3.connect(str(db_file))
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        CREATE TABLE protein (
-            id TEXT PRIMARY KEY,
-            sequence TEXT
-        )
-    """
-    )
-
-    proteins = [
-        ("UniRef90_A", "ACDEFGHIKLMNPQRSTVWY"),
-        ("UniRef90_B", "DEFGHIKLMNPQRSTVWYAC"),
-        ("UniRef90_C", "MGHIKLMNPQRSTVWYACDE"),
-        ("UniRef50_A", "MKTVRQERLKSIVRI"),
-        ("UniRef50_B", "MRILERSKEPVSGAQLA"),
-    ]
-    cursor.executemany("INSERT INTO protein VALUES (?, ?)", proteins)
-
-    conn.commit()
-    conn.close()
-
+    db_file = create_mock_protein_dataset(tmp_path)
     return db_file
 
 
 @pytest.fixture
 def dummy_parquet_train_val_inputs(tmp_path):
     """Create a mock protein train and val cluster parquet."""
-    train_cluster_path = tmp_path / "train_clusters.parquet"
-    train_clusters = pd.DataFrame(
-        {
-            "ur90_id": [["UniRef90_A"], ["UniRef90_B", "UniRef90_C"]],
-        }
-    )
-    train_clusters.to_parquet(train_cluster_path)
-
-    valid_cluster_path = tmp_path / "valid_clusters.parquet"
-    valid_clusters = pd.DataFrame(
-        {
-            "ur50_id": ["UniRef50_A", "UniRef50_B", "UniRef50_A", "UniRef50_B"],  # 2 IDs more than confest
-        }
-    )
-    valid_clusters.to_parquet(valid_cluster_path)
+    train_cluster_path, valid_cluster_path = create_mock_parquet_train_val_inputs(tmp_path)
     return train_cluster_path, valid_cluster_path
 
 

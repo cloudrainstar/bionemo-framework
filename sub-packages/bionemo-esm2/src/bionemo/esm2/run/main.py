@@ -93,9 +93,11 @@ def main():  # noqa: D103
         # model/data_config_t is used to select the parser dynamically.
         if model_config_t is None or model_config_t == "ExposedESM2PretrainConfig":
             model_config_t = ExposedESM2PretrainConfig
-        elif model_config_t == "ExposedFineTuneSeqLenBioBertConfig":
+        elif model_config_t == "ExposedFineTuneSeqModel":
             # Hardcoded path for those who do not know the full path
             # model_config_t = ExposedFineTuneSeqLenBioBertConfig
+            raise NotImplementedError()
+        elif model_config_t == "ExposedFineTuneTokenModel":
             raise NotImplementedError()
         elif isinstance(model_config_t, str):
             # We assume we get a string to some importable config... e.g. in the sub-package jensen, 'bionemo.jensen.configs.MyConfig'

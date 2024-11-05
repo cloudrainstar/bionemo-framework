@@ -35,7 +35,7 @@ from bionemo.llm.utils.logger_utils import WandbConfig
 
 def esm2_base_training_config() -> TrainingConfig:
     """Base training config for ESM2."""
-    return TrainingConfig(max_steps=500000, limit_val_batches=1.0, val_check_interval=1500, precision="bf16-mixed")
+    return TrainingConfig(max_steps=500000, limit_val_batches=1.0, val_check_interval=10_000, precision="bf16-mixed", include_perplexity=True)
 
 
 def esm2_base_optimizer_scheduler_config() -> OptimizerSchedulerConfig:
@@ -43,10 +43,10 @@ def esm2_base_optimizer_scheduler_config() -> OptimizerSchedulerConfig:
     return OptimizerSchedulerConfig(
         optimizer="adam",
         lr=4e-4,
-        cosine_rampup_frac=0.01,
-        cosine_hold_frac=0.05,
         interval="step",
         monitor="val_loss",
+        lr_scheduler="warmup_anneal",
+        warmup_steps=2000
     )
 
 
@@ -61,6 +61,18 @@ def esm2_base_parallel_config() -> ParallelConfig:
         num_nodes=1,
     )
 
+def esm2_base_data_config(args) -> ESM2DataConfig:
+    data_config = ESM2DataConfig(
+        min_seq_length=1024,
+        max_seq_length=1024,
+        micro_batch_size=1,
+        num_dataset_workers=8,
+        train_cluster_path=args.train_cluster_path,
+        train_database_path=args.train_database_path,
+        valid_cluster_path=args.valid_cluster_path,
+        valid_database_path=args.valid_database_path,
+    )
+    return data_config
 
 def esm2_8m_wandb_config() -> WandbConfig:
     """Wandb config for ESM2 8m."""
@@ -68,7 +80,7 @@ def esm2_8m_wandb_config() -> WandbConfig:
         entity="esm2-8m_pretraining",
         project="esm2-8m_pretraining",
         group="esm2-8m",
-        tags=["esm2-8m"],
+        tags=["esm2", "pretraining"],
         offline=True,
         anonymous=True,
         id="1",
@@ -82,7 +94,7 @@ def esm2_8m_experiment_config(result_dir) -> ExperimentConfig:
     return ExperimentConfig(
         save_every_n_steps=50,  # default set in previous script.
         result_dir=result_dir,
-        experiment_name="esm2-8m",
+        experiment_name="esm2-8m-pretraining",
         restore_from_checkpoint_path=None,
     )
 
@@ -105,19 +117,8 @@ def esm2_8m_model_config(initial_ckpt_path=None) -> ExposedESM2PretrainConfig:
 
 def esm2_8m_recipe(args) -> MainConfig[ExposedESM2PretrainConfig, ESM2DataConfig]:
     """Recipe for ESM2 8m."""
-    data_config = ESM2DataConfig(
-        min_seq_length=1024,
-        max_seq_length=1024,
-        micro_batch_size=2,
-        num_dataset_workers=8,
-        train_cluster_path=args.train_cluster_path,
-        train_database_path=args.train_database_path,
-        valid_cluster_path=args.valid_cluster_path,
-        valid_database_path=args.valid_database_path,
-    )
-
     return MainConfig(
-        data_config=data_config,
+        data_config=esm2_base_data_config(args),
         parallel_config=esm2_base_parallel_config(),
         training_config=esm2_base_training_config(),  # no changes for 8m
         bionemo_model_config=esm2_8m_model_config(args.initial_ckpt_path),
@@ -130,7 +131,7 @@ def esm2_8m_recipe(args) -> MainConfig[ExposedESM2PretrainConfig, ESM2DataConfig
 def esm2_650m_model_config(initial_ckpt_path=None) -> ExposedESM2PretrainConfig:
     """Model config for ESM2 650m."""
     return ExposedESM2PretrainConfig(
-        num_layers=6,
+        num_layers=33,
         hidden_size=1280,
         ffn_hidden_size=1280 * 4,
         seq_length=1024,
@@ -149,7 +150,7 @@ def esm2_650m_wandb_config() -> WandbConfig:
         entity="esm2-650m_pretraining",
         project="esm2-650m_pretraining",
         group="esm2-650m",
-        tags=["esm2-650m"],
+        tags=["esm2", "pretraining"],
         offline=True,
         anonymous=True,
         id="1",
@@ -162,7 +163,7 @@ def esm2_650m_experiment_config(result_dir) -> ExperimentConfig:
     return ExperimentConfig(
         save_every_n_steps=50,
         result_dir=result_dir,
-        experiment_name="esm2-650m",
+        experiment_name="esm2-650m-pretraining",
         # TODO should this be exposed?
         restore_from_checkpoint_path=None,
     )
@@ -170,19 +171,8 @@ def esm2_650m_experiment_config(result_dir) -> ExperimentConfig:
 
 def esm2_650m_recipe(args) -> MainConfig[ExposedESM2PretrainConfig, ESM2DataConfig]:
     """Recipe for ESM2 650m."""
-    data_config = ESM2DataConfig(
-        min_seq_length=1024,
-        max_seq_length=1024,
-        micro_batch_size=1,
-        num_dataset_workers=8,
-        train_cluster_path=args.train_cluster_path,
-        train_database_path=args.train_database_path,
-        valid_cluster_path=args.valid_cluster_path,
-        valid_database_path=args.valid_database_path,
-    )
-
     return MainConfig(
-        data_config=data_config,
+        data_config=esm2_base_data_config(args),
         parallel_config=esm2_base_parallel_config(),
         training_config=esm2_base_training_config(),  # no changes for 8m
         bionemo_model_config=esm2_650m_model_config(args.initial_ckpt_path),
@@ -227,34 +217,34 @@ def esm2_3b_wandb_config() -> WandbConfig:
         entity="esm2-3b_pretraining",
         project="esm2-3b_pretraining",
         group="esm2-3b",
-        tags=["esm2-3b"],
+        tags=["esm2-650m"],
         offline=True,
         anonymous=True,
         id="1",
         log_model=False,
     )
 
+def esm2_3b_experiment_config(result_dir) -> ExperimentConfig:
+    """Experiment config for ESM2 650m."""
+    return ExperimentConfig(
+        save_every_n_steps=50,
+        result_dir=result_dir,
+        experiment_name="esm2-3b-pretraining",
+        # TODO should this be exposed?
+        restore_from_checkpoint_path=None,
+    )
+
+
 
 def esm2_3b_recipe(args) -> MainConfig[ExposedESM2PretrainConfig, ESM2DataConfig]:
     """Recipe for ESM2 3b."""
-    data_config = ESM2DataConfig(
-        min_seq_length=1024,
-        max_seq_length=1024,
-        micro_batch_size=1,
-        num_dataset_workers=8,
-        train_cluster_path=args.train_cluster_path,
-        train_database_path=args.train_database_path,
-        valid_cluster_path=args.valid_cluster_path,
-        valid_database_path=args.valid_database_path,
-    )
-
     return MainConfig(
-        data_config=data_config,
+        data_config=esm2_base_data_config(args),
         parallel_config=esm2_3b_parallel_config(),
         training_config=esm2_base_training_config(),  # no changes for 8m
         bionemo_model_config=esm2_3b_model_config(args.initial_ckpt_path),
         optim_config=esm2_base_optimizer_scheduler_config(),  # no changes for 8m
-        experiment_config=esm2_650m_experiment_config(args.result_dir),
+        experiment_config=esm2_3b_experiment_config(args.result_dir),
         wandb_config=esm2_3b_wandb_config(),
     )
 
@@ -295,7 +285,7 @@ def experiment_config_recipe(result_dir="./results") -> ExperimentConfig:
         experiment_name="default_experiment",
         restore_from_checkpoint_path=None,
         save_last_checkpoint=True,
-        metric_to_monitor_for_checkpoints="reduced_train_loss",
+        metric_to_monitor_for_checkpoints="val_loss",
         save_top_k=2,
         create_tensorboard_logger=False,
     )

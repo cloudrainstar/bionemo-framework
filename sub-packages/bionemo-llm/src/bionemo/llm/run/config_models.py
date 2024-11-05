@@ -63,7 +63,7 @@ class DataConfig(BaseModel, Generic[DataModuleT], ABC):
         """Construct the data module from the configuration. Cannot be defined generically."""
         ...
 
-    def model_validator(self, global_cfg: "MainConfig") -> "MainConfig":
+    def custom_model_validator(self, global_cfg: "MainConfig") -> "MainConfig":
         """Use custom implementation of this method to define the things inside global_config.
 
         The following expression will always be true:
@@ -96,7 +96,7 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
         """Returns the underlying model class that this config wraps."""
         raise NotImplementedError
 
-    def model_validator(self, global_cfg: "MainConfig") -> "MainConfig":
+    def custom_model_validator(self, global_cfg: "MainConfig") -> "MainConfig":
         """Use custom implementation of this method to define the things inside global_config.
 
         The following expression will always be true:
@@ -157,6 +157,13 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
     enable_autocast: bool = False
     nemo1_ckpt_path: Optional[str] = None
     biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_with_transformer_engine_spec
+
+    @model_validator(mode="after")
+    def validate_ffn_hidden_size(self) -> 'ExposedModelConfig':
+        """Validates the ffn_hidden_size."""
+        if not self.ffn_hidden_size == 4 * self.hidden_size:
+            raise ValidationError("ffn_hidden_size must be 4 * hidden_size")
+        return self
 
     @field_validator("activation_func", mode="before")
     @classmethod
@@ -271,6 +278,7 @@ class TrainingConfig(BaseModel):
         precision (Literal["32", "bf16-mixed", "16-mixed"], optional): The precision to use for training. Defaults to "bf16-mixed".
         accelerator (str, optional): The type of accelerator to use for training. Defaults to "gpu".
         gc_interval (int, optional): The interval of global steps at which to run synchronized garbage collection. Useful for synchronizing garbage collection when performing distributed training. Defaults to 0.
+        include_perplexity (bool, optional): Whether to include perplexity in the validation logs. Defaults to False.
     """
 
     max_steps: int
@@ -280,7 +288,7 @@ class TrainingConfig(BaseModel):
     accelerator: str = "gpu"
     # NOTE: VERY important for distributed training performance.
     gc_interval: int = 0
-
+    include_perplexity: bool = False
 
 class OptimizerSchedulerConfig(BaseModel):
     """Configuration for the optimizer and learning rate scheduler.
@@ -288,18 +296,21 @@ class OptimizerSchedulerConfig(BaseModel):
     Attributes:
         lr (float): Learning rate for the optimizer. Default is 1e-4.
         optimizer (str): Type of optimizer to use. Default is "adam".
-        cosine_rampup_frac (float): Fraction of total training steps for the cosine ramp-up phase. Default is 0.01.
-        cosine_hold_frac (float): Fraction of total training steps to hold the learning rate constant after ramp-up. Default is 0.05.
         interval (str): Interval for updating the learning rate scheduler. Default is "step".
         monitor (str): Metric to monitor for learning rate adjustments. Default is "val_loss".
+        interval (str): Interval for updating the learning rate scheduler. Default is "step".
+        monitor (str): Metric to monitor for learning rate adjustments. Default is "val_loss".
+        warmup_steps (int): Number of warmup steps for use with the warmup annealing learning rate scheduler. Default is 0.
+        lr_scheduler (Literal['warmup_anneal', 'cosine']): Type of learning rate scheduler to use. Default is 'warmup_anneal'. NOTE this is likely to change.
     """
-
     lr: float = 1e-4
     optimizer: str = "adam"
-    cosine_rampup_frac: float = 0.01
-    cosine_hold_frac: float = 0.05
     interval: str = "step"
     monitor: str = "val_loss"
+    cosine_rampup_frac: float = 0.01
+    cosine_hold_frac: float = 0.05
+    warmup_steps: int = 0
+    lr_scheduler: Literal['warmup_anneal', 'cosine'] = 'warmup_anneal'
 
 
 class ExperimentConfig(BaseModel):
@@ -374,9 +385,9 @@ class MainConfig(BaseModel, Generic[ExModelConfigT, DataConfigT]):
     @model_validator(mode="after")
     def run_bionemo_model_config_model_validators(self) -> "MainConfig":
         """Runs the model validators on the bionemo_model_config."""
-        return self.bionemo_model_config.model_validator(self)
+        return self.bionemo_model_config.custom_model_validator(self)
 
     @model_validator(mode="after")
     def run_data_config_model_validators(self) -> "MainConfig":
         """Runs the model validators on the data_config."""
-        return self.data_config.model_validator(self)
+        return self.data_config.custom_model_validator(self)
