@@ -17,7 +17,6 @@ from dataclasses import dataclass, field
 
 import pytest
 from nemo.lightning import io
-from nemo.lightning.io.mixin import load as ioload
 
 from bionemo.llm.utils import iomixin_utils as iom
 
@@ -71,7 +70,7 @@ class TestIOMixin:
         assert v2.c == coppied_v2.c
 
     def test_dataclass_out_of_sync(self):
-        v1 = OverrideModelDataClass1(a=23)
+        v1 = OverrideModelDataClass1()
         v1.set_hparam("b", 7, also_change_value=False)
         assert v1.b == 3, "Also change value False should not update the object in self."
         v1_copy = io.reinit(v1)
@@ -81,8 +80,8 @@ class TestIOMixin:
         with pytest.raises(KeyError):
             v1.get_hparam("q")
 
-        # Make sure we can get all hyper-parameters that are not defaultfactory objects **and** non-default values
-        assert v1.get_hparams() == {"a": 23, "b": 7}
+        # Make sure we can get all hyper-parameters that are not defaultfactory objects
+        assert v1.get_hparams() == {"b": 7, "c": 3}
 
         # Make sure by default we can change botht he hyper-parameter and the attribute.
         v1_copy.set_hparam("b", 8)
@@ -93,27 +92,9 @@ class TestIOMixin:
         v1 = OverrideModelDataClass1()
         v1.set_hparam("a", 7)
         assert v1.a == 7
-        # Make sure we can get all **non-default** hyper-parameters
-        assert v1.get_hparams() == {"a": 7}
+        # Make sure we can get all hyper-parameters
+        assert v1.get_hparams() == {"a": 7, "b": 3, "c": 3}
 
         v1_copy = io.reinit(v1)
         assert v1_copy.a == 7, "V1 should re-initialize with the updated hyper-parameter."
         assert v1_copy.get_hparam("a") == 7
-
-    def test_io_dump_reload_only_capture_non_default_init_arguments(self, tmpdir):
-        v1 = OverrideModelDataClass1(a=23)
-        v1.b = 0
-        v1.io_dump(tmpdir, [])
-
-        v1_load = ioload(tmpdir / "io.json")
-
-        # capture default arguments in __init__
-        assert v1_load.b == 3
-        assert v1_load.c == 3
-
-        # capture non-default arguments in __init__
-        assert v1_load.get_hparam("a") == 23
-        assert v1_load.a == 23
-
-        # does not capture anything else not in __init__
-        assert v1_load.b != v1.b
