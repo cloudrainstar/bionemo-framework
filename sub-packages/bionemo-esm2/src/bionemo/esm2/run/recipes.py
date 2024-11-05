@@ -35,18 +35,19 @@ from bionemo.llm.utils.logger_utils import WandbConfig
 
 def esm2_base_training_config() -> TrainingConfig:
     """Base training config for ESM2."""
-    return TrainingConfig(max_steps=500000, limit_val_batches=1.0, val_check_interval=10_000, precision="bf16-mixed", include_perplexity=True)
+    return TrainingConfig(
+        max_steps=500000,
+        limit_val_batches=1.0,
+        val_check_interval=10_000,
+        precision="bf16-mixed",
+        include_perplexity=True,
+    )
 
 
 def esm2_base_optimizer_scheduler_config() -> OptimizerSchedulerConfig:
     """Base optimizer scheduler config for ESM2."""
     return OptimizerSchedulerConfig(
-        optimizer="adam",
-        lr=4e-4,
-        interval="step",
-        monitor="val_loss",
-        lr_scheduler="warmup_anneal",
-        warmup_steps=2000
+        optimizer="adam", lr=4e-4, interval="step", monitor="val_loss", lr_scheduler="warmup_anneal", warmup_steps=2000
     )
 
 
@@ -61,7 +62,9 @@ def esm2_base_parallel_config() -> ParallelConfig:
         num_nodes=1,
     )
 
+
 def esm2_base_data_config(args) -> ESM2DataConfig:
+    """Base data config for ESM2."""
     data_config = ESM2DataConfig(
         min_seq_length=1024,
         max_seq_length=1024,
@@ -73,6 +76,7 @@ def esm2_base_data_config(args) -> ESM2DataConfig:
         valid_database_path=args.valid_database_path,
     )
     return data_config
+
 
 def esm2_8m_wandb_config() -> WandbConfig:
     """Wandb config for ESM2 8m."""
@@ -224,6 +228,7 @@ def esm2_3b_wandb_config() -> WandbConfig:
         log_model=False,
     )
 
+
 def esm2_3b_experiment_config(result_dir) -> ExperimentConfig:
     """Experiment config for ESM2 650m."""
     return ExperimentConfig(
@@ -233,7 +238,6 @@ def esm2_3b_experiment_config(result_dir) -> ExperimentConfig:
         # TODO should this be exposed?
         restore_from_checkpoint_path=None,
     )
-
 
 
 def esm2_3b_recipe(args) -> MainConfig[ExposedESM2PretrainConfig, ESM2DataConfig]:

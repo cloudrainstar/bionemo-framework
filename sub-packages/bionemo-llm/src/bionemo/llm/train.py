@@ -19,7 +19,6 @@ import pathlib
 from dataclasses import field
 from typing import Optional
 
-from bionemo.esm2.model.lr_scheduler import WarmupAnnealDecayHoldScheduler
 from megatron.core.optimizer import OptimizerConfig
 from nemo import lightning as nl
 from nemo.collections import llm
@@ -31,6 +30,7 @@ from nemo.utils import logging
 from pydantic import BaseModel
 from pytorch_lightning.callbacks import LearningRateMonitor, RichModelSummary
 
+from bionemo.esm2.model.lr_scheduler import WarmupAnnealDecayHoldScheduler
 from bionemo.llm.lightning import BionemoLightningModule, PerplexityLoggingCallback
 from bionemo.llm.model.biobert.lightning import biobert_lightning_module
 from bionemo.llm.run.config_models import (
@@ -204,22 +204,26 @@ def train(
     # although this constraint is not documented.
 
     # TODO: need an abstraction for LrSchedulerConfig
-    if optim_config.lr_scheduler == 'cosine':
-        lr_scheduler=CosineAnnealingScheduler(
-                max_steps=training_config.max_steps,
-                min_lr=optim_config.lr / 100,
-                warmup_steps=int(math.ceil(training_config.max_steps * optim_config.cosine_rampup_frac)),
-                interval=optim_config.interval,
-                monitor=optim_config.monitor,
-                constant_steps=int(math.ceil(training_config.max_steps * optim_config.cosine_hold_frac)),
+    if optim_config.lr_scheduler == "cosine":
+        lr_scheduler = CosineAnnealingScheduler(
+            max_steps=training_config.max_steps,
+            min_lr=optim_config.lr / 100,
+            warmup_steps=int(math.ceil(training_config.max_steps * optim_config.cosine_rampup_frac)),
+            interval=optim_config.interval,
+            monitor=optim_config.monitor,
+            constant_steps=int(math.ceil(training_config.max_steps * optim_config.cosine_hold_frac)),
         )
-    elif optim_config.lr_scheduler == 'warmup_anneal':
+    elif optim_config.lr_scheduler == "warmup_anneal":
         lr_scheduler = WarmupAnnealDecayHoldScheduler(
-            warmup_steps=optim_config.warmup_steps, max_steps=training_config.max_steps, max_lr=optim_config.lr, min_lr=optim_config.lr / 10.0, anneal_percentage=0.10
+            warmup_steps=optim_config.warmup_steps,
+            max_steps=training_config.max_steps,
+            max_lr=optim_config.lr,
+            min_lr=optim_config.lr / 10.0,
+            anneal_percentage=0.10,
         )
     else:
         raise NotImplementedError(f"Scheduler {optim_config.lr_scheduler} not implemented.")
-    
+
     optimizer = MegatronOptimizerModule(
         config=OptimizerConfig(
             lr=optim_config.lr,
@@ -229,7 +233,6 @@ def train(
             bf16=bionemo_model_config.bf16,
         ),
         lr_scheduler=lr_scheduler,
-        
     )
 
     model: BionemoLightningModule = biobert_lightning_module(

@@ -73,14 +73,14 @@ class ESM2DataConfig(DataConfig[ESMDataModule]):
         """Constructs and returns an ESMDataModule instance with the provided global batch size.
 
         This method provides means for constructing the datamodule, any pre-requisites for the DataModule should be
-        aquired here. For example, tokenizers, preprocessing, may want to live in this method.        
+        aquired here. For example, tokenizers, preprocessing, may want to live in this method.
 
         Args:
             global_batch_size (int): Global batch size for the data module. Global batch size must be a function of
                 parallelism settings and the `micro_batch_size` attribute. Since the DataConfig has no ownership over
-                parallelism configuration, we expect someone higher up on the ownership chain to provide the value to 
+                parallelism configuration, we expect someone higher up on the ownership chain to provide the value to
                 this method.
-        
+
         """
         tokenizer = get_tokenizer()
         data = ESMDataModule(

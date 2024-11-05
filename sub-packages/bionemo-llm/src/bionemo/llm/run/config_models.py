@@ -159,7 +159,7 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
     biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_with_transformer_engine_spec
 
     @model_validator(mode="after")
-    def validate_ffn_hidden_size(self) -> 'ExposedModelConfig':
+    def validate_ffn_hidden_size(self) -> "ExposedModelConfig":
         """Validates the ffn_hidden_size."""
         if not self.ffn_hidden_size == 4 * self.hidden_size:
             raise ValidationError("ffn_hidden_size must be 4 * hidden_size")
@@ -290,6 +290,7 @@ class TrainingConfig(BaseModel):
     gc_interval: int = 0
     include_perplexity: bool = False
 
+
 class OptimizerSchedulerConfig(BaseModel):
     """Configuration for the optimizer and learning rate scheduler.
 
@@ -303,6 +304,7 @@ class OptimizerSchedulerConfig(BaseModel):
         warmup_steps (int): Number of warmup steps for use with the warmup annealing learning rate scheduler. Default is 0.
         lr_scheduler (Literal['warmup_anneal', 'cosine']): Type of learning rate scheduler to use. Default is 'warmup_anneal'. NOTE this is likely to change.
     """
+
     lr: float = 1e-4
     optimizer: str = "adam"
     interval: str = "step"
@@ -310,7 +312,7 @@ class OptimizerSchedulerConfig(BaseModel):
     cosine_rampup_frac: float = 0.01
     cosine_hold_frac: float = 0.05
     warmup_steps: int = 0
-    lr_scheduler: Literal['warmup_anneal', 'cosine'] = 'warmup_anneal'
+    lr_scheduler: Literal["warmup_anneal", "cosine"] = "warmup_anneal"
 
 
 class ExperimentConfig(BaseModel):

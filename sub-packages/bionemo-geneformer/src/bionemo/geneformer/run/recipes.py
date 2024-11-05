@@ -50,7 +50,7 @@ def geneformer_base_parallel_config() -> ParallelConfig:
 
 def geneformer_base_optimizer_scheduler_config() -> OptimizerSchedulerConfig:
     """Base optimizer scheduler config for Geneformer."""
-    return OptimizerSchedulerConfig(lr=1e-3, lr_scheduler='cosine')  # Matches bionemo1
+    return OptimizerSchedulerConfig(lr=1e-3, lr_scheduler="cosine")  # Matches bionemo1
 
 
 def geneformer_base_training_config() -> TrainingConfig:
@@ -401,7 +401,7 @@ def finetune_test_recipe(args) -> MainConfig[ExposedFineTuneSeqLenBioBertConfig,
         create_tensorboard_logger=False,
     )
 
-    optim_config = OptimizerSchedulerConfig(lr_scheduler='cosine')
+    optim_config = OptimizerSchedulerConfig(lr_scheduler="cosine")
     geneformer_config = geneformer_10m_finetune_config(
         seq_length=data_config.seq_length, initial_ckpt_path=args.initial_ckpt_path
     )
@@ -444,7 +444,7 @@ def pretrain_tiny_test_recipe(args) -> MainConfig[ExposedGeneformerPretrainConfi
         create_tensorboard_logger=False,
     )
 
-    optim_config = OptimizerSchedulerConfig(lr_scheduler='cosine')
+    optim_config = OptimizerSchedulerConfig(lr_scheduler="cosine")
     geneformer_config = geneformer_tiny_config(
         seq_length=data_config.seq_length, initial_ckpt_path=args.initial_ckpt_path
     )
