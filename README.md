@@ -155,7 +155,19 @@ git tag MY-VERSION-TAG
 uv build /sub-packages/bionemo-core
 TWINE_PASSWORD="<pypi pass>" TWINE_USERNAME="<pypi user>" uvx twine upload /sub-packages/bionemo-core/dist/*
 ```
+## Pydantic Configuration
 
+BioNeMo 2 provides two entrypoints for models with both argparse and pydantic. Both documented in the `Models` section below.
+Pydantic based configuration is designed to accept a configuration json file as input, along with context specific arguments (e.g., should we resume from existing checkpoints?). These JSON configs go through a Pydantic Validator, in this case referred to as `MainConfig`. This Config is composed of several other Pydantic models, see the class definition for details. To pre-populate a config with reasonable defaults for various standard models, we provide 'recipes.' These are simple methods that instantiate the config object and then serialize it to a JSON configuration file. From this file, you may either submit it directly, or modify the various parameters to meet your usecase. For example, Weights and biases, devices, precision, and dataset options are all extremely useful to modify. Then, you would submit this config for training.
+
+These two workflows are packaged as executables when esm2 or geneformer are installed with pip. These commands will appear as:
+
+```bash
+bionemo-geneformer-recipe
+bionemo-esm2-recipe
+bionemo-geneformer-train
+bionemo-esm2-train
+```
 
 ## Models
 ### ESM-2
@@ -201,7 +213,7 @@ python  \
 ##### Running with Pydantic configs
 
 Alternatively, we provide a validated and serialized configuration file entrypoint for executing the same workflow. Recipes
-are available for 8m, 650m, and 3b ESM2 models.
+are available for 8m, 650m, and 3b ESM2 models. You may select which preset config to use by setting the `--recipe` parameter.
 
 ```bash
 # The fastest transformer engine environment variables in testing were the following two
@@ -277,7 +289,7 @@ train_geneformer     \
     --micro-batch-size 2
 ```
 
-To fine-tune, you just need to specify a different combination of model and loss. Pass the path to the outputted config file from the previous step as the `--restore-from-checkpoint-path`, and also change
+To fine-tune, you to specify a different combination of model and loss. Pass the path to the outputted config file from the previous step as the `--restore-from-checkpoint-path`, and also change
 `--training-model-config-class` to the newly created model-config-class.
 
 While no CLI option currently exists to hot swap in different data modules and processing functions _now_, you could
@@ -308,7 +320,7 @@ Alternatively, we provide a validated and serialized configuration file entrypoi
 are available for 10m, and 106m geneformer models. Additionally we provide an example recipe of finetuning, where the objective
 is to 'regress' on token IDs rather than the traditional masked language model approach. In practice, you will likely
 need to implement your own DataModule, DataConfig, and Finetuning model. You can use the same overall approach, but with
-customizations fory our task.
+customizations for your task.
 
 
 ```bash
