@@ -99,14 +99,13 @@ COPY ./3rdparty /workspace/bionemo2/3rdparty
 COPY ./sub-packages /workspace/bionemo2/sub-packages
 
 # install libnvcuvid and build decord
-COPY ./internal/libraries/*.so /usr/local/cuda/lib64/
 RUN apt-get update && \
     apt-get install -y build-essential python3-dev python3-setuptools make cmake && \
     apt-get install -y ffmpeg libavcodec-dev libavfilter-dev libavformat-dev libavutil-dev && \
     git clone --recursive https://github.com/dmlc/decord && \
     cd decord && \
     mkdir build && cd build && \
-    cmake .. -DUSE_CUDA=ON -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc -DCMAKE_BUILD_TYPE=Release && \
+    cmake .. -DUSE_CUDA=0 -DCMAKE_BUILD_TYPE=Release && \
     make && \
     cd ../python && \
     pip install .
