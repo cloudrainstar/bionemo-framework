@@ -45,6 +45,12 @@ class OverrideModelDataClass2(BaseDataClass, iom.IOMixinWithGettersSetters):
 
 
 class TestIOMixin:
+    """TestCase on IOMixin.
+
+    Notes:
+        IOMixin only captures non-default __init__ arguments into self.__io__ to ensure no compatibility in loading older mcore config in newer versions.
+    """
+
     def test_dataclasses_two_versions(self):
         _ = OverrideModelDataClass1(b=2)
         v1 = OverrideModelDataClass2(b=4)
