@@ -92,7 +92,7 @@ class GeneformerDatasetMetrics:
     def stress_test_item(self):
         """Stress test get item."""
         random.seed(42)
-        random_integers = [random.randint(0, self.length) for _ in range(500)]
+        random_integers = [random.randint(0, self.length - 1) for _ in range(500)]
         for i in random_integers:
             index = EpochIndex(idx=i, epoch=0)
             self.ds.__getitem__(index)
@@ -101,14 +101,17 @@ class GeneformerDatasetMetrics:
     def stress_test_get_indices(self, num_indices):
         """Stress test get indices."""
         random.seed(42)
-        random_integers = [random.randint(0, self.length - 1) for _ in range(num_indices)]
-        for i in random_integers:
+        _ = [random.randint(0, self.length - 1) for _ in range(num_indices)]
+        for i in range(self.length):
             index = EpochIndex(idx=i, epoch=0)
-            self.ds.scdl.get_row(index.idx, return_features=True)  # , feature_vars=["feature_id"])
+            _, _ = self.ds.scdl.get_row(
+                index.idx, return_features=True, feature_vars=["feature_id"]
+            )  # , feature_vars=["feature_id"])
         return 0
 
     def iterate_train(self):
         """Call get item on each item in training set."""
+        print(self.length)
         for i in range(self.length):
             index = EpochIndex(idx=i, epoch=0)
             self.ds.__getitem__(index)
@@ -157,13 +160,14 @@ class OldGeneformerDatasetMetrics:
     def stress_test_get_indices(self, num_indices):
         """Stress test get indices."""
         random.seed(42)
-        random_integers = [random.randint(0, self.length - 1) for _ in range(num_indices)]
-        for i in random_integers:
+        _ = [random.randint(0, self.length - 1) for _ in range(num_indices)]
+        for i in range(self.length):
             self.ds.lookup_cell_by_idx(i)
         return
 
     def iterate_train(self):
         """Call get item on each item in training set."""
+        print(self.length)
         for i in range(self.length):
             self.ds.__getitem__(i)
         return 0
@@ -173,6 +177,8 @@ if __name__ == "__main__":
     results_dict = {}
     memap_data_path = load("single_cell/testdata-memmap-format") / "cellxgene_2023-12-15_small_mmap" / "train"
     old_data_path = load("single_cell/testdata-20240506") / "cellxgene_2023-12-15_small" / "processed_data" / "train"
+    # memap_data_path = Path("/workspace/bionemo2/sub-packages/data/revised_large_memmap_dataset")
+    # old_data_path = Path("/workspace/bionemo2/sub-packages/data/revised_large_memmap_dataset")
     preprocessor = GeneformerPreprocess(
         download_directory=memap_data_path,
         medians_file_path=memap_data_path / "medians.json",
@@ -197,7 +203,7 @@ if __name__ == "__main__":
     results_dict["Geneformer Dataset Get First Item (s)"] = geneformer_metrics_new.get_first_item()[1]
     results_dict["Geneformer Dataset Get Middle Item (s)"] = geneformer_metrics_new.get_middle_item()[1]
     results_dict["Geneformer Dataset Get Last Item (s)"] = geneformer_metrics_new.get_last_item()[1]
-    results_dict["Geneformer Dataset Get Indices (s)"] = geneformer_metrics_new.stress_test_get_indices(1000)[1]
+    results_dict["Geneformer Dataset Get Indices (s)"] = geneformer_metrics_new.stress_test_get_indices(num_indices)[1]
     results_dict["Geneformer Dataset Get Items (s)"] = geneformer_metrics_new.stress_test_item()[1]
     results_dict["Geneformer Dataset Get Items (s)"] = geneformer_metrics_new.iterate_train()[1]
 
@@ -212,7 +218,9 @@ if __name__ == "__main__":
     results_dict["Old Geneformer Dataset Get First Item (s)"] = geneformer_metrics_old.get_first_item()[1]
     results_dict["Old Geneformer Dataset Get Middle Item (s)"] = geneformer_metrics_old.get_middle_item()[1]
     results_dict["Old Geneformer Dataset Get Last Item (s)"] = geneformer_metrics_old.get_last_item()[1]
-    results_dict["Old Geneformer Dataset Get Indices (s)"] = geneformer_metrics_old.stress_test_get_indices(1000)[1]
+    results_dict["Old Geneformer Dataset Get Indices (s)"] = geneformer_metrics_old.stress_test_get_indices(
+        num_indices
+    )[1]
     results_dict["Old Geneformer Dataset Get Items (s)"] = geneformer_metrics_old.stress_test_item()[1]
     results_dict["Geneformer Dataset Get Items (s)"] = geneformer_metrics_old.iterate_train()[1]
     df = pd.DataFrame([results_dict])

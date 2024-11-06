@@ -50,6 +50,7 @@ class RowFeatureIndex:
         self._feature_arr: List[pa.Table] = []
         self._version = importlib.metadata.version("bionemo.scdl")
         self._labels: List[str] = []
+        self._feature_dict_list: List[dict] = []
 
     def version(self) -> str:
         """Returns a version number.
@@ -62,7 +63,7 @@ class RowFeatureIndex:
         """The length is the number of rows or RowFeatureIndex length."""
         return len(self._feature_arr)
 
-    def append_features(self, n_obs: int, features: pd.DataFrame, label: Optional[str] = None) -> None:
+    def append_features(self, n_obs: int, features: pa.Table, label: Optional[str] = None) -> None:
         """Updates the index with the given features.
 
         The dataframe is inserted into the feature array by adding a
@@ -115,12 +116,14 @@ class RowFeatureIndex:
         d_id = sum(mask) - 1
 
         # Retrieve the features for the identified value.
-        features = self._feature_arr[d_id]
+        features_dict = self._feature_arr[d_id]
 
         # If specific features are to be selected, filter the features.
         if select_features is not None:
             # features = features[select_features]
-            features = features.select(select_features)
+            # features = features.select(select_features)
+            # features = features[select_features]
+            features = [features_dict[f] for f in select_features if f in features_dict]
 
         # Return the features for the identified range.
         return features, self._labels[d_id]
@@ -235,7 +238,16 @@ class RowFeatureIndex:
         """
         new_row_feat_index = RowFeatureIndex()
         parquet_data_paths = sorted(Path(datapath).rglob("*.parquet"))
+        # new_row_feat_index._feature_arr = [
+        #                                     {column: pq.read_table(csv_path)[column].to_numpy() for column in pq.read_table(csv_path).column_names}
+        #                                     for csv_path in parquet_data_paths
+        #                                     ]
         new_row_feat_index._feature_arr = [pq.read_table(csv_path) for csv_path in parquet_data_paths]
+        new_row_feat_index._feature_arr = [
+            {column: table[column].to_numpy() for column in table.column_names}
+            for table in new_row_feat_index._feature_arr
+        ]
+
         new_row_feat_index._cumulative_sum_index = np.load(Path(datapath) / "cumulative_sum_index.npy")
         new_row_feat_index._labels = np.load(Path(datapath) / "labels.npy", allow_pickle=True)
         new_row_feat_index._version = np.load(Path(datapath) / "version.npy").item()
