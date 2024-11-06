@@ -30,7 +30,7 @@ from nemo.utils import logging
 from pydantic import BaseModel
 from pytorch_lightning.callbacks import LearningRateMonitor, RichModelSummary
 
-from bionemo.esm2.model.lr_scheduler import WarmupAnnealDecayHoldScheduler
+from bionemo.llm.model.lr_scheduler import WarmupAnnealDecayHoldScheduler
 from bionemo.llm.lightning import BionemoLightningModule, PerplexityLoggingCallback
 from bionemo.llm.model.biobert.lightning import biobert_lightning_module
 from bionemo.llm.run.config_models import (
