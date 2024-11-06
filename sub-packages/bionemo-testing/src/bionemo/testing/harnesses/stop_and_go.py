@@ -171,6 +171,7 @@ class StopAndGoHarness(ABC):
             ddp="megatron",
             find_unused_parameters=True,
             ckpt_include_optimizer=True,
+            ckpt_async_save=False,
         )
 
         trainer = nl.Trainer(
