@@ -583,7 +583,6 @@ def main():  # noqa: D103
         config = geneformer_10m_pretrain_recipe(args)
     elif args.recipe == "106m-pretrain":
         config = geneformer_106m_pretrain_recipe(args)
-        raise NotImplementedError("106M pretraining recipe not implemented.")
     elif args.recipe == "test-finetune":
         # Uses a bigger model because we have a pretrained model for it.
         config = finetune_test_recipe(args)
