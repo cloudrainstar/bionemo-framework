@@ -21,7 +21,7 @@ from typing import Any, Callable, Dict, Generic, List, Literal, Optional, Type, 
 
 import pytorch_lightning as pl
 import torch
-from pydantic import BaseModel, ValidationError, field_serializer, field_validator, model_validator
+from pydantic import BaseModel, field_serializer, field_validator, model_validator
 from torch.nn import functional as F
 
 from bionemo.core.utils import dtypes
@@ -158,13 +158,6 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
     nemo1_ckpt_path: Optional[str] = None
     biobert_spec_option: BiobertSpecOption = BiobertSpecOption.bert_layer_with_transformer_engine_spec
 
-    @model_validator(mode="after")
-    def validate_ffn_hidden_size(self) -> "ExposedModelConfig":
-        """Validates the ffn_hidden_size."""
-        if not self.ffn_hidden_size == 4 * self.hidden_size:
-            raise ValidationError("ffn_hidden_size must be 4 * hidden_size")
-        return self
-
     @field_validator("activation_func", mode="before")
     @classmethod
     def validate_activation_func(cls, activation_func: str) -> Callable:
@@ -189,7 +182,7 @@ class ExposedModelConfig(BaseModel, Generic[ModelConfigT], ABC):
             func = CUSTOM_ACTIVATION_FNS[activation_func]
             return func
         elif func is None:
-            raise ValidationError(
+            raise ValueError(
                 f"activation_func must be a valid function in `torch.nn.functional`, got {activation_func=}"
             )
         else:
@@ -262,7 +255,7 @@ class ParallelConfig(BaseModel):
     def validate_devices(self):
         """Validates the number of devices based on the tensor and pipeline model parallel sizes."""
         if self.num_devices < self.tensor_model_parallel_size * self.pipeline_model_parallel_size:
-            raise ValidationError(
+            raise ValueError(
                 "devices must be divisible by tensor_model_parallel_size * pipeline_model_parallel_size"
             )
         return self
