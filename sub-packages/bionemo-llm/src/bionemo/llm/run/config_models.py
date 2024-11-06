@@ -255,9 +255,7 @@ class ParallelConfig(BaseModel):
     def validate_devices(self):
         """Validates the number of devices based on the tensor and pipeline model parallel sizes."""
         if self.num_devices < self.tensor_model_parallel_size * self.pipeline_model_parallel_size:
-            raise ValueError(
-                "devices must be divisible by tensor_model_parallel_size * pipeline_model_parallel_size"
-            )
+            raise ValueError("devices must be divisible by tensor_model_parallel_size * pipeline_model_parallel_size")
         return self
 
 
