@@ -98,7 +98,7 @@ WORKDIR /workspace/bionemo2
 COPY ./3rdparty /workspace/bionemo2/3rdparty
 COPY ./sub-packages /workspace/bionemo2/sub-packages
 
-# install libnvcuvid and build decord
+# build decord
 RUN apt-get update && \
     apt-get install -y build-essential python3-dev python3-setuptools make cmake && \
     apt-get install -y ffmpeg libavcodec-dev libavfilter-dev libavformat-dev libavutil-dev && \
@@ -194,12 +194,14 @@ FROM dev AS development
 
 WORKDIR /workspace/bionemo2
 COPY --from=bionemo2-base /workspace/bionemo2/ .
+COPY ./internal ./internal
 # because of the `rm -rf ./3rdparty` in bionemo2-base
 COPY ./3rdparty ./3rdparty
 USER root
 RUN <<EOF
 set -eo pipefail
 find . -name __pycache__ -type d -print | xargs rm -rf
+uv pip install --no-build-isolation --editable ./internal/infra-bionemo
 for sub in ./3rdparty/* ./sub-packages/bionemo-*; do
     uv pip install --no-deps --no-build-isolation --editable $sub
 done
