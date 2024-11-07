@@ -650,7 +650,6 @@ checkpoint_callback = nl_callbacks.ModelCheckpoint(
     save_last=True,
     save_on_train_epoch_end=True,
     monitor="reduced_train_loss",
-    every_n_train_steps=25,
     always_save_context=True,  # Enables the .nemo file-like checkpointing where all IOMixins are under SerDe
 )
 
