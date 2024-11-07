@@ -70,8 +70,7 @@ def train_model(
     checkpoint_callback = nl_callbacks.ModelCheckpoint(
         save_last=True,
         save_on_train_epoch_end=True,
-        monitor="reduced_train_loss",  # TODO find out how to get val_loss logged and use "val_loss",
-        every_n_train_steps=n_steps_train // 2,
+        monitor="val_loss",
         always_save_context=True,  # Enables the .nemo file-like checkpointing where all IOMixins are under SerDe
     )
 

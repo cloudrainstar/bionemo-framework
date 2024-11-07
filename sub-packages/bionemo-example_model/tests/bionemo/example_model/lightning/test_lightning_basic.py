@@ -53,7 +53,6 @@ def _train_model_get_ckpt(
         save_last=True,
         save_on_train_epoch_end=True,
         monitor="val_loss",
-        every_n_train_steps=5,
         always_save_context=True,  # Enables the .nemo file-like checkpointing where all IOMixins are under SerDe
         # async_save=False,  # Tries to save asynchronously, previously led to race conditions.
         filename="{epoch}-{step}-{val_loss:.2f}",
