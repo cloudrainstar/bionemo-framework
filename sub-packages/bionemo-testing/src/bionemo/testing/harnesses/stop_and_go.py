@@ -337,15 +337,26 @@ class StopAndGoHarness(ABC):
         assert interrupted_callback.data, f"No data found for {callback_type}"
 
         if callback_type in {testing_callbacks.TrainOutputCallback, testing_callbacks.ValidOutputCallback}:
-            atol = 1e-3
+            atol, rtol = 2e-2, 0  # no relative tolerance when logits can be zero
         else:
-            atol = 1e-4
+            atol, rtol = 1e-4, 1e-3
 
-        if callback_type in (testing_callbacks.ValidInputCallback, testing_callbacks.ValidOutputCallback, testing_callbacks.ValidLossCallback):
+        if callback_type in (
+            testing_callbacks.ValidInputCallback,
+            testing_callbacks.ValidOutputCallback,
+            testing_callbacks.ValidLossCallback,
+        ):
             assert len(interrupted_callback.data) != len(continuous_callback.data)
-            pytest.xfail("NeMo will run extra validation batch(s) in resumption and NeMo team is working on fixing it.")
+            pytest.xfail(
+                "NeMo will run extra validation batch(s) in resumption and NeMo team is working on fixing it."
+            )
 
-        recursive_assert_approx_equal(interrupted_callback.data, continuous_callback.data, atol=atol)
+        recursive_assert_approx_equal(
+            interrupted_callback.data,
+            continuous_callback.data,
+            atol=atol,
+            rtol=rtol,
+        )
 
     def test_train_val_init_consumed_samples(self):
         """Tests the initial consumed samples in stop-and-go scenario."""
@@ -361,7 +372,9 @@ class StopAndGoHarness(ABC):
         assert train_consumed_stop == 0
         assert train_consumed_go > 0
 
-    @pytest.mark.xfail(reason="NeMo will run extra validation batch(s) in resumption and NeMo team is working on fixing it.")
+    @pytest.mark.xfail(
+        reason="NeMo will run extra validation batch(s) in resumption and NeMo team is working on fixing it."
+    )
     def test_identical_number_of_validation_batches(self):
         """Ensures that the input tensors for training are identical for the interrupted and continuous tests."""
         callback_type = testing_callbacks.ValidInputCallback
