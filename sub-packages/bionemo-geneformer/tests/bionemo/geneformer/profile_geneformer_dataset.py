@@ -65,7 +65,7 @@ class GeneformerDatasetMetrics:
     def create_from_memmap(self):
         """Create from memmap dir."""
         self.ds = SingleCellDataset(
-            self.data_dir, tokenizer=self.tokenizer, median_dict=self.median_dict, bypass_tokenizer_vocab=True
+            self.data_dir, tokenizer=self.tokenizer, median_dict=self.median_dict, bypass_tokenizer_vocab=True, seed=42, mask_prob=0, mask_token_prob=0, random_token_prob=0
         )
 
     def get_length(self):
@@ -104,9 +104,11 @@ class GeneformerDatasetMetrics:
         _ = [random.randint(0, self.length - 1) for _ in range(num_indices)]
         for i in range(self.length):
             index = EpochIndex(idx=i, epoch=0)
-            _, _ = self.ds.scdl.get_row(
+            vals, _ = self.ds.scdl.get_row(
                 index.idx, return_features=True, feature_vars=["feature_id"]
-            )  # , feature_vars=["feature_id"])
+            ) # , feature_vars=["feature_id"])
+            # print(" NEW Vals:, ", vals[0].dtype, type(vals[0]))
+            # print("NEW Indices: ", vals[1].dtype, type(vals[1]))
         return 0
 
     def iterate_train(self):
@@ -130,7 +132,7 @@ class OldGeneformerDatasetMetrics:
 
     def create_from_memmap(self):
         """Create from memmap dir."""
-        self.ds = OldSingleCellDataset(self.data_dir, tokenizer=self.tokenizer, median_dict=self.median_dict)
+        self.ds = OldSingleCellDataset(self.data_dir, tokenizer=self.tokenizer, median_dict=self.median_dict, seed=42, mask_prob=0, mask_token_prob=0, random_token_prob=0)
 
     def get_length(self):
         """Length."""
@@ -162,7 +164,9 @@ class OldGeneformerDatasetMetrics:
         random.seed(42)
         _ = [random.randint(0, self.length - 1) for _ in range(num_indices)]
         for i in range(self.length):
-            self.ds.lookup_cell_by_idx(i)
+            vals, indices, _ = self.ds.lookup_cell_by_idx(i)
+            # print("old Vals:, ",  vals.dtype, type(vals))
+            # print("OLD Indices: ", indices.dtype, type(indices))
         return
 
     def iterate_train(self):
@@ -195,7 +199,7 @@ if __name__ == "__main__":
     geneformer_metrics_new = GeneformerDatasetMetrics(
         data_dir=memap_data_path,
         tokenizer=tokenizer,
-        median_dict=median_dict,  # type: ignore
+        median_dict=median_dict, # type: ignore
     )  # type: ignore
     print("NEW STUFF")
     results_dict["Create Geneformer Dataset"] = geneformer_metrics_new.create_from_memmap()[1]  # type: ignore

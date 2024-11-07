@@ -101,17 +101,29 @@ class SingleCellDataset(Dataset):
         self.gene_medians = median_dict
         self.tokenizer = tokenizer
         self.bypass_tokenizer_vocab = bypass_tokenizer_vocab
+        # self.feature_ids = [self.scdl._feature_index._feature_arr[0]["feature_id"]]
+        # _, self.label = self.scdl.get_row(0, return_features=True, feature_vars=["feature_id"])
+        # self.features_all_same = True
+        # for val in self.scdl._feature_index._feature_arr:
+        #     if np.any(np.char.not_equal(np.array(val["feature_id"], dtype=str), np.array(self.feature_ids[0], dtype=str))):
+        #         self.features_all_same = False
+        #         self.feature_ids = None
+        #         break
+        # if self.features_all_same and self.feature_ids:
+        #     print("All feature IDS are the same.")
 
     def __len__(self):  # noqa: D105
         return len(self.scdl)
 
     def __getitem__(self, index: EpochIndex) -> types.BertSample:  # noqa: D105
         rng = np.random.default_rng([self._seed, index.epoch, index.idx])
+        # values, feature_ids = self.scdl.get_row(index.idx, return_features=True, feature_vars=["feature_id"])
+       
         values, feature_ids = self.scdl.get_row(index.idx, return_features=True, feature_vars=["feature_id"])
-        gene_data, col_idxs = values[0], values[1]
+        gene_data, col_idxs = np.array(values[0]), np.array(values[1])
         # gene_data = gene_data.astype(np.int64)
         # col_idxs = col_idxs.astype(np.int64)
-        feature_ids = feature_ids["feature_id"].to_numpy()
+        # feature_ids = feature_ids["feature_id"].to_numpy()
         if len(gene_data) == 0:
             raise ValueError(
                 "SingleCellMemap data provided is invalid; the gene expression data parsed for the specified index is empty."
@@ -121,7 +133,7 @@ class SingleCellDataset(Dataset):
         return process_item(
             gene_data,
             col_idxs,
-            feature_ids,
+            feature_ids[0],
             self.tokenizer,
             gene_median=self.gene_medians,
             rng=rng,
@@ -215,7 +227,7 @@ def process_item(  # noqa: D417
 
     masked_tokens, labels, loss_mask = masking.apply_bert_pretraining_mask(
         tokenized_sequence=torch.from_numpy(token_ids),
-        random_seed=int(random_utils.get_seed_from_rng(rng)),
+        random_seed=42, #int(random_utils.get_seed_from_rng(rng)),
         mask_config=masking.BertMaskConfig(
             tokenizer=tokenizer,
             random_tokens=range(5, len(tokenizer.vocab)),

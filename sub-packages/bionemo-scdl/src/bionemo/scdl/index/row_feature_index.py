@@ -50,7 +50,8 @@ class RowFeatureIndex:
         self._feature_arr: List[pa.Table] = []
         self._version = importlib.metadata.version("bionemo.scdl")
         self._labels: List[str] = []
-        self._feature_dict_list: List[dict] = []
+        self._feature_arr_lookup: List[dict] = []
+
 
     def version(self) -> str:
         """Returns a version number.
@@ -80,7 +81,7 @@ class RowFeatureIndex:
         self._feature_arr.append(features)
         self._labels.append(label)
 
-    def lookup(self, row: int, select_features: Optional[List[str]] = None) -> Tuple[pd.DataFrame, str]:
+    def lookup(self, row: int, select_features: Optional[List[str]] = None) -> Tuple[List[np.ndarray], str]:
         """Find the features at a given row.
 
         It is assumed that the row is
@@ -123,13 +124,21 @@ class RowFeatureIndex:
             # features = features[select_features]
             # features = features.select(select_features)
             # features = features[select_features]
-            features = [features_dict[f] for f in select_features if f in features_dict]
+            features = []
+            for feature in select_features:
+                if feature not in features_dict:
+                    print(features_dict.keys(), feature)
+                    raise ValueError(f"Provided feature column {feature} in select_features not present in dataset.")
+                features.append(features_dict[feature])
+        else:
+            features = [features_dict[f] for f in features_dict]
+
 
         # Return the features for the identified range.
         return features, self._labels[d_id]
 
     def number_vars_at_row(self, row: int) -> int:
-        """Return number of variables (legnth of the dataframe) in a given row.
+        """Return number of variables (length of the dataframe) in a given row.
 
         Args:
             row (int): The row in the feature index.
@@ -138,7 +147,8 @@ class RowFeatureIndex:
             The length of the features at the row
         """
         feats, _ = self.lookup(row=row)
-        return len(feats)
+        # print("IN NUMBER OF VARS", len(feats[0]), feats[0])
+        return len(feats[0])
 
     def column_dims(self) -> List[int]:
         """Return the number of columns in all rows.
@@ -150,7 +160,11 @@ class RowFeatureIndex:
             A list containing the lengths of the features in every row
         """
         # Just take the total dim of the DataFrame(s)
-        return [len(feats) for feats in self._feature_arr]
+        # print(self._feature_arr[0].keys())
+        # for feats in self._feature_arr:
+        #     print("IN COLUMN DIMS Type,", type(feats))
+        # return [len(feats) for feats in self._feature_arr]
+        return [len(feats[list(feats.keys())[0]]) for feats in self._feature_arr]
 
     def number_of_values(self) -> List[int]:
         """Get the total number of values in the array.
@@ -160,14 +174,30 @@ class RowFeatureIndex:
         Returns:
             A list containing the lengths of the features in every block of rows
         """
+        # if len(self._feature_arr) == 0:
+        #     return [0]
+        # rows = [
+        #     self._cumulative_sum_index[i] - max(self._cumulative_sum_index[i - 1], 0)
+        #     for i in range(1, len(self._cumulative_sum_index))
+        # ]
+
+        # vals = [n_rows * len(self._feature_arr[i]) for i, n_rows in enumerate(rows)]
+        # return vals
         if len(self._feature_arr) == 0:
             return [0]
         rows = [
             self._cumulative_sum_index[i] - max(self._cumulative_sum_index[i - 1], 0)
             for i in range(1, len(self._cumulative_sum_index))
         ]
+        
+        vals = []
+        for i, n_rows in enumerate(rows): 
+            feat_dict = self._feature_arr[i]
+            num_genes = len(feat_dict[list(feat_dict.keys())[0]])
+            vals.append(n_rows * num_genes)
 
-        vals = [n_rows * len(self._feature_arr[i]) for i, n_rows in enumerate(rows)]
+
+        # vals = [n_rows * len(self._feature_arr[i]) for i, n_rows in enumerate(rows)]
         return vals
 
     def number_of_rows(self) -> int:
@@ -219,10 +249,17 @@ class RowFeatureIndex:
         """
         Path(datapath).mkdir(parents=True, exist_ok=True)
         num_digits = len(str(len(self._feature_arr)))
+        for index, feature_dict in enumerate(self._feature_arr):
+        # Convert dictionary of NumPy arrays to pyarrow.Table
+            table = pa.table({column: pa.array(values) for column, values in feature_dict.items()})
+            # print("Type,", type(table))
+            dataframe_str_index = f"{index:0{num_digits}d}"
+            pq.write_table(table, f"{datapath}/dataframe_{dataframe_str_index}.parquet")
+        
 
-        for dataframe_index, dataframe in enumerate(self._feature_arr):
-            dataframe_str_index = f"{dataframe_index:0{num_digits}d}"
-            dataframe.to_parquet(f"{datapath}/dataframe_{dataframe_str_index}.parquet", index=False)
+        # for dataframe_index, dataframe in enumerate(self._feature_arr):
+        #     dataframe_str_index = f"{dataframe_index:0{num_digits}d}"
+        #     dataframe.to_parquet(f"{datapath}/dataframe_{dataframe_str_index}.parquet", index=False)
         np.save(Path(datapath) / "cumulative_sum_index.npy", self._cumulative_sum_index)
         np.save(Path(datapath) / "labels.npy", self._labels)
         np.save(Path(datapath) / "version.npy", np.array(self._version))
@@ -243,10 +280,11 @@ class RowFeatureIndex:
         #                                     for csv_path in parquet_data_paths
         #                                     ]
         new_row_feat_index._feature_arr = [pq.read_table(csv_path) for csv_path in parquet_data_paths]
-        new_row_feat_index._feature_arr = [
+        new_row_feat_index._feature_arr= [
             {column: table[column].to_numpy() for column in table.column_names}
             for table in new_row_feat_index._feature_arr
         ]
+        new_row_feat_index._num_genes_per_row = []
 
         new_row_feat_index._cumulative_sum_index = np.load(Path(datapath) / "cumulative_sum_index.npy")
         new_row_feat_index._labels = np.load(Path(datapath) / "labels.npy", allow_pickle=True)

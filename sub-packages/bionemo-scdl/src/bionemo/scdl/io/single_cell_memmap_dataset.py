@@ -26,6 +26,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import anndata as ad
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 import scipy
 import torch
 
@@ -303,7 +304,7 @@ class SingleCellMemMapDataset(SingleCellRowDataset):
         index: int,
         return_features: bool = False,
         feature_vars: Optional[List[str]] = None,
-    ) -> Tuple[Tuple[np.ndarray, np.ndarray], pd.DataFrame]:
+    ) -> Tuple[Tuple[np.ndarray, np.ndarray], pa.Table]:
         """Returns a given row in the dataset along with optional features.
 
         Args:
@@ -319,6 +320,7 @@ class SingleCellMemMapDataset(SingleCellRowDataset):
         values = self.data[start:end]
         columns = self.col_index[start:end]
         ret = (values, columns)
+        # ret = (np.array(values.astype(np.int64)), np.array(columns.astype(np.int64))) # try changing it in dataset 
         if return_features:
             return ret, self._feature_index.lookup(index, select_features=feature_vars)[0]
         else:
@@ -329,7 +331,7 @@ class SingleCellMemMapDataset(SingleCellRowDataset):
         index: int,
         return_features: bool = False,
         feature_vars: Optional[List[str]] = None,
-    ) -> Tuple[np.ndarray, pd.DataFrame]:
+    ) -> Tuple[np.ndarray, List[np.ndarray]]:
         """Returns a padded version of a row in the dataset.
 
         A padded version is one where the a sparse array representation is
@@ -582,6 +584,7 @@ class SingleCellMemMapDataset(SingleCellRowDataset):
         if len(feats) == 0:
             return [0]
         num_vars = feats.column_dims()
+        print("Num vars, ", num_vars)
         return num_vars
 
     def shape(self) -> Tuple[int, List[int]]:
