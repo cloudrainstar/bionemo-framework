@@ -47,7 +47,8 @@ class RowFeatureIndex:
     def __init__(self) -> None:
         """Instantiates the index."""
         self._cumulative_sum_index: np.array = np.array([-1])
-        self._feature_arr: List[pa.Table] = []
+        self._feature_arr: List[dict] = []
+        self._num_genes_per_row: List[int] = []
         self._version = importlib.metadata.version("bionemo.scdl")
         self._labels: List[str] = []
         self._feature_arr_lookup: List[dict] = []
@@ -64,7 +65,7 @@ class RowFeatureIndex:
         """The length is the number of rows or RowFeatureIndex length."""
         return len(self._feature_arr)
 
-    def append_features(self, n_obs: int, features: pa.Table, label: Optional[str] = None) -> None:
+    def append_features(self, n_obs: int, features: dict, num_genes: Optional[int], label: Optional[str] = None) -> None:
         """Updates the index with the given features.
 
         The dataframe is inserted into the feature array by adding a
@@ -79,6 +80,7 @@ class RowFeatureIndex:
         csum = max(self._cumulative_sum_index[-1], 0)
         self._cumulative_sum_index = np.append(self._cumulative_sum_index, csum + n_obs)
         self._feature_arr.append(features)
+        self._num_genes_per_row.append(num_genes)
         self._labels.append(label)
 
     def lookup(self, row: int, select_features: Optional[List[str]] = None) -> Tuple[List[np.ndarray], str]:
@@ -164,6 +166,7 @@ class RowFeatureIndex:
         # for feats in self._feature_arr:
         #     print("IN COLUMN DIMS Type,", type(feats))
         # return [len(feats) for feats in self._feature_arr]
+        return self._num_genes_per_row
         return [len(feats[list(feats.keys())[0]]) for feats in self._feature_arr]
 
     def number_of_values(self) -> List[int]:
@@ -189,12 +192,20 @@ class RowFeatureIndex:
             self._cumulative_sum_index[i] - max(self._cumulative_sum_index[i - 1], 0)
             for i in range(1, len(self._cumulative_sum_index))
         ]
-        
+
         vals = []
         for i, n_rows in enumerate(rows): 
-            feat_dict = self._feature_arr[i]
-            num_genes = len(feat_dict[list(feat_dict.keys())[0]])
+            #feat_dict = self._feature_arr[i]
+            num_genes = self._num_genes_per_row[i]
             vals.append(n_rows * num_genes)
+
+        
+        
+        # vals = []
+        # for i, n_rows in enumerate(rows): 
+        #     feat_dict = self._feature_arr[i]
+        #     num_genes = len(feat_dict[list(feat_dict.keys())[0]])
+        #     vals.append(n_rows * num_genes)
 
 
         # vals = [n_rows * len(self._feature_arr[i]) for i, n_rows in enumerate(rows)]
@@ -237,7 +248,8 @@ class RowFeatureIndex:
         for i, feats in enumerate(list(other_row_index._feature_arr)):
             c_span = other_row_index._cumulative_sum_index[i + 1]
             label = other_row_index._labels[i]
-            self.append_features(c_span, feats, label)
+            num_genes = other_row_index._num_genes_per_row[i]
+            self.append_features(c_span, feats, num_genes, label)
 
         return self
 
@@ -284,7 +296,7 @@ class RowFeatureIndex:
             {column: table[column].to_numpy() for column in table.column_names}
             for table in new_row_feat_index._feature_arr
         ]
-        new_row_feat_index._num_genes_per_row = []
+        new_row_feat_index._num_genes_per_row = [len(feats[list(feats.keys())[0]]) for feats in new_row_feat_index._feature_arr]
 
         new_row_feat_index._cumulative_sum_index = np.load(Path(datapath) / "cumulative_sum_index.npy")
         new_row_feat_index._labels = np.load(Path(datapath) / "labels.npy", allow_pickle=True)

@@ -483,8 +483,8 @@ class SingleCellMemMapDataset(SingleCellRowDataset):
         self.dtypes[f"{FileNames.DATA.value}"] = count_data.dtype
 
         # Collect features and store in FeatureIndex
-        features = adata.var
-        self._feature_index.append_features(n_obs=num_rows, features=features, label=anndata_path)
+        features = adata.var # CHECK ABOUT WHETHER IT'S OK TO JUST CONVERT TO THE DICT FORMAT HERE 
+        self._feature_index.append_features(n_obs=num_rows, features=features, num_genes=len(features), label=anndata_path)
 
         # Create the arrays.
         self._init_arrs(num_elements_stored, num_rows)
