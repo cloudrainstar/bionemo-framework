@@ -245,7 +245,6 @@ def main(
         save_last=save_last_checkpoint,
         monitor=metric_to_monitor_for_checkpoints,
         save_top_k=save_top_k,
-        every_n_train_steps=val_check_interval,
         always_save_context=True,  # Enables the .nemo file-like checkpointing where all IOMixins are under SerDe
         filename="{epoch}-{step}-{" + metric_to_monitor_for_checkpoints + ":.2f}",
     )
