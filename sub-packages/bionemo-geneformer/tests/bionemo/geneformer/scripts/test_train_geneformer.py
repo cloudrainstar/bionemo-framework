@@ -21,35 +21,24 @@ from typing import Dict
 
 import pytest
 from lightning.fabric.plugins.environments.lightning import find_free_network_port
-from train import main, parser  # TODO: needs to be refactored to a package and imported!
 
+from bionemo.geneformer.scripts.train_geneformer import get_parser, main
 from bionemo.llm.model.biobert.transformer_specs import BiobertSpecOption
 from bionemo.llm.utils.datamodule_utils import parse_kwargs_to_arglist
 from bionemo.testing import megatron_parallel_state_utils
 from bionemo.testing.data.load import load
 
 
-@pytest.fixture
-def data_path() -> Path:
-    """Gets the path to the directory with with cellx small dataset in Single Cell Memmap format.
-
-    Returns:
-        A Path object that is the directory with the specified test data.
-    """
-    return load("single_cell/testdata-memmap-format") / "cellxgene_2023-12-15_small_mmap"
+data_path: Path = load("single_cell/testdata-20240506") / "cellxgene_2023-12-15_small" / "processed_data"
 
 
-def test_bionemo2_rootdir(data_path):
-    data_error_str = (
-        "Please download test data with:\n"
-        "`python scripts/download_artifacts.py --models all --model_dir ./models --data all --data_dir ./ --verbose --source pbss`"
-    )
-    assert data_path.exists(), f"Could not find test data directory.\n{data_error_str}"
-    assert data_path.is_dir(), f"Test data directory is supposed to be a directory.\n{data_error_str}"
+def test_bionemo2_rootdir():
+    assert data_path.exists(), "Could not find test data directory."
+    assert data_path.is_dir(), "Test data directory is supposed to be a directory."
 
 
 @pytest.mark.skip("duplicate unittest")
-def test_main_runs(tmpdir, data_path):
+def test_main_runs(tmpdir):
     result_dir = Path(tmpdir.mkdir("results"))
 
     with megatron_parallel_state_utils.distributed_model_parallel_state():
@@ -93,13 +82,11 @@ def test_main_runs(tmpdir, data_path):
     ).is_file(), "Could not find experiment log."
 
 
-def test_pretrain_cli(tmpdir, data_path):
+def test_pretrain_cli(tmpdir):
     result_dir = Path(tmpdir.mkdir("results"))
     open_port = find_free_network_port()
     # NOTE: if you need to change the following command, please update the README.md example.
-    script_dir = Path(__file__).parent
-    cmd_str = f"""python  \
-    {script_dir}/train.py     \
+    cmd_str = f"""train_geneformer     \
     --data-dir {data_path}     \
     --result-dir {result_dir}     \
     --experiment-name test_experiment     \
@@ -111,8 +98,7 @@ def test_pretrain_cli(tmpdir, data_path):
     --seq-length 128 \
     --limit-val-batches 2 \
     --micro-batch-size 2 \
-    --accumulate-grad-batches 2 \
-    --bypass-tokenizer-vocab True \
+    --accumulate-grad-batches 2
     """.strip()
     env = dict(**os.environ)  # a local copy of the environment
     env["MASTER_PORT"] = str(open_port)
@@ -152,6 +138,7 @@ def test_required_data_dir(required_args_reference):
     """
     required_args_reference.pop("data_dir")
     arglist = parse_kwargs_to_arglist(required_args_reference)
+    parser = get_parser()
     with pytest.raises(SystemExit):
         parser.parse_args(arglist)
 
@@ -168,6 +155,7 @@ def test_limit_val_batches_is_float(required_args_reference, limit_val_batches):
     """
     required_args_reference["limit_val_batches"] = limit_val_batches
     arglist = parse_kwargs_to_arglist(required_args_reference)
+    parser = get_parser()
     parser.parse_args(arglist)
 
 
@@ -182,6 +170,7 @@ def test_limit_val_batches_is_float_string(required_args_reference, limit_val_ba
     """
     required_args_reference["limit_val_batches"] = limit_val_batches
     arglist = parse_kwargs_to_arglist(required_args_reference)
+    parser = get_parser()
     parser.parse_args(arglist)
 
 
@@ -195,6 +184,7 @@ def test_limit_val_batches_is_none(required_args_reference, limit_val_batches):
     """
     required_args_reference["limit_val_batches"] = limit_val_batches
     arglist = parse_kwargs_to_arglist(required_args_reference)
+    parser = get_parser()
     args = parser.parse_args(arglist)
     assert args.limit_val_batches is None
 
@@ -210,4 +200,5 @@ def test_limit_val_batches_is_int(required_args_reference, limit_val_batches):
     """
     required_args_reference["limit_val_batches"] = limit_val_batches
     arglist = parse_kwargs_to_arglist(required_args_reference)
+    parser = get_parser()
     parser.parse_args(arglist)
