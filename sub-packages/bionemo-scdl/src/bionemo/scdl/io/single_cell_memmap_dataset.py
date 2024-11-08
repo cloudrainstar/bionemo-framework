@@ -25,7 +25,6 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import anndata as ad
 import numpy as np
-import pandas as pd
 import pyarrow as pa
 import scipy
 import torch
@@ -313,14 +312,14 @@ class SingleCellMemMapDataset(SingleCellRowDataset):
             feature_vars: Optional, feature variables to extract
         Return:
             [Tuple[np.ndarray, np.ndarray]: data values and column pointes
-            pd.DataFrame: optional, corresponding features.
+            List[np..ndarray]: optional, corresponding features.
         """
         start = self.row_index[index]
         end = self.row_index[index + 1]
         values = self.data[start:end]
         columns = self.col_index[start:end]
         ret = (values, columns)
-        # ret = (np.array(values.astype(np.int64)), np.array(columns.astype(np.int64))) # try changing it in dataset 
+        # ret = (np.array(values.astype(np.int64)), np.array(columns.astype(np.int64))) # try changing it in dataset
         if return_features:
             return ret, self._feature_index.lookup(index, select_features=feature_vars)[0]
         else:
@@ -344,7 +343,7 @@ class SingleCellMemMapDataset(SingleCellRowDataset):
             feature_vars: Optional, feature variables to extract
         Return:
             np.ndarray: conventional row representation
-            pd.DataFrame: optional, corresponding features.
+            List[np..ndarray]: optional, corresponding features.
         """
         (row_values, row_column_pointer), features = self.get_row(index, return_features, feature_vars)
         return (
@@ -483,8 +482,11 @@ class SingleCellMemMapDataset(SingleCellRowDataset):
         self.dtypes[f"{FileNames.DATA.value}"] = count_data.dtype
 
         # Collect features and store in FeatureIndex
-        features = adata.var # CHECK ABOUT WHETHER IT'S OK TO JUST CONVERT TO THE DICT FORMAT HERE 
-        self._feature_index.append_features(n_obs=num_rows, features=features, num_genes=len(features), label=anndata_path)
+        features_df = adata.var  # CHECK ABOUT WHETHER IT'S OK TO JUST CONVERT TO THE DICT FORMAT HERE
+        features = {col: np.array(features_df[col].values) for col in features_df.columns}
+        self._feature_index.append_features(
+            n_obs=num_rows, features=features, num_genes=len(features[next(iter(features.keys()))]), label=anndata_path
+        )
 
         # Create the arrays.
         self._init_arrs(num_elements_stored, num_rows)
@@ -539,7 +541,7 @@ class SingleCellMemMapDataset(SingleCellRowDataset):
     def number_of_values(self) -> int:
         """Get the total number of values in the array.
 
-        For each index, the length of the corresponding dataframe is counted.
+        For each index, the length of the corresponding np.ndaarray of features is counted.
 
         Returns:
             The sum of lengths of the features in every row
