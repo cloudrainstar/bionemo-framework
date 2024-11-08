@@ -337,19 +337,19 @@ class StopAndGoHarness(ABC):
         assert interrupted_callback.data, f"No data found for {callback_type}"
 
         if callback_type in {testing_callbacks.TrainOutputCallback, testing_callbacks.ValidOutputCallback}:
-            atol, rtol = 2e-2, 0  # no relative tolerance when logits can be zero
+            atol, rtol = 1e-3, 1e-4
         else:
-            atol, rtol = 1e-4, 1e-3
+            atol, rtol = 1e-4, 1e-4
 
         if callback_type in (
             testing_callbacks.ValidInputCallback,
             testing_callbacks.ValidOutputCallback,
             testing_callbacks.ValidLossCallback,
         ):
-            assert len(interrupted_callback.data) != len(continuous_callback.data)
-            pytest.xfail(
-                "NeMo will run extra validation batch(s) in resumption and NeMo team is working on fixing it."
-            )
+            if len(interrupted_callback.data) != len(continuous_callback.data):
+                pytest.xfail(
+                    "NeMo will run extra validation batch(s) in resumption and NeMo team is working on fixing it."
+                )
 
         recursive_assert_approx_equal(
             interrupted_callback.data,
