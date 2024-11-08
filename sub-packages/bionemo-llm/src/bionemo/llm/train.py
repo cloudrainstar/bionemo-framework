@@ -109,6 +109,7 @@ def setup_trainer(
         ddp="megatron",
         find_unused_parameters=True,
         ckpt_include_optimizer=True,
+        ckpt_async_save=False,
     )
     if callbacks is None:
         callbacks = [

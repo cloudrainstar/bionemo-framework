@@ -143,6 +143,7 @@ def main(
         ddp="megatron",
         find_unused_parameters=True,
         ckpt_include_optimizer=True,
+        ckpt_async_save=False,
     )
 
     # for wandb integration
