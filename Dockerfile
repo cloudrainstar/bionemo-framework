@@ -17,7 +17,7 @@ RUN git clone https://github.com/NVIDIA/apex.git && \
   --config-settings "--build-option=--cpp_ext --cuda_ext --fast_layer_norm --distributed_adam --deprecated_fused_adam --group_norm"
 
 # Transformer Engine pre-1.7.0. 1.7 standardizes the meaning of bits in the attention mask to match
-ARG TE_COMMIT=7d576ed25266a17a7b651f2c12e8498f67e0baea
+ARG TE_COMMIT=c27ee60ec746210bcea4ec33958dbbff06706506
 RUN git clone https://github.com/NVIDIA/TransformerEngine.git && \
   cd TransformerEngine && \
   git fetch origin ${TE_COMMIT} && \
@@ -166,7 +166,9 @@ RUN <<EOF
 EOF
 
 # Transformer engine attention defaults
-ENV NVTE_FUSED_ATTN=1 NVTE_FLASH_ATTN=0
+# FIXME the following result in unstable training curves even if they are faster
+#  see https://github.com/NVIDIA/bionemo-framework/pull/421
+#ENV NVTE_FUSED_ATTN=1 NVTE_FLASH_ATTN=0
 
 FROM dev AS development
 
@@ -207,4 +209,6 @@ RUN chmod 777 -R /workspace/bionemo2/
 
 # Transformer engine attention defaults
 # We have to declare this again because the devcontainer splits from the release image's base.
-ENV NVTE_FUSED_ATTN=1 NVTE_FLASH_ATTN=0
+# FIXME the following results in unstable training curves even if faster.
+#  See https://github.com/NVIDIA/bionemo-framework/pull/421
+#ENV NVTE_FUSED_ATTN=1 NVTE_FLASH_ATTN=0

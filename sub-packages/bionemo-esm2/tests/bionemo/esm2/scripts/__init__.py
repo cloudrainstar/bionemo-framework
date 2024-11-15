@@ -12,12 +12,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Sequence
-
-from bionemo.core.data.resource import Resource, get_all_resources
-
-
-__all__: Sequence[str] = (
-    "Resource",
-    "get_all_resources",
-)

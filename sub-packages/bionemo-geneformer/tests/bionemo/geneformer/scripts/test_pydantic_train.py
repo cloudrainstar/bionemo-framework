@@ -20,7 +20,7 @@ from pathlib import Path
 
 from lightning.fabric.plugins.environments.lightning import find_free_network_port
 
-from bionemo.testing.data.load import load
+from bionemo.core.data.load import load
 
 
 data_path: Path = load("single_cell/testdata-20240506") / "cellxgene_2023-12-15_small" / "processed_data"
@@ -145,7 +145,7 @@ def test_finetune_cli(tmpdir):
     if result.returncode != 0:
         raise Exception(f"Pretrain recipe failed:\n{cmd_str=}\n{result.stdout=}\n{result.stderr=}")
 
-    cmd_str = f"""bionemo-geneformer-train --conf {config} """.strip()
+    cmd_str = f"bionemo-geneformer-train --conf {config} --model-config-t ExposedFineTuneSeqLenBioBertConfig"
     env = dict(**os.environ)  # a local copy of the environment
     open_port = find_free_network_port()
     env["MASTER_PORT"] = str(open_port)

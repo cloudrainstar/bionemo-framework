@@ -23,6 +23,7 @@ from nemo import lightning as nl
 from nemo.lightning.pytorch.optim import MegatronOptimizerModule
 from typing_extensions import override
 
+from bionemo.core.data.load import load
 from bionemo.core.utils.dtypes import get_autocast_dtype
 from bionemo.esm2.api import ESM2Config
 from bionemo.esm2.data.datamodule import ESMDataModule
@@ -30,7 +31,6 @@ from bionemo.esm2.data.dataset import RandomMaskStrategy
 from bionemo.esm2.data.tokenizer import BioNeMoESMTokenizer, get_tokenizer
 from bionemo.llm.model.biobert.lightning import biobert_lightning_module
 from bionemo.llm.model.lr_scheduler import WarmupAnnealDecayHoldScheduler
-from bionemo.testing.data.load import load
 from bionemo.testing.harnesses import stop_and_go
 from bionemo.testing.harnesses.mode import Mode
 
@@ -92,7 +92,7 @@ class TestESM2StopAndGo(stop_and_go.StopAndGoHarness):
                 adam_beta2=0.98,
             ),
             lr_scheduler=WarmupAnnealDecayHoldScheduler(
-                warmup_steps=50, max_steps=cls.num_steps, max_lr=cls.lr, min_lr=cls.lr / 10.0, anneal_percentage=0.10
+                warmup_steps=50, max_steps=cls.num_steps, max_lr=cls.lr, min_lr=0.0, anneal_percentage=0.10
             ),
         )
 
