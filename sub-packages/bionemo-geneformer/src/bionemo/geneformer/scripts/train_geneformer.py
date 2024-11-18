@@ -93,6 +93,8 @@ def main(
     gc_interval: int = 0,
     aligned_megatron_ddp: bool = False,
     recompilation_check: bool = False,
+    adam_precision_based_eps: bool = False,
+    layernorm_precision_based_eps: bool = False,
     # TODO add datamodule class, and ability to change data step to get full support for pretraining workflows
 ) -> None:
     """Train a Geneformer model on single cell data.
@@ -147,7 +149,20 @@ def main(
             good for clusters. This will likely slow down single node runs though.
         recompilation_check (bool): enable a recompilation check (only do on a small run) to verify that fused gpu
             kernels are not being regularly recompiled, which is very expensive, with a particular model/settings.
+        layernorm_precision_based_eps (bool): If True, use torch.finfo.eps on requested precision for this setting.
+        adam_precision_based_eps (bool): If True, use torch.finfo.eps on requested precision for this setting.
     """
+    precision_dtype = get_autocast_dtype(precision)
+    dtype_based_eps: float = torch.finfo(precision_dtype).eps
+    if layernorm_precision_based_eps:
+        layernorm_epsilon = dtype_based_eps
+    else:
+        layernorm_epsilon = 1e-12  # default from paper
+    if adam_precision_based_eps:
+        adam_epsilon = dtype_based_eps
+    else:
+        adam_epsilon = 1e-8  # default from adam settings
+
     # Create the result directory if it does not exist.
     if wandb_tags is None:
         wandb_tags = []
@@ -279,6 +294,7 @@ def main(
         ffn_hidden_size=512,
         num_attention_heads=4,
         seq_length=seq_length,
+        layernorm_epsilon=layernorm_epsilon,
         bias_dropout_fusion=True,  # TODO fix the recompilation issue, but for now it's faster even with recompilations
         bias_activation_fusion=True,  # TODO same note as above. Set these to False to see recompilation go away
         defer_embedding_wgrad_compute=pipeline_model_parallel_size > 1,
@@ -305,6 +321,7 @@ def main(
                 # Pass through fp16/bf16 settings to avoid errors around model having bf16 enabled but optimizer not.
                 fp16=geneformer_config.fp16,
                 bf16=geneformer_config.bf16,
+                adam_eps=adam_epsilon,
             ),
             lr_scheduler=CosineAnnealingScheduler(
                 max_steps=num_steps,
@@ -621,7 +638,18 @@ def get_parser():
         help="Activate this and make sure a small training loop runs, this tells you that your settings are not "
         "triggering regular recompilations which can be very expensive for fused gpu kernels.",
     )
-
+    parser.add_argument(
+        "--layernorm-precision-based-eps",
+        action="store_true",
+        default=False,
+        help="Use data precision to define the epsilon for layer norm. Default is 1e-12 if not defined.",
+    )
+    parser.add_argument(
+        "--adam-precision-based-eps",
+        action="store_true",
+        default=False,
+        help="Use data precision to define the epsilon for adam. Default is 1e-8 if not defined.",
+    )
     return parser
 
 
@@ -671,6 +699,8 @@ def entrypoint():
         gc_interval=args.gc_interval,
         aligned_megatron_ddp=args.aligned_megatron_ddp,
         recompilation_check=args.recompilation_check,
+        adam_precision_based_eps=args.adam_precision_based_eps,
+        layernorm_precision_based_eps=args.layernorm_precision_based_eps,
     )
 
 
