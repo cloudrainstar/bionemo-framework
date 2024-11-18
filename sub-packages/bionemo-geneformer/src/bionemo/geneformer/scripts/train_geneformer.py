@@ -95,6 +95,7 @@ def main(
     recompilation_check: bool = False,
     adam_precision_based_eps: bool = False,
     layernorm_precision_based_eps: bool = False,
+    grad_reduce_in_fp32: bool = False,
     # TODO add datamodule class, and ability to change data step to get full support for pretraining workflows
 ) -> None:
     """Train a Geneformer model on single cell data.
@@ -151,6 +152,7 @@ def main(
             kernels are not being regularly recompiled, which is very expensive, with a particular model/settings.
         layernorm_precision_based_eps (bool): If True, use torch.finfo.eps on requested precision for this setting.
         adam_precision_based_eps (bool): If True, use torch.finfo.eps on requested precision for this setting.
+        grad_reduce_in_fp32 (bool): If True, use 32 bit grad reduction in DDP mode.
     """
     precision_dtype = get_autocast_dtype(precision)
     dtype_based_eps: float = torch.finfo(precision_dtype).eps
@@ -188,14 +190,18 @@ def main(
     if aligned_megatron_ddp:
         ddp: str | DistributedDataParallelConfig = DistributedDataParallelConfig(
             check_for_nan_in_grad=True,
-            grad_reduce_in_fp32=False,
+            grad_reduce_in_fp32=grad_reduce_in_fp32,
             overlap_grad_reduce=True,
             overlap_param_gather=True,
             average_in_collective=True,
             use_distributed_optimizer=True,  # this should inherit from the optimizer config, but just in case...
         )
     else:
-        ddp = "megatron"  # this will launch DistributedDataParallelConfig(check_for_nan_in_grad=True).
+        # ddp = "megatron"  # this will launch DistributedDataParallelConfig(check_for_nan_in_grad=True).
+        ddp = DistributedDataParallelConfig(
+            grad_reduce_in_fp32=grad_reduce_in_fp32,
+            check_for_nan_in_grad=True,
+        )
 
     strategy = nl.MegatronStrategy(
         tensor_model_parallel_size=tensor_model_parallel_size,
@@ -650,6 +656,12 @@ def get_parser():
         default=False,
         help="Use data precision to define the epsilon for adam. Default is 1e-8 if not defined.",
     )
+    parser.add_argument(
+        "--grad-reduce-in-fp32",
+        action="store_true",
+        default=False,
+        help="Use higher precision fp32 grad reduction in ddp mode.",
+    )
     return parser
 
 
@@ -701,6 +713,7 @@ def entrypoint():
         recompilation_check=args.recompilation_check,
         adam_precision_based_eps=args.adam_precision_based_eps,
         layernorm_precision_based_eps=args.layernorm_precision_based_eps,
+        grad_reduce_in_fp32=args.grad_reduce_in_fp32,
     )
 
 
