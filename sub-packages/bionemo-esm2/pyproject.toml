@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools-scm>=8", "setuptools>=64", "wheel"]
+requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -17,6 +17,12 @@ dependencies = [
     # external
 ]
 
+[project.scripts]
+bionemo-esm2-train= "bionemo.esm2.run.main:main"
+bionemo-esm2-recipe= "bionemo.esm2.run.recipes:main"
+infer_esm2 = "bionemo.esm2.scripts.infer_esm2:infer_esm2_entrypoint"
+train_esm2 = "bionemo.esm2.scripts.train_esm2:train_esm2_entrypoint"
+
 # Make sure that the tokenizer files are included along with the python files during installation.
 [tool.setuptools.package-data]
 "bionemo.esm2" = ["data/tokenizer/*.json", "data/tokenizer/*.txt"]
@@ -27,10 +33,8 @@ include = ["bionemo.*"]
 namespaces = true
 exclude = ["test*."]
 
-[tool.setuptools_scm]
-root = '../..'
-version_scheme = "post-release"
-local_scheme = "no-local-version"
+[tool.setuptools.dynamic]
+version = { file = "VERSION" }
 
 [tool.uv]
 cache-keys = [{ git = true }]

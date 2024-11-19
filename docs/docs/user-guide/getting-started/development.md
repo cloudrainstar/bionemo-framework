@@ -14,7 +14,7 @@ we ensure that BioNeMo developers follow similar patterns to those we expect of 
 
 Each model is stored in its own subdirectory of `sub-packages`. Some examples of models include:
 
-* `bionemo-esm2`: The ESM2 model
+* `bionemo-esm2`: The ESM-2 model
 * `bionemo-geneformer`: The Geneformer model
 * `bionemo-example_model`: A minimal example MNIST model that demonstrates how you can write a lightweight
     Megatron model that does not actually support any megatron parallelism, but should run fine as long as you only use
@@ -60,8 +60,7 @@ The process for pretraining models from BioNeMo involves running scripts located
 exposes a Command-Line Interface (CLI) that contains and documents the options available for that model.
 
 To pretrain a model, you need to run the corresponding script with the required parameters. For example, to pretrain the
-ESM-2 model, you would run the `esm2_pretrain.py` script located in `scripts/protein/esm2`. Similarly, to pretrain the
-Geneformer model, you would run the `train.py` script located in `scripts/singlecell/geneformer`.
+ESM-2 and Geneformer models, you would call `train_esm2` and `train_geneformer` executables, respectively.
 
 The scripts provide various options that can be customized for pretraining, such as:
 
@@ -79,7 +78,7 @@ The scripts provide various options that can be customized for pretraining, such
 You can specify these options when running the script using command-line arguments. For each of the available scripts,
 you can use the `--help` option for an explanation of the available options for that model.
 
-For more information on pretraining a model, refer to the [ESM2 Pretraining Tutorial](../examples/bionemo-esm2/pretrain).
+For more information on pretraining a model, refer to the [ESM-2 Pretraining Tutorial](../examples/bionemo-esm2/pretrain.md).
 
 ## Fine-Tuning
 
@@ -133,7 +132,8 @@ of the model. The fine-tuning steps will be application-specific, but a general 
     model.
 6. **Run inference**: Once the model is fine-tuned, use it to make predictions on new, unseen data.
 
-For more information on fine-tuning a model, refer to the [ESM2 Fine-tuning Tutorial](../examples/bionemo-esm2/finetune).
+For more information on fine-tuning a model, refer to the [ESM-2 Fine-tuning
+Tutorial](../examples/bionemo-esm2/finetune.md).
 
 ## Advanced Developer Documentation
 

@@ -22,9 +22,9 @@ LOCAL_ENV='.env'
 DOCKER_REPO_PATH='/workspace/bionemo2'
 
 LOCAL_REPO_PATH=$(realpath $(pwd))
-if [[ $(basename "${LOCAL_REPO_PATH}") != "bionemo-fw-ea" ]]; then
+if [[ $(basename "${LOCAL_REPO_PATH}") != "bionemo-framework" ]]; then
   echo "ERROR: must run from the root of the bionemo repository!"
-  echo "ERROR: invalid path: ${LOCAL_DATA_PATH}"
+  echo "ERROR: invalid path: ${LOCAL_REPO_PATH}"
   exit 1
 fi
 # NOTE: do allow IMAGE_TAG to be overridden by env var, but DO NOT set this in the .env file!

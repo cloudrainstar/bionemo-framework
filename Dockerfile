@@ -17,7 +17,7 @@ RUN git clone https://github.com/NVIDIA/apex.git && \
   --config-settings "--build-option=--cpp_ext --cuda_ext --fast_layer_norm --distributed_adam --deprecated_fused_adam --group_norm"
 
 # Transformer Engine pre-1.7.0. 1.7 standardizes the meaning of bits in the attention mask to match
-ARG TE_COMMIT=7d576ed25266a17a7b651f2c12e8498f67e0baea
+ARG TE_COMMIT=c27ee60ec746210bcea4ec33958dbbff06706506
 RUN git clone https://github.com/NVIDIA/TransformerEngine.git && \
   cd TransformerEngine && \
   git fetch origin ${TE_COMMIT} && \
@@ -73,7 +73,7 @@ RUN source /usr/local/nvm/nvm.sh && \
 
 # Use UV to install python packages from the workspace. This just installs packages into the system's python
 # environment, and does not use the current uv.lock file.
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.4.25 /uv /usr/local/bin/uv
 ENV UV_LINK_MODE=copy \
   UV_COMPILE_BYTECODE=1 \
   UV_PYTHON_DOWNLOADS=never \
@@ -146,7 +146,7 @@ USER $USERNAME
 COPY --from=bionemo2-base --chown=$USERNAME:$USERNAME --chmod=777 \
   /usr/local/lib/python3.10/dist-packages /usr/local/lib/python3.10/dist-packages
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.4.25 /uv /usr/local/bin/uv
 ENV UV_LINK_MODE=copy \
   UV_COMPILE_BYTECODE=0 \
   UV_PYTHON_DOWNLOADS=never \
@@ -165,16 +165,23 @@ RUN <<EOF
   pip uninstall -y nemo_toolkit megatron_core
 EOF
 
+# Transformer engine attention defaults
+# FIXME the following result in unstable training curves even if they are faster
+#  see https://github.com/NVIDIA/bionemo-framework/pull/421
+#ENV NVTE_FUSED_ATTN=1 NVTE_FLASH_ATTN=0
+
 FROM dev AS development
 
 WORKDIR /workspace/bionemo2
 COPY --from=bionemo2-base /workspace/bionemo2/ .
+COPY ./internal ./internal
 # because of the `rm -rf ./3rdparty` in bionemo2-base
 COPY ./3rdparty ./3rdparty
 USER root
 RUN <<EOF
 set -eo pipefail
 find . -name __pycache__ -type d -print | xargs rm -rf
+uv pip install --no-build-isolation --editable ./internal/infra-bionemo
 for sub in ./3rdparty/* ./sub-packages/bionemo-*; do
     uv pip install --no-deps --no-build-isolation --editable $sub
 done
@@ -199,3 +206,9 @@ COPY ./ci/scripts ./ci/scripts
 COPY ./docs ./docs
 
 RUN chmod 777 -R /workspace/bionemo2/
+
+# Transformer engine attention defaults
+# We have to declare this again because the devcontainer splits from the release image's base.
+# FIXME the following results in unstable training curves even if faster.
+#  See https://github.com/NVIDIA/bionemo-framework/pull/421
+#ENV NVTE_FUSED_ATTN=1 NVTE_FLASH_ATTN=0

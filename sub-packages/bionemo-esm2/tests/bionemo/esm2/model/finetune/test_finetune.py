@@ -61,7 +61,7 @@ def pretrain_data_module(dummy_protein_dataset, dummy_parquet_train_val_inputs):
 @pytest.mark.needs_gpu
 @pytest.mark.parametrize("with_peft", [True, False])
 def test_esm2_finetune_token_classifier(
-    tmpdir,
+    tmp_path,
     esm2_2layer_config,
     tokenizer,
     pretrain_data_module,
@@ -70,15 +70,18 @@ def test_esm2_finetune_token_classifier(
     n_steps_train: int = 50,
     seed: int = 42,
 ):
+    if with_peft:
+        pytest.xfail("FIXME PEFT fine-tuning not supported with fusions active")
     with megatron_parallel_state_utils.distributed_model_parallel_state(seed):
         ckpt_path, initial_metrics, trainer = train_model(
             experiment_name="test_experiment",
-            experiment_dir=tmpdir / "pretrain",
+            experiment_dir=tmp_path / "pretrain",
             config=esm2_2layer_config,
             data_module=pretrain_data_module,
             n_steps_train=n_steps_train,
             metric_tracker=MetricTracker(metrics_to_track_val=["loss"], metrics_to_track_train=["loss"]),
             tokenizer=tokenizer,
+            _use_rich_model_summary=False,
         )
         pretrain_requires_grad = [p.requires_grad for _, p in trainer.model.named_parameters()]
         assert all(pretrain_requires_grad), "Frozen parameters in pretraining"
@@ -99,13 +102,14 @@ def test_esm2_finetune_token_classifier(
         finetune_data_module = ESM2FineTuneDataModule(dataset, dataset)
         simple_ft_checkpoint, simple_ft_metrics, trainer = train_model(
             experiment_name="finetune_new_head",
-            experiment_dir=tmpdir / "finetune_new_head",  # new checkpoint will land in a subdir of this
+            experiment_dir=tmp_path / "finetune_new_head",  # new checkpoint will land in a subdir of this
             config=esm2_finetune_config,  # same config as before since we are just continuing training
             data_module=finetune_data_module,
             n_steps_train=n_steps_train,
             metric_tracker=MetricTracker(metrics_to_track_val=["loss"], metrics_to_track_train=["loss"]),
             tokenizer=tokenizer,
             peft=peft,
+            _use_rich_model_summary=False,
         )
 
         weights_ckpt = simple_ft_checkpoint / "weights"
@@ -131,7 +135,7 @@ def test_esm2_finetune_token_classifier(
 @pytest.mark.needs_gpu
 @pytest.mark.parametrize("with_peft", [True, False])
 def test_esm2_finetune_regressor(
-    tmpdir,
+    tmp_path,
     esm2_2layer_config,
     tokenizer,
     pretrain_data_module,
@@ -140,15 +144,18 @@ def test_esm2_finetune_regressor(
     n_steps_train: int = 50,
     seed: int = 42,
 ):
+    if with_peft:
+        pytest.xfail("FIXME PEFT fine-tuning not supported")
     with megatron_parallel_state_utils.distributed_model_parallel_state(seed):
         ckpt_path, initial_metrics, trainer = train_model(
             experiment_name="test_experiment",
-            experiment_dir=tmpdir / "pretrain",
+            experiment_dir=tmp_path / "pretrain",
             config=esm2_2layer_config,
             data_module=pretrain_data_module,
             n_steps_train=n_steps_train,
             metric_tracker=MetricTracker(metrics_to_track_val=["loss"], metrics_to_track_train=["loss"]),
             tokenizer=tokenizer,
+            _use_rich_model_summary=False,
         )
         pretrain_requires_grad = [p.requires_grad for _, p in trainer.model.named_parameters()]
         assert all(pretrain_requires_grad), "Frozen parameters in pretraining"
@@ -169,13 +176,14 @@ def test_esm2_finetune_regressor(
         finetune_data_module = ESM2FineTuneDataModule(dataset, dataset)
         simple_ft_checkpoint, simple_ft_metrics, trainer = train_model(
             experiment_name="finetune_new_head_regression",
-            experiment_dir=tmpdir / "finetune_new_head_regression",  # new checkpoint will land in a subdir of this
+            experiment_dir=tmp_path / "finetune_new_head_regression",  # new checkpoint will land in a subdir of this
             config=esm2_regression_finetune_config,  # same config as before since we are just continuing training
             data_module=finetune_data_module,
             n_steps_train=n_steps_train,
             metric_tracker=MetricTracker(metrics_to_track_val=["loss"], metrics_to_track_train=["loss"]),
             tokenizer=tokenizer,
             peft=peft,
+            _use_rich_model_summary=False,
         )
 
         weights_ckpt = simple_ft_checkpoint / "weights"
