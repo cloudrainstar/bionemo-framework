@@ -602,28 +602,28 @@ def get_parser():
 
     parser.add_argument(
         "--num-layers",
-        dtype=int,
+        type=int,
         default=6,
         help="Number of layers in model",
     )
 
     parser.add_argument(
         "--hidden-size",
-        dtype=int,
+        type=int,
         default=256,
         help="Hidden layer size",
     )
 
     parser.add_argument(
         "--ffn-hidden-size",
-        dtype=int,
+        type=int,
         default=512,
         help="FFN hidden layer size",
     )
 
     parser.add_argument(
         "--num-attention-heads",
-        dtype=int,
+        type=int,
         default=4,
         help="Number of attention heads.",
     )
@@ -684,25 +684,25 @@ def get_parser():
     )
     parser.add_argument(
         "--layernorm-eps",
-        dtype=float,
+        type=float,
         default=1e-12,
         help="Use data precision to define the epsilon for layer norm. Default is 1e-12 if not defined.",
     )
     parser.add_argument(
         "--adam-eps",
-        dtype=float,
+        type=float,
         default=1e-8,
         help="Use data precision to define the epsilon for adam. Default is 1e-5 if not defined.",
     )
     parser.add_argument(
         "--adam-w",
-        dtype=float,
+        type=float,
         default=0.01,
         help="Use data precision to define the epsilon for adam. Default is 0.1 if not defined.",
     )
     parser.add_argument(
         "--adam-beta2",
-        dtype=float,
+        type=float,
         default=0.999,
         help="Use data precision to define the epsilon for adam. Default is 0.999 if not defined.",
     )
