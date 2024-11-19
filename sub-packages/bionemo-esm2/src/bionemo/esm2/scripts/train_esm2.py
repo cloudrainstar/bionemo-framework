@@ -264,6 +264,7 @@ def main(
                 weight_decay=0.01,
                 adam_beta1=0.9,
                 adam_beta2=0.98,
+                adam_eps=1e-5,  # default of 1e-8 creates instability
             ),
             lr_scheduler=WarmupAnnealDecayHoldScheduler(
                 warmup_steps=warmup_steps, max_steps=num_steps, max_lr=lr, min_lr=0.0, anneal_percentage=0.10
