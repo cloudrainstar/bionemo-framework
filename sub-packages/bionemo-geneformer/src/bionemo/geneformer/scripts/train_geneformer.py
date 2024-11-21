@@ -102,6 +102,7 @@ def main(
     adam_w: float = 0.01,
     adam_beta2: float = 0.999,
     grad_reduce_in_fp32: bool = False,
+    no_distributed_optimizer_state: bool = False,
     # TODO add datamodule class, and ability to change data step to get full support for pretraining workflows
 ) -> None:
     """Train a Geneformer model on single cell data.
@@ -172,12 +173,15 @@ def main(
         num_attention_heads (int): Typically you chose this so the per-head hidden size is 64
             (hidden_size/num_attention_heads=64)
         num_layers (int): number of layers for the model
+        no_distributed_optimizer_state (bool): disable distributed optimizer.
     """
     # Create the result directory if it does not exist.
     if wandb_tags is None:
         wandb_tags = []
     result_dir.mkdir(parents=True, exist_ok=True)
     val_check_interval = min(val_check_interval, num_steps)  # Training will fail if val_check_interval > num_steps
+
+    use_distributed_optimizer = not no_distributed_optimizer_state
 
     # Setup train/test/val data paths
     train_data_path = data_dir / "train"
@@ -202,7 +206,7 @@ def main(
             overlap_grad_reduce=True,
             overlap_param_gather=True,
             average_in_collective=True,
-            use_distributed_optimizer=True,  # this should inherit from the optimizer config, but just in case...
+            use_distributed_optimizer=use_distributed_optimizer,  # this should inherit from the optimizer config, but just in case...
         )
     else:
         # ddp = "megatron"  # this will launch DistributedDataParallelConfig(check_for_nan_in_grad=True).
@@ -331,7 +335,7 @@ def main(
                 lr=lr,
                 # TODO(@jstjohn) try decoupled_lr
                 optimizer="adam",
-                use_distributed_optimizer=True,
+                use_distributed_optimizer=use_distributed_optimizer,
                 # Pass through fp16/bf16 settings to avoid errors around model having bf16 enabled but optimizer not.
                 fp16=geneformer_config.fp16,
                 bf16=geneformer_config.bf16,
@@ -575,6 +579,14 @@ def get_parser():
         help="Path to the checkpoint directory to restore from. Will override `--resume-if-exists` when set.",
     )
 
+    parser.add_argument(
+        "--no-distributed-optimizer-state",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Turn off distributed optimizer.",
+    )
+
     # TODO consider whether nemo.run or some other method can simplify this config class lookup.
     config_class_options: Dict[str, Type[BioBertConfig]] = {
         "GeneformerConfig": GeneformerConfig,
@@ -770,6 +782,7 @@ def entrypoint():
         hidden_size=args.hidden_size,
         ffn_hidden_size=args.ffn_hidden_size,
         num_attention_heads=args.num_attention_heads,
+        no_distributed_optimizer_state=args.no_distributed_optimizer_state,
     )
 
 
