@@ -14,15 +14,15 @@
 # limitations under the License.
 
 
-from rdkit import Chem
 from rdkit.Chem import Descriptors, Mol
 
 from bionemo.geometric.base_featurizer import (
     BaseFeaturizer,
-    )
+)
 
 
 N_RDKIT2D_FEATS = len(Descriptors.descList)
+
 
 class RDkit2DDescriptorFeaturizer(BaseFeaturizer):
     """Class for featurizing molecule by 200 computed RDkit properties."""
