@@ -60,8 +60,7 @@ The process for pretraining models from BioNeMo involves running scripts located
 exposes a Command-Line Interface (CLI) that contains and documents the options available for that model.
 
 To pretrain a model, you need to run the corresponding script with the required parameters. For example, to pretrain the
-ESM-2 model, you would run the `esm2_pretrain.py` script located in `scripts/protein/esm2`. Similarly, to pretrain the
-Geneformer model, you would run the `train.py` script located in `scripts/singlecell/geneformer`.
+ESM-2 and Geneformer models, you would call `train_esm2` and `train_geneformer` executables, respectively.
 
 The scripts provide various options that can be customized for pretraining, such as:
 

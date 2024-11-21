@@ -76,7 +76,7 @@ class TestESM2StopAndGo(stop_and_go.StopAndGoHarness):
             micro_batch_size=2,
             min_seq_length=None,
             max_seq_length=1024,
-            num_workers=0,
+            num_workers=1,
             persistent_workers=False,
             random_mask_strategy=RandomMaskStrategy.ALL_TOKENS,
         )
@@ -92,7 +92,7 @@ class TestESM2StopAndGo(stop_and_go.StopAndGoHarness):
                 adam_beta2=0.98,
             ),
             lr_scheduler=WarmupAnnealDecayHoldScheduler(
-                warmup_steps=50, max_steps=cls.num_steps, max_lr=cls.lr, min_lr=cls.lr / 10.0, anneal_percentage=0.10
+                warmup_steps=50, max_steps=cls.num_steps, max_lr=cls.lr, min_lr=0.0, anneal_percentage=0.10
             ),
         )
 

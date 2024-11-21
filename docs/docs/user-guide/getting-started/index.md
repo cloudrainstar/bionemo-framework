@@ -92,12 +92,7 @@ $ tree -C -I "*.pyc" -I "test_data" -I "test_experiment" -I "test_finettune_expe
 │   ├── gpt-pretrain.py
 │   ├── protein
 │   │   └── esm2
-│   │       ├── esm2_pretrain.py
-│   │       └── test_esm2_pretrain.py
-│   └── singlecell
-│       └── geneformer
-│           ├── test_train.py
-│           └── train.py
+│           └── esm2_dataset_perplexity.py
 # 🟢 All work goes into `sub-packages`
 #  Sub-packages represent individually installable subsets of the bionemo codebase. We recommend that you
 #  create new sub-packages to track your experiments and save any updated models or utilities that you need.
