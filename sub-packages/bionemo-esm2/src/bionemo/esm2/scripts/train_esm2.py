@@ -81,6 +81,7 @@ def main(
     save_last_checkpoint: bool = True,
     metric_to_monitor_for_checkpoints: str = "val_loss",
     save_top_k: int = 2,
+    memory_profiling: Optional[str] = None,
     nsys_profiling: bool = False,
     nsys_start_step: int = 0,
     nsys_end_step: Optional[int] = None,
@@ -135,6 +136,7 @@ def main(
         save_last_checkpoint (bool): whether to save the last checkpoint
         metric_to_monitor_for_checkpoints (str): metric to monitor for checkpoints
         save_top_k (int): number of top checkpoints to save
+        memory_profiling (Optional[str]): whether to enable memory profiling
         nsys_profiling (bool): whether to enable nsys profiling
         nsys_start_step (int): start step for nsys profiling
         nsys_end_step (Optional[int]): end step for nsys profiling
@@ -200,6 +202,8 @@ def main(
                 start_step=nsys_start_step, end_step=nsys_end_step, ranks=nsys_ranks, gen_shape=True
             )
         )
+    if memory_profiling:
+        callbacks.append(nl_callbacks.MemoryProfileCallback(dir=memory_profiling, warn_cycles=True, ranks=[0]))
 
     trainer = nl.Trainer(
         devices=devices,
@@ -341,6 +345,7 @@ def train_esm2_entrypoint():
         save_last_checkpoint=args.save_last_checkpoint,
         metric_to_monitor_for_checkpoints=args.metric_to_monitor_for_checkpoints,
         save_top_k=args.save_top_k,
+        memory_profiling=args.memory_profiling,
         nsys_profiling=args.nsys_profiling,
         nsys_start_step=args.nsys_start_step,
         nsys_end_step=args.nsys_end_step,
@@ -584,6 +589,7 @@ def get_parser():
         default=None,
         help="Path to the checkpoint directory to restore from. Will override `--resume-if-exists` when set.",
     )
+    parser.add_argument("--memory-profiling", help="Dump memory profiling to directory. Enable only when provided.")
     parser.add_argument(
         "--nsys-profiling",
         action="store_true",
