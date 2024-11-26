@@ -17,6 +17,7 @@ import argparse
 from pathlib import Path
 from typing import List, Optional, Sequence, get_args
 
+from megatron.core.distributed import DistributedDataParallelConfig
 from megatron.core.optimizer import OptimizerConfig
 from nemo import lightning as nl
 from nemo.collections import llm
@@ -160,13 +161,20 @@ def main(
         pipeline_model_parallel_size=pipeline_model_parallel_size,
     )
 
-    strategy = nl.MegatronStrategy(
+    strategy = nl.MegatronStrategy(  # refer to nemotron recipe
         tensor_model_parallel_size=tensor_model_parallel_size,
         pipeline_model_parallel_size=pipeline_model_parallel_size,
-        ddp="megatron",
+        pipeline_dtype=get_autocast_dtype(precision),
+        ddp=DistributedDataParallelConfig(
+            check_for_nan_in_grad=True,
+            grad_reduce_in_fp32=True,
+            overlap_grad_reduce=True,
+            overlap_param_gather=True,
+            average_in_collective=True,
+        ),
         find_unused_parameters=True,
+        gradient_as_bucket_view=True,
         ckpt_include_optimizer=True,
-        # NOTE: there are issues related to async that may occur, most recently observed due to duplicate filenames.
         ckpt_async_save=True,
         ckpt_parallel_load=True,
     )
@@ -189,7 +197,7 @@ def main(
     )
 
     callbacks = [
-        PerplexityLoggingCallback(log_train=False, log_val=True),
+        # PerplexityLoggingCallback(log_train=False, log_val=True),  # TODO disabled for perf profiling
         RichModelSummary(max_depth=4),
         LearningRateMonitor(),
         nl_callbacks.PreemptionCallback(),
@@ -203,7 +211,7 @@ def main(
             )
         )
     if memory_profiling:
-        callbacks.append(nl_callbacks.MemoryProfileCallback(dir=memory_profiling, warn_cycles=True, ranks=[0]))
+        callbacks.append(nl_callbacks.MemoryProfileCallback(dir=memory_profiling, warn_cycles=False, ranks=[0]))
 
     trainer = nl.Trainer(
         devices=devices,
@@ -215,7 +223,13 @@ def main(
         log_every_n_steps=log_every_n_steps,
         num_nodes=num_nodes,
         callbacks=callbacks,
-        plugins=nl.MegatronMixedPrecision(precision=precision),
+        plugins=nl.MegatronMixedPrecision(  # checked for bf16
+            precision=precision,
+            params_dtype=get_autocast_dtype(precision),
+            pipeline_dtype=get_autocast_dtype(precision),
+            autocast_enabled=False,
+            grad_reduce_in_fp32=True,
+        ),
     )
 
     tokenizer = get_tokenizer()
@@ -241,10 +255,10 @@ def main(
         hidden_size=hidden_size,
         num_attention_heads=num_attention_heads,
         ffn_hidden_size=ffn_hidden_size,
-        params_dtype=get_autocast_dtype(precision),
-        pipeline_dtype=get_autocast_dtype(precision),
-        autocast_dtype=get_autocast_dtype(precision),  # setting this speeds things up a lot
-        biobert_spec_option=biobert_spec_option,
+        params_dtype=get_autocast_dtype(precision),  # checked: not passed; default in ModelParallelConfig is torch.float32
+        pipeline_dtype=get_autocast_dtype(precision),  # checked: 16
+        autocast_dtype=get_autocast_dtype(precision),  # setting this speeds things up a lot  # checked: 16
+        biobert_spec_option=biobert_spec_option,  # checking: many differences but maybe a more empirical approach is more suitable
         nemo1_ckpt_path=str(nemo1_init_path) if nemo1_init_path is not None else None,
         # handle checkpoint resumption here rather than auto-resume so this supports fine-tuning capabilities
         initial_ckpt_path=str(restore_from_checkpoint_path) if restore_from_checkpoint_path is not None else None,
