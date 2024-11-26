@@ -58,7 +58,7 @@ def main(
     val_check_interval: int,
     log_every_n_steps: Optional[int],
     num_dataset_workers: int,
-    biobert_spec_option: BiobertSpecOption,  # TODO(@farhadrgh) clarify how to parse this.
+    biobert_spec_option: BiobertSpecOption,
     lr: float,
     micro_batch_size: int,
     accumulate_grad_batches: int,
@@ -271,7 +271,7 @@ def main(
         optimizer=MegatronOptimizerModule(
             config=OptimizerConfig(
                 lr=lr,
-                optimizer="adam",  # fused_adam not supported
+                optimizer="adam",  # use fused adam from TE
                 use_distributed_optimizer=True,
                 weight_decay=0.01,
                 adam_beta1=0.9,
@@ -286,7 +286,7 @@ def main(
     # Configure our custom Checkpointer
     checkpoint_callback = nl_callbacks.ModelCheckpoint(
         save_last=save_last_checkpoint,
-        monitor=metric_to_monitor_for_checkpoints,  # "val_loss",
+        monitor=metric_to_monitor_for_checkpoints,
         save_top_k=save_top_k,
         every_n_train_steps=val_check_interval,
         always_save_context=True,  # Enables the .nemo file-like checkpointing where all IOMixins are under SerDe
