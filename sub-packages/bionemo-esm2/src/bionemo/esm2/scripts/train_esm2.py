@@ -92,7 +92,7 @@ def main(
     hidden_size: int = 1280,
     num_attention_heads: int = 20,
     ffn_hidden_size: int = 1280 * 4,
-    use_attention_bias: bool = True,
+    add_bias_linear: bool = True,
     layernorm_zero_centered_gamma: bool = False,
 ) -> None:
     """Train an ESM2 model on UR data.
@@ -149,6 +149,8 @@ def main(
         hidden_size (int): hidden size
         num_attention_heads (int): number of attention heads
         ffn_hidden_size (int): feed forward hidden size
+        add_bias_linear (bool): add bias to attention, mlp and post_process
+        layernorm_zero_centered_gamma (bool): center layernorm gamma
     """
     # Create the result directory if it does not exist.
     result_dir.mkdir(parents=True, exist_ok=True)
@@ -265,9 +267,8 @@ def main(
         # handle checkpoint resumption here rather than auto-resume so this supports fine-tuning capabilities
         initial_ckpt_path=str(restore_from_checkpoint_path) if restore_from_checkpoint_path is not None else None,
         variable_seq_lengths=min_seq_length != max_seq_length,
-        use_attention_bias=use_attention_bias,
-        add_bias_linear=use_attention_bias,
-        bias_activation_fusion=use_attention_bias,
+        add_bias_linear=add_bias_linear,
+        bias_activation_fusion=add_bias_linear,
         layernorm_zero_centered_gamma=layernorm_zero_centered_gamma,
     )
 
@@ -375,7 +376,7 @@ def train_esm2_entrypoint():
         hidden_size=args.hidden_size,
         num_attention_heads=args.num_attention_heads,
         ffn_hidden_size=args.ffn_hidden_size,
-        use_attention_bias=not args.no_use_attention_bias,
+        add_bias_linear=not args.no_add_bias_linear,
         layernorm_zero_centered_gamma=args.layernorm_zero_centered_gamma,
     )
 
@@ -680,7 +681,7 @@ def get_parser():
         help="FFN hidden size of the model. Default is 4 * 1280.",
     )
     parser.add_argument(
-        "--no-use-attention-bias",
+        "--no-add-bias-linear",
         action="store_true",
         default=False,
         help="Disable bias in transformer layers (mlp, qkv and post_process). Default is False.",
