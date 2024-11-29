@@ -93,6 +93,7 @@ def main(
     num_attention_heads: int = 20,
     ffn_hidden_size: int = 1280 * 4,
     use_attention_bias: bool = True,
+    layernorm_zero_centered_gamma: bool = False,
 ) -> None:
     """Train an ESM2 model on UR data.
 
@@ -267,6 +268,7 @@ def main(
         use_attention_bias=use_attention_bias,
         add_bias_linear=use_attention_bias,
         bias_activation_fusion=use_attention_bias,
+        layernorm_zero_centered_gamma=layernorm_zero_centered_gamma,
     )
 
     model = biobert_lightning_module(
@@ -374,6 +376,7 @@ def train_esm2_entrypoint():
         num_attention_heads=args.num_attention_heads,
         ffn_hidden_size=args.ffn_hidden_size,
         use_attention_bias=not args.no_use_attention_bias,
+        layernorm_zero_centered_gamma=args.layernorm_zero_centered_gamma,
     )
 
 
@@ -681,6 +684,12 @@ def get_parser():
         action="store_true",
         default=False,
         help="Disable bias in transformer layers (mlp, qkv and post_process). Default is False.",
+    )
+    parser.add_argument(
+        "--layernorm-zero-centered-gamma",
+        action="store_true",
+        default=False,
+        help="Whether to zero-center the gamma parameter in layer normalization. Default is False.",
     )
     return parser
 
