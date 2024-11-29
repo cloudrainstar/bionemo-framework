@@ -92,6 +92,7 @@ def main(
     hidden_size: int = 1280,
     num_attention_heads: int = 20,
     ffn_hidden_size: int = 1280 * 4,
+    use_attention_bias: bool = True,
 ) -> None:
     """Train an ESM2 model on UR data.
 
@@ -263,6 +264,9 @@ def main(
         # handle checkpoint resumption here rather than auto-resume so this supports fine-tuning capabilities
         initial_ckpt_path=str(restore_from_checkpoint_path) if restore_from_checkpoint_path is not None else None,
         variable_seq_lengths=min_seq_length != max_seq_length,
+        use_attention_bias=use_attention_bias,
+        add_bias_linear=use_attention_bias,
+        bias_activation_fusion=use_attention_bias,
     )
 
     model = biobert_lightning_module(
@@ -369,6 +373,7 @@ def train_esm2_entrypoint():
         hidden_size=args.hidden_size,
         num_attention_heads=args.num_attention_heads,
         ffn_hidden_size=args.ffn_hidden_size,
+        use_attention_bias=not args.no_use_attention_bias,
     )
 
 
@@ -670,6 +675,12 @@ def get_parser():
         required=False,
         default=4 * 1280,
         help="FFN hidden size of the model. Default is 4 * 1280.",
+    )
+    parser.add_argument(
+        "--no-use-attention-bias",
+        action="store_true",
+        default=False,
+        help="Disable bias in transformer layers (mlp, qkv and post_process). Default is False.",
     )
     return parser
 

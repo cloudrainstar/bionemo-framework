@@ -142,6 +142,7 @@ class MegatronBioBertModel(LanguageModule):
             Defaults is 'learned_absolute'.
         rotary_percent: Percent of rotary dimension to use for rotary position embeddings.
             Defaults to 1.0 (100%). Ignored unless position_embedding_type is 'rope'.
+        use_bias: Use bias in transformer layer. Default is True.
     """
 
     def __init__(  # noqa: D107
@@ -167,6 +168,7 @@ class MegatronBioBertModel(LanguageModule):
         include_hiddens: bool = False,
         include_input_ids: bool = False,
         skip_logits: bool = False,  # Useful for inference time.
+        use_bias: bool = True,
     ):
         # TODO (@jstjohn) come up with a cleaner way for this model to return a set of things the user wants.
         #  hidden states, embeddings, logits, etc. The defaults should work for training but we need to make it
@@ -199,6 +201,7 @@ class MegatronBioBertModel(LanguageModule):
         self.include_hiddens = include_hiddens
         self.include_input_ids = include_input_ids
         self.skip_logits = skip_logits
+        self.use_bias = use_bias
 
         # megatron core pipelining currently depends on model type
         self.model_type = ModelType.encoder_or_decoder
@@ -263,7 +266,7 @@ class MegatronBioBertModel(LanguageModule):
                 config=config,
                 init_method=config.init_method,
                 is_expert=False,
-                bias=True,
+                bias=self.use_bias,
                 skip_bias_add=False,
                 gather_output=not self.parallel_output,
                 skip_weight_param_allocation=pre_process and share_embeddings_and_output_weights,
@@ -484,6 +487,7 @@ class BioBertConfig(
     fp16_lm_cross_entropy: bool = False
     apply_rope_fusion: bool = True
     parallel_output: bool = True
+    use_attention_bias: bool = True
     bias_dropout_fusion: bool = True
     bias_activation_fusion: bool = True
     masked_softmax_fusion: bool = True
@@ -572,6 +576,7 @@ class BioBertConfig(
             include_hiddens=self.include_hiddens,
             skip_logits=self.skip_logits,
             include_input_ids=self.include_input_ids,
+            use_bias=self.use_attention_bias,
         )
         # TODO (@skothenhill) this is a hack to load the old checkpoint.
         # This should be removed once we have a proper checkpoint conversion
