@@ -614,6 +614,7 @@ class BioBertConfig(
             model.encoder.post_layer_norm = True
         return model
 
+    # TODO sichu: make self.loss_reduction_class configurable
     def get_loss_reduction_class(self) -> Type[MegatronLossType]:  # noqa: D102
         # You could optionally return a different loss reduction class here based on the config settings.
         return self.loss_reduction_class
