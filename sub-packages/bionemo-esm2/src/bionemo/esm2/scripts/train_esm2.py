@@ -94,6 +94,7 @@ def main(
     ffn_hidden_size: int = 1280 * 4,
     add_bias_linear: bool = True,
     layernorm_zero_centered_gamma: bool = False,
+    num_query_groups: Optional[bool] = None,
 ) -> None:
     """Train an ESM2 model on UR data.
 
@@ -151,6 +152,7 @@ def main(
         ffn_hidden_size (int): feed forward hidden size
         add_bias_linear (bool): add bias to attention, mlp and post_process
         layernorm_zero_centered_gamma (bool): center layernorm gamma
+        num_query_groups (Optional[int]): None
     """
     # Create the result directory if it does not exist.
     result_dir.mkdir(parents=True, exist_ok=True)
@@ -270,6 +272,7 @@ def main(
         add_bias_linear=add_bias_linear,
         bias_activation_fusion=add_bias_linear,
         layernorm_zero_centered_gamma=layernorm_zero_centered_gamma,
+        num_query_groups=num_query_groups,
     )
 
     model = biobert_lightning_module(
@@ -378,6 +381,7 @@ def train_esm2_entrypoint():
         ffn_hidden_size=args.ffn_hidden_size,
         add_bias_linear=not args.no_add_bias_linear,
         layernorm_zero_centered_gamma=args.layernorm_zero_centered_gamma,
+        num_query_groups=args.num_query_groups,
     )
 
 
@@ -691,6 +695,12 @@ def get_parser():
         action="store_true",
         default=False,
         help="Whether to zero-center the gamma parameter in layer normalization. Default is False.",
+    )
+    parser.add_argument(
+        "--num-query-groups",
+        type=int,
+        required=False,
+        help="Enable num_query_groups in MegatronConfig. Default is None."
     )
     return parser
 
