@@ -95,6 +95,7 @@ def main(
     add_bias_linear: bool = True,
     layernorm_zero_centered_gamma: bool = False,
     num_query_groups: Optional[bool] = None,
+    extend_sequences: Optional[int] = None,
 ) -> None:
     """Train an ESM2 model on UR data.
 
@@ -253,6 +254,7 @@ def main(
         num_workers=num_dataset_workers,
         random_mask_strategy=random_mask_strategy,
         tokenizer=tokenizer,
+        extend_sequences=extend_sequences,
     )
     # Configure the model
     esm2_config = ESM2Config(
@@ -382,6 +384,7 @@ def train_esm2_entrypoint():
         add_bias_linear=not args.no_add_bias_linear,
         layernorm_zero_centered_gamma=args.layernorm_zero_centered_gamma,
         num_query_groups=args.num_query_groups,
+        extend_sequences=args.extend_sequences,
     )
 
 
@@ -701,6 +704,12 @@ def get_parser():
         type=int,
         required=False,
         help="Enable num_query_groups in MegatronConfig. Default is None."
+    )
+    parser.add_argument(
+        "--extend-sequences",
+        default=None,
+        type=int,
+        help="Extend every input sequences by x times for perf profiling. Default is None."
     )
     return parser
 
