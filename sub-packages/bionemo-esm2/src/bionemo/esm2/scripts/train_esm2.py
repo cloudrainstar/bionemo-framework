@@ -98,6 +98,7 @@ def main(
     extend_sequences: Optional[int] = None,
     bias_activation_fusion: bool = True,
     bias_dropout_fusion: bool = True,
+    recompute_granularity: Optional[str] = None,
 ) -> None:
     """Train an ESM2 model on UR data.
 
@@ -156,8 +157,9 @@ def main(
         add_bias_linear (bool): add bias to attention, mlp and post_process
         layernorm_zero_centered_gamma (bool): center layernorm gamma
         num_query_groups (Optional[int]): Use group query attention
-        bias_activation_fusion: (bool): Use bias activation fusion
-        bias_dropout_fusion: (bool): Use bias dropout fusion
+        bias_activation_fusion (bool): Use bias activation fusion
+        bias_dropout_fusion (bool): Use bias dropout fusion
+        recompute_granularity (str): Activation recomputation granularity
     """
     # Create the result directory if it does not exist.
     result_dir.mkdir(parents=True, exist_ok=True)
@@ -280,6 +282,7 @@ def main(
         num_query_groups=num_query_groups,
         bias_activation_fusion=add_bias_linear and bias_activation_fusion,  # TODO bias_dropout_add_fusion v.s. bias_dropout_fusion
         bias_dropout_fusion=bias_dropout_fusion,
+        recompute_granularity=recompute_granularity,
     )
 
     model = biobert_lightning_module(
@@ -392,6 +395,7 @@ def train_esm2_entrypoint():
         extend_sequences=args.extend_sequences,
         bias_activation_fusion=not args.bias_activation_fusion,
         bias_dropout_fusion=not args.bias_dropout_fusion,
+        recompute_granularity=args.recompute_granularity,
     )
 
 
@@ -729,6 +733,12 @@ def get_parser():
         action="store_true",
         default=False,
         help="Disable bias dropout fusion. Default is False."
+    )
+    parser.add_argument(
+        "--recompute-granularity",
+        type=str,
+        choices=[None, "full", "selective"],
+        help="Choose granularity for activation recomputation. Default to None which means all activations are saved."
     )
     return parser
 
