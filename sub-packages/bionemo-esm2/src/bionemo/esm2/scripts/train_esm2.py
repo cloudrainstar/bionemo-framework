@@ -96,6 +96,8 @@ def main(
     layernorm_zero_centered_gamma: bool = False,
     num_query_groups: Optional[bool] = None,
     extend_sequences: Optional[int] = None,
+    bias_activation_fusion: bool = True,
+    bias_dropout_fusion: bool = True,
 ) -> None:
     """Train an ESM2 model on UR data.
 
@@ -153,7 +155,9 @@ def main(
         ffn_hidden_size (int): feed forward hidden size
         add_bias_linear (bool): add bias to attention, mlp and post_process
         layernorm_zero_centered_gamma (bool): center layernorm gamma
-        num_query_groups (Optional[int]): None
+        num_query_groups (Optional[int]): Use group query attention
+        bias_activation_fusion: (bool): Use bias activation fusion
+        bias_dropout_fusion: (bool): Use bias dropout fusion
     """
     # Create the result directory if it does not exist.
     result_dir.mkdir(parents=True, exist_ok=True)
@@ -272,9 +276,10 @@ def main(
         initial_ckpt_path=str(restore_from_checkpoint_path) if restore_from_checkpoint_path is not None else None,
         variable_seq_lengths=min_seq_length != max_seq_length,
         add_bias_linear=add_bias_linear,
-        bias_activation_fusion=add_bias_linear,
         layernorm_zero_centered_gamma=layernorm_zero_centered_gamma,
         num_query_groups=num_query_groups,
+        bias_activation_fusion=add_bias_linear and bias_activation_fusion,  # TODO bias_dropout_add_fusion v.s. bias_dropout_fusion
+        bias_dropout_fusion=bias_dropout_fusion,
     )
 
     model = biobert_lightning_module(
@@ -385,6 +390,8 @@ def train_esm2_entrypoint():
         layernorm_zero_centered_gamma=args.layernorm_zero_centered_gamma,
         num_query_groups=args.num_query_groups,
         extend_sequences=args.extend_sequences,
+        bias_activation_fusion=not args.bias_activation_fusion,
+        bias_dropout_fusion=not args.bias_dropout_fusion,
     )
 
 
@@ -710,6 +717,18 @@ def get_parser():
         default=None,
         type=int,
         help="Extend every input sequences by x times for perf profiling. Default is None."
+    )
+    parser.add_argument(
+        "--no-bias-activation-fusion",
+        action="store_true",
+        default=False,
+        help="Disable bias activation fusion. Default is False."
+    )
+    parser.add_argument(
+        "--no-bias-dropout-fusion",
+        action="store_true",
+        default=False,
+        help="Disable bias dropout fusion. Default is False."
     )
     return parser
 
