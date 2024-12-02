@@ -17,7 +17,7 @@ RUN git clone https://github.com/NVIDIA/apex.git && \
   --config-settings "--build-option=--cpp_ext --cuda_ext --fast_layer_norm --distributed_adam --deprecated_fused_adam --group_norm"
 
 # Transformer Engine pre-1.7.0. 1.7 standardizes the meaning of bits in the attention mask to match
-ARG TE_COMMIT=7d576ed25266a17a7b651f2c12e8498f67e0baea
+ARG TE_COMMIT=c27ee60ec746210bcea4ec33958dbbff06706506
 RUN git clone https://github.com/NVIDIA/TransformerEngine.git && \
   cd TransformerEngine && \
   git fetch origin ${TE_COMMIT} && \
@@ -110,8 +110,32 @@ RUN apt-get update && \
     cd ../python && \
     pip install .
 
-RUN pip install --upgrade pip
+RUN pip install --upgrade pip setuptools
 RUN pip install setuptools_scm py-cpuinfo
+# Install C++20 toolchain
+RUN apt-get update && \
+    apt-get install -y software-properties-common && \
+    add-apt-repository ppa:ubuntu-toolchain-r/test && \
+    apt-get update && \
+    apt-get install -y gcc-13 g++-13 make pkg-config
+# Required for TileDB-SOMA installation
+RUN dpkg -l | awk '/libfmt/ {print $2}' | xargs apt-get remove -y
+RUN dpkg -l | awk '/spdlog/ {print $2}' | xargs apt-get remove -y
+RUN rm -f /usr/lib/*/cmake/spdlog/spdlogConfig.cmake
+RUN rm -f /usr/lib/cmake/spdlog/spdlogConfig.cmake
+
+WORKDIR /tmp/tiledb
+RUN wget https://github.com/TileDB-Inc/TileDB/releases/download/2.27.0-rc3/tiledb-linux-arm64-2.27.0-rc3-8d581f2.tar.gz -O tiledb.tar.gz && \
+    tar -xvzf tiledb.tar.gz
+ENV TILEDB_PATH=/tmp/tiledb
+
+WORKDIR /workspace/bionemo2
+ENV CC=gcc-13 CXX=g++-13
+
+RUN git clone --single-branch --branch 1.15.0rc4 https://github.com/single-cell-data/TileDB-SOMA.git && \
+    cd TileDB-SOMA/apis/python && \
+    pip install -v .
+
 
 # Note, we need to mount the .git folder here so that setuptools-scm is able to fetch git tag for version.
 RUN --mount=type=bind,source=./.git,target=./.git \
@@ -188,7 +212,7 @@ RUN <<EOF
 EOF
 
 # Transformer engine attention defaults
-ENV NVTE_FUSED_ATTN=1 NVTE_FLASH_ATTN=0
+# ENV NVTE_FUSED_ATTN=1 NVTE_FLASH_ATTN=0
 
 FROM dev AS development
 
@@ -229,4 +253,4 @@ RUN chmod 777 -R /workspace/bionemo2/
 
 # Transformer engine attention defaults
 # We have to declare this again because the devcontainer splits from the release image's base.
-ENV NVTE_FUSED_ATTN=1 NVTE_FLASH_ATTN=0
+# ENV NVTE_FUSED_ATTN=1 NVTE_FLASH_ATTN=0
