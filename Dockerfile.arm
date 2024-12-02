@@ -117,7 +117,7 @@ RUN apt-get update && \
     apt-get install -y software-properties-common && \
     add-apt-repository ppa:ubuntu-toolchain-r/test && \
     apt-get update && \
-    apt-get install -y gcc-13 g++-13 make pkg-config
+    apt-get install -y gcc-13 g++-13 make pkg-config opencc
 # Required for TileDB-SOMA installation
 RUN dpkg -l | awk '/libfmt/ {print $2}' | xargs apt-get remove -y
 RUN dpkg -l | awk '/spdlog/ {print $2}' | xargs apt-get remove -y
