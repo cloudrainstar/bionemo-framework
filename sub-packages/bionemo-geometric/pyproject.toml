@@ -19,7 +19,12 @@ dependencies = [
     'torch-geometric==2.5.0',
     'torch-scatter==2.1.2',
     'torch_sparse==0.6.18',
+    'rdkit==2023.9.6',
 ]
+
+# Make sure that the data CSV files are being packaged alongside the python files.
+[tool.setuptools.package-data]
+"bionemo.geometric" = ["**/*.csv"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
