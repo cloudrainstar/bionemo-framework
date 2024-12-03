@@ -9,6 +9,7 @@ ARG MAX_JOBS=4
 ENV MAX_JOBS=${MAX_JOBS}
 
 # See NeMo readme for the latest tested versions of these libraries
+ENV TORCH_CUDA_ARCH_LIST=9.0
 ARG APEX_COMMIT=810ffae374a2b9cb4b5c5e28eaeca7d7998fca0c
 RUN git clone https://github.com/NVIDIA/apex.git && \
   cd apex && \
