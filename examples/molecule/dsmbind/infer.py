@@ -31,6 +31,8 @@ import torch
 from nemo.core.config import hydra_runner
 from nemo.utils import logging
 from omegaconf.omegaconf import OmegaConf
+import pickle
+import scipy
 from torch.utils.data import DataLoader
 
 from bionemo.data.dsmbind.dataset import DSMBindDataset
@@ -103,6 +105,15 @@ def main(cfg) -> None:
     logging.info("************** Starting Inference ***********")
     predictions = inference(model, test_loader, devices[0])
     logging.info(f"Predictions: {predictions}")  # Only the rank of the predictions matters
+    score = []
+    label = []
+    with open(cfg.data.processed_inference_data_path, "rb") as f:
+        obj = pickle.load(f)
+    for idx, entry in enumerate(obj):
+        score.append(predictions[idx])
+        label.append(entry['affinity'])
+    r_score = scipy.stats.spearmanr(score, label)[0]
+    logging.info(f"CASF 2016 Spearman R = {r_score}")
 
 
 if __name__ == "__main__":
