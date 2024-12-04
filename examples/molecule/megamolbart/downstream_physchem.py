@@ -28,6 +28,7 @@ from bionemo.model.utils import (
     setup_trainer,
 )
 
+import pandas as pd
 
 @hydra_runner(config_path="conf", config_name="finetune_config")
 def main(cfg) -> None:
@@ -75,6 +76,14 @@ def main(cfg) -> None:
             trainer.limit_val_batches = 0
             trainer.fit(model)
             trainer.test(model, ckpt_path=None)
+            trainer.fit(model)
+            results = []
+            for batch in model.test_dataloader():
+                pred = model(batch).cpu().tolist()
+                results += pred
+            df = pd.read_csv(f"{cfg.model.data.dataset_path}/test/x000.csv")
+            df["pred"] = results
+            df.to_csv(f"{cfg.model.data.dataset_path}/test.csv", index=False)
         else:
             raise UserWarning(
                 "Skipping testing, test dataset file was not provided. Please specify 'dataset.test' in yaml config"

@@ -2,9 +2,9 @@ name: mmb_physchem
 defaults:
   - pretrain_small_span_aug
 do_preprocessing: False
-do_training: True # set to false if data preprocessing steps must be completed
+do_training: False # set to false if data preprocessing steps must be completed
 do_testing: True # set to true to run evaluation on test data after training, requires test_dataset section
-restore_from_path: null # path to nemo checkpoint of the fine-tuned model (encoder + task head) to be used for further training, testing or inference
+restore_from_path: /workspace/bionemo/results/nemo_experiments/mmb_physchem/mmb_physchem_finetuning_encoder_frozen_True/checkpoints/mmb_physchem.nemo # path to nemo checkpoint of the fine-tuned model (encoder + task head) to be used for further training, testing or inference
 target: bionemo.model.molecule.megamolbart.MegaMolBARTModel
 infer_target: bionemo.model.molecule.megamolbart.infer.MegaMolBARTInference
 
