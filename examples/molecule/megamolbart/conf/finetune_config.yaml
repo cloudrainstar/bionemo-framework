@@ -3,7 +3,7 @@ defaults:
   - pretrain_small_span_aug
 do_preprocessing: False
 do_training: False # set to false if data preprocessing steps must be completed
-do_testing: True # set to true to run evaluation on test data after training, requires test_dataset section
+do_testing: False # set to true to run evaluation on test data after training, requires test_dataset section
 restore_from_path: /workspace/bionemo/results/nemo_experiments/mmb_physchem/mmb_physchem_finetuning_encoder_frozen_True/checkpoints/mmb_physchem.nemo # path to nemo checkpoint of the fine-tuned model (encoder + task head) to be used for further training, testing or inference
 target: bionemo.model.molecule.megamolbart.MegaMolBARTModel
 infer_target: bionemo.model.molecule.megamolbart.infer.MegaMolBARTInference
@@ -21,6 +21,7 @@ exp_manager:
   wandb_logger_kwargs:
     project: ${name}_finetuning
     name: ${name}_finetuning_encoder_frozen_${model.encoder_frozen}
+    offline: True
   checkpoint_callback_params:
     monitor: val_loss # use molecular accuracy to select best checkpoints
     mode: min # use min or max of monitored metric to select best checkpoints
@@ -50,6 +51,8 @@ model:
     split_data: True
     val_frac: 0.15 # proportion of samples used for validation set
     test_frac: 0.15 # proportion of samples used for test set
+
+    predict_file: ${model.data.preprocessed_data_path}/${model.data.task_name}/pred.csv
 
     # Finetuning data params
     task_name: SAMPL #specifies which MoleculeNet physchem dataset to use for training, expected values: SAMPL, Lipophilicity, or delaney-processed

@@ -29,6 +29,10 @@ from bionemo.model.utils import (
 )
 
 import pandas as pd
+import torch
+from bionemo.data.datasets.single_value_dataset import SingleValueDataset
+from cuml.metrics.regression import r2_score
+from sklearn.metrics import r2_score as r2_score_cpu
 
 @hydra_runner(config_path="conf", config_name="finetune_config")
 def main(cfg) -> None:
@@ -75,21 +79,50 @@ def main(cfg) -> None:
             trainer.limit_train_batches = 0
             trainer.limit_val_batches = 0
             trainer.fit(model)
+            ### We can use the built-in add_metrics function to add any cuml metrics.
+            model.add_metrics({"r2_score": r2_score}, metrics_args={"r2_score": {"convert_dtype": False}})
+            ### End add_metrics
             trainer.test(model, ckpt_path=None)
-            trainer.fit(model)
-            results = []
-            for batch in model.test_dataloader():
-                pred = model(batch).cpu().tolist()
-                results += pred
-            df = pd.read_csv(f"{cfg.model.data.dataset_path}/test/x000.csv")
-            df["pred"] = results
-            df.to_csv(f"{cfg.model.data.dataset_path}/test.csv", index=False)
         else:
             raise UserWarning(
                 "Skipping testing, test dataset file was not provided. Please specify 'dataset.test' in yaml config"
             )
         logging.info("************** Finished Testing ***********")
-
+    ### Here we add a predict_file name under data.
+    if "predict_file" in cfg.model.data:
+        logging.info("************** Starting Predicting ***********")
+        # Set up the dataset
+        dataset = SingleValueDataset(
+            datafiles=[cfg.model.data.predict_file],
+            max_seq_length=cfg.model.seq_length,
+            emb_batch_size=cfg.model.data.emb_batch_size,
+            model=model.encoder_model,
+            input_column=cfg.model.data.sequence_column,
+            target_column=cfg.model.data.target_column,
+            task=cfg.model.data.task_type,
+            shuffle=False,
+        )
+        # Set up the dataloader
+        dataloader = torch.utils.data.DataLoader(
+            dataset,
+            num_workers=cfg.model.data.num_workers,
+            pin_memory=True,
+            shuffle=False,
+            batch_size=cfg.model.micro_batch_size,
+        )
+        # Same as before
+        results = []
+        for batch in dataloader:
+            batch["embeddings"] = batch["embeddings"].to(model.device)
+            pred = model(batch).cpu().tolist()
+            results += pred
+        df = pd.read_csv(f"{cfg.model.data.predict_file}")
+        df["pred"] = results
+        df.to_csv(f"{cfg.model.data.dataset_path}/output.csv", index=False)
+        # We can also do sklearn metrics here:
+        r2 = r2_score_cpu(df["expt"], df["pred"])
+        logging.info(f"R2 Score for Pred: {r2}")
+        logging.info("************** Finished Predicting ***********")
 
 if __name__ == "__main__":
     main()
